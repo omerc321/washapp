@@ -2,6 +2,9 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import express from "express";
 import Stripe from "stripe";
+import multer from "multer";
+import path from "path";
+import { mkdir } from "fs/promises";
 import passport from "./auth";
 import { storage } from "./storage";
 import { requireAuth, requireRole, optionalAuth } from "./middleware";
@@ -15,6 +18,40 @@ import {
   type Job,
 } from "@shared/schema";
 
+// Configure multer for file uploads
+const uploadDir = path.join(process.cwd(), "uploads");
+
+// Ensure upload directory exists
+await mkdir(uploadDir, { recursive: true });
+
+const storageConfig = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    const subDir = file.fieldname === "tradeLicense" ? "licenses" : "proofs";
+    const fullPath = path.join(uploadDir, subDir);
+    await mkdir(fullPath, { recursive: true });
+    cb(null, fullPath);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+    cb(null, `${uniqueSuffix}-${file.originalname}`);
+  },
+});
+
+const upload = multer({ 
+  storage: storageConfig,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only JPEG, PNG, WebP, and PDF are allowed."));
+    }
+  },
+});
+
 // Stripe setup
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
@@ -24,6 +61,39 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  
+  // Serve uploaded files statically
+  app.use("/uploads", express.static(uploadDir));
+  
+  // ===== FILE UPLOAD ROUTES =====
+  
+  // Upload trade license document
+  app.post("/api/upload/trade-license", upload.single("tradeLicense"), async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+      
+      const fileUrl = `/uploads/licenses/${req.file.filename}`;
+      res.json({ url: fileUrl });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Upload job completion proof photo
+  app.post("/api/upload/proof-photo", upload.single("proofPhoto"), async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+      
+      const fileUrl = `/uploads/proofs/${req.file.filename}`;
+      res.json({ url: fileUrl });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
   
   // ===== AUTHENTICATION ROUTES =====
   
