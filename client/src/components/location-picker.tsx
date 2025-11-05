@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import { useState, useCallback, useEffect } from "react";
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Card } from "@/components/ui/card";
@@ -30,6 +30,17 @@ function MapClickHandler({ onLocationClick }: { onLocationClick: (lat: number, l
       onLocationClick(e.latlng.lat, e.latlng.lng);
     },
   });
+  return null;
+}
+
+// Component to update map view when position changes
+function MapViewController({ position }: { position: [number, number] }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    map.setView(position, map.getZoom());
+  }, [map, position]);
+  
   return null;
 }
 
@@ -156,6 +167,7 @@ export default function LocationPicker({ onLocationSelect, initialPosition = [1.
             />
             <Marker position={position} />
             <MapClickHandler onLocationClick={handleMapClick} />
+            <MapViewController position={position} />
           </MapContainer>
         </div>
 
