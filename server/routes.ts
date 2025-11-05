@@ -306,6 +306,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: error.message });
     }
   });
+
+  // Get company by ID
+  app.get("/api/companies/:id", async (req: Request, res: Response) => {
+    try {
+      const company = await storage.getCompany(parseInt(req.params.id));
+      if (!company) {
+        return res.status(404).json({ message: "Company not found" });
+      }
+      res.json(company);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
   
   // Get nearby companies with on-duty cleaners within 50m radius
   app.get("/api/companies/nearby", async (req: Request, res: Response) => {
