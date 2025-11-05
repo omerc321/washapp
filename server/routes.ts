@@ -505,9 +505,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tradeLicenseDocumentURL
       } = req.body;
       
+      // Normalize email to lowercase for case-insensitive matching
+      const normalizedEmail = email.toLowerCase().trim();
+      
       // Create Firebase user with optional phone number
       const userCreateRequest: any = {
-        email,
+        email: normalizedEmail,
         password,
         displayName,
       };
@@ -541,7 +544,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userRef = adminDb.collection("users").doc(userRecord.uid);
       const user: User = {
         id: userRecord.uid,
-        email,
+        email: normalizedEmail,
         displayName,
         role: UserRole.COMPANY_ADMIN,
         phoneNumber,

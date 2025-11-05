@@ -70,7 +70,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      // Normalize email to lowercase for case-insensitive login
+      const normalizedEmail = email.toLowerCase().trim();
+      await signInWithEmailAndPassword(auth, normalizedEmail, password);
       toast({
         title: "Signed In",
         description: "Welcome back!",
@@ -87,12 +89,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (data: RegisterData) => {
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+      // Normalize email to lowercase for case-insensitive matching
+      const normalizedEmail = data.email.toLowerCase().trim();
+      const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, data.password);
       
       // Create user profile in Firestore
       const newUser: User = {
         id: userCredential.user.uid,
-        email: data.email,
+        email: normalizedEmail,
         displayName: data.displayName,
         role: data.role,
         phoneNumber: data.phoneNumber,

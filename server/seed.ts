@@ -1,10 +1,45 @@
 // Seed script to create initial data for testing
-import { adminDb } from "./lib/firebase-admin";
+import { adminDb, adminAuth } from "./lib/firebase-admin";
 import { UserRole, CleanerStatus, Company, Cleaner, User } from "@shared/schema";
 
 export async function seedDatabase() {
   try {
     console.log("Seeding database...");
+
+    // Create platform admin user
+    const adminEmail = "omer.eldirdieri@gmail.com"; // Store in lowercase for case-insensitive matching
+    const adminPassword = "12345678";
+    
+    try {
+      // Try to get existing user first
+      let adminUserRecord;
+      try {
+        adminUserRecord = await adminAuth.getUserByEmail(adminEmail);
+        console.log("Admin user already exists:", adminEmail);
+      } catch (error) {
+        // User doesn't exist, create it
+        adminUserRecord = await adminAuth.createUser({
+          email: adminEmail,
+          password: adminPassword,
+          displayName: "Platform Admin",
+        });
+        console.log("Created admin user:", adminEmail);
+      }
+
+      // Create or update user profile in Firestore
+      const adminUserRef = adminDb.collection("users").doc(adminUserRecord.uid);
+      const adminUser: User = {
+        id: adminUserRecord.uid,
+        email: adminEmail,
+        displayName: "Platform Admin",
+        role: UserRole.ADMIN,
+        createdAt: Date.now(),
+      };
+      await adminUserRef.set(adminUser, { merge: true });
+      console.log("Admin profile created/updated in Firestore");
+    } catch (adminError) {
+      console.error("Error creating admin user:", adminError);
+    }
 
     // Create a company
     const companyRef = adminDb.collection("companies").doc();
@@ -84,7 +119,7 @@ export async function seedDatabase() {
   }
 }
 
-// Run if called directly
-if (require.main === module) {
+// Run if called directly (ESM compatible)
+if (import.meta.url === `file://${process.argv[1]}`) {
   seedDatabase().then(() => process.exit(0));
 }
