@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "wouter";
+import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function CustomerHome() {
   const { currentUser } = useAuth();
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   
   const [formData, setFormData] = useState({
@@ -38,7 +38,7 @@ export default function CustomerHome() {
       
       // Store in session for next step
       sessionStorage.setItem("pendingJob", JSON.stringify(jobData));
-      navigate("/customer/select-company");
+      setLocation("/customer/select-company");
     } catch (error: any) {
       toast({
         title: "Validation Error",

@@ -1,6 +1,6 @@
 // Stripe checkout integration - from javascript_stripe blueprint
 import { useEffect, useState } from "react";
-import { useNavigate } from "wouter";
+import { useLocation } from "wouter";
 import { useStripe, Elements, PaymentElement, useElements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import { apiRequest } from "@/lib/queryClient";
@@ -19,7 +19,7 @@ function CheckoutForm() {
   const stripe = useStripe();
   const elements = useElements();
   const { toast } = useToast();
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const [processing, setProcessing] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -70,7 +70,7 @@ function CheckoutForm() {
 }
 
 export default function Checkout() {
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [clientSecret, setClientSecret] = useState("");
   const [jobData, setJobData] = useState<any>(null);
@@ -78,7 +78,7 @@ export default function Checkout() {
   useEffect(() => {
     const stored = sessionStorage.getItem("pendingJob");
     if (!stored) {
-      navigate("/customer");
+      setLocation("/customer");
       return;
     }
     
@@ -99,7 +99,7 @@ export default function Checkout() {
         });
         console.error(error);
       });
-  }, [navigate, toast]);
+  }, [setLocation, toast]);
 
   if (!clientSecret || !jobData) {
     return (

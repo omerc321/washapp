@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "wouter";
+import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,18 +10,18 @@ import { CompanyWithCleaners } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
 export default function SelectCompany() {
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [pendingJob, setPendingJob] = useState<any>(null);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("pendingJob");
     if (!stored) {
-      navigate("/customer");
+      setLocation("/customer");
       return;
     }
     setPendingJob(JSON.parse(stored));
-  }, [navigate]);
+  }, [setLocation]);
 
   const { data: companies, isLoading } = useQuery<CompanyWithCleaners[]>({
     queryKey: ["/api/companies/nearby", pendingJob?.locationLatitude, pendingJob?.locationLongitude],
@@ -44,7 +44,7 @@ export default function SelectCompany() {
       price: company.pricePerWash,
     };
     sessionStorage.setItem("pendingJob", JSON.stringify(updatedJob));
-    navigate("/customer/checkout");
+    setLocation("/customer/checkout");
   };
 
   if (!pendingJob) {
@@ -160,7 +160,7 @@ export default function SelectCompany() {
             <p className="text-muted-foreground mb-4">
               There are no companies with available cleaners near your location at the moment.
             </p>
-            <Button variant="outline" onClick={() => navigate("/customer")}>
+            <Button variant="outline" onClick={() => setLocation("/customer")}>
               Go Back
             </Button>
           </Card>

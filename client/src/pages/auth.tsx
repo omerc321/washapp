@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "wouter";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
@@ -9,29 +9,29 @@ import { UserRole } from "@shared/schema";
 
 export default function AuthPage() {
   const { currentUser, loading, signInWithGoogle } = useAuth();
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
 
   useEffect(() => {
     if (!loading && currentUser) {
       // Redirect based on user role
       switch (currentUser.role) {
         case UserRole.CUSTOMER:
-          navigate("/customer");
+          setLocation("/customer");
           break;
         case UserRole.CLEANER:
-          navigate("/cleaner");
+          setLocation("/cleaner");
           break;
         case UserRole.COMPANY_ADMIN:
-          navigate("/company");
+          setLocation("/company");
           break;
         case UserRole.ADMIN:
-          navigate("/admin");
+          setLocation("/admin");
           break;
         default:
-          navigate("/customer");
+          setLocation("/customer");
       }
     }
-  }, [currentUser, loading, navigate]);
+  }, [currentUser, loading, setLocation]);
 
   if (loading) {
     return (
