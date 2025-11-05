@@ -1,0 +1,58 @@
+We’re creating a mobile-first web app where customers can request a car wash by providing their car plate number, location (via Google Maps), and optionally a mall parking number. They will also provide their mobile number for the cleaner to contact them if needed. The entire user interface should be designed with a mobile-first approach so it can be easily wrapped and uploaded to app stores later.
+
+2. Tech Stack:
+	•	Frontend: React, designed mobile-first.
+	•	Backend: Node.js with Express.
+	•	Database: Firebase Firestore.
+	•	Authentication: Firebase Auth.
+	•	Maps: Google Maps.
+	•	Email: Use Resend for all email communications.
+
+3. Company-Based Cleaner Selection:
+	•	Customers will see a list of companies (not individual cleaners) that have on-duty cleaners within a certain radius (e.g., 50 meters) of their chosen location.
+	•	Customers select a company based on the company’s price and details. Once selected and payment is made, the job request is only sent to on-duty cleaners of that company.
+
+4. Proof of Completion:
+	•	The cleaner must upload a photo showing the car’s plate number as proof of completion.
+
+5. Mobile Number Requirement:
+	•	The customer must provide their mobile number during the request process. This allows the cleaner to call or message them (e.g., via WhatsApp) if they need to coordinate or clarify anything.
+
+6. Analytics:
+	•	Add analytics dashboards for all three user types:
+For the Admin:
+	•	Total number of companies and cleaners onboarded.
+	•	Number of active requests and completed jobs.
+	•	Revenue analytics (total service fees collected).
+	•	Heatmaps of request locations.
+For the Company:
+	•	Number of jobs completed by their cleaners.
+	•	Average response time and customer ratings.
+	•	Revenue reports (total earnings and payouts).
+For the Cleaner:
+	•	Number of jobs accepted and completed.
+	•	Average time to complete a job.
+	•	Customer ratings and feedback.
+
+7. What Might Be Missing:
+	•	Consider adding a review and rating system for customers to rate their experience with the cleaner and the company. This helps improve service quality.
+	•	Make sure the app is designed responsively so it looks great on mobile devices and can be easily converted into a native app using a wrapper like Capacitor or similar tools.
+
+Absolutely! Going for a professional, sleek UI like Uber’s black-and-white theme is a great idea. Here’s how you can guide that UI design:
+
+⸻
+
+UI Design Instructions for a Professional, Uber-Style Look
+	1.	Color Palette:
+	•	Use a minimalistic black and white color scheme as the base.
+	•	Add subtle grays for secondary elements (like dividers or backgrounds).
+	•	For highlights or primary buttons, consider a single accent color—maybe a sleek blue or green—for call-to-action buttons.
+	2.	Typography:
+	•	Choose a clean, modern sans-serif font, like Roboto or Helvetica, to keep everything readable and professional.
+	•	Use larger font sizes for key actions and keep body text legible on mobile screens.
+	3.	Layout and Spacing:
+	•	Make sure the layout is mobile-first and responsive. Elements should be easy to tap with a thumb, with plenty of spacing between buttons.
+	•	Use cards or panels for different sections, like a card for each company listing, so it’s easy to scan.
+	4.	Icons and Buttons:
+	•	Use simple, minimalist icons—line icons or monochrome icons that match the black-and-white theme.
+	•	Make primary action buttons stand out with your chosen
