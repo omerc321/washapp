@@ -7,7 +7,7 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 - **Frontend**: React, Tailwind CSS, shadcn/ui components, Roboto font
 - **Backend**: Express.js, Node.js
 - **Database**: Firebase Firestore
-- **Authentication**: Firebase Auth (Google Sign-In)
+- **Authentication**: Firebase Auth (Email/Password for staff roles only)
 - **Payments**: Stripe
 - **Email**: Resend
 - **Real-time**: Firebase Firestore listeners
@@ -20,17 +20,26 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 
 ## Key Features
 
-### Customer Flow
+### Customer Flow (Anonymous - No Login Required)
 1. Enter car plate number, location, optional parking number, and phone
 2. View nearby companies (within 50m) with available cleaners
 3. Select company and pay via Stripe
 4. Track job status (Paid → Assigned → In Progress → Completed)
+5. Customer homepage (/) is the default landing page with "Staff Login" CTA
 
-### Cleaner Flow
-1. Toggle on-duty/off-duty status
-2. View available jobs from their company
-3. Accept jobs (auto-assigned based on proximity)
-4. Start and complete jobs with photo proof upload
+### Cleaner Flow (Email/Password Auth Required)
+1. Register via /register/cleaner (select company from dropdown)
+2. Login via /login with email/password
+3. Toggle on-duty/off-duty status
+4. View available jobs from their company
+5. Accept jobs (auto-assigned based on proximity)
+6. Start and complete jobs with photo proof upload
+
+### Company Admin Flow (Email/Password Auth Required)
+1. Register via /register/company (creates user + company atomically)
+2. Login via /login with email/password
+3. View company analytics and performance
+4. Manage company settings
 
 ### Payment & Assignment
 - Stripe payment creates job in PENDING_PAYMENT status
@@ -63,16 +72,21 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 
 ### Backend
 - Express.js REST API
-- Firebase Admin SDK for Firestore operations
+- Firebase Admin SDK for Firestore and Auth operations
 - Haversine formula for distance calculations (50m radius matching)
 - Stripe webhook with signature verification
 - Resend email notifications
+- `/api/company/register` - Atomic user+company creation for company admins
+- `/api/cleaner/create` - Create cleaner profile linked to company
+- `/api/companies/all` - Get all companies for registration dropdown
 
 ### Security
-- Firebase Authentication with Google Sign-In
-- Role-based access control
+- Firebase Authentication with Email/Password (staff roles only)
+- Anonymous customer booking (no authentication required)
+- Role-based access control and redirects
 - Stripe webhook signature verification
 - Protected API endpoints
+- User profiles store role and companyId for authorization
 
 ## Environment Variables Required
 - `VITE_FIREBASE_PROJECT_ID`
@@ -104,12 +118,24 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 Run `tsx server/seed.ts` to create test companies and cleaners
 
 ## Recent Changes
+- 2025-11-05: **Major Authentication Refactor**
+  - Removed Google Sign-In completely
+  - Implemented email/password authentication for staff roles (cleaners, company admins, admins)
+  - Made customer booking flow anonymous (no login required)
+  - Customer home (/) is now the default landing page
+  - Created separate registration flows:
+    - `/register/company` - Company admin registration (creates user + company atomically)
+    - `/register/cleaner` - Cleaner registration (requires company selection)
+  - Single login page at `/login` with role-based redirects
+  - Fixed company-user linking: adminId stored on company, companyId stored on user profile
+  - Added `/api/company/register` endpoint for atomic company+admin creation
+  - Login page now redirects users to role-appropriate dashboards
 - 2025-01-05: Initial implementation with all MVP features
-- Fixed company admin routing (added /company route)
-- Implemented proper 50m radius filtering with haversine distance
-- Added Stripe webhook with signature verification
-- Updated Firebase Admin with proper credential handling
-- Added company analytics endpoint
+  - Fixed company admin routing (added /company route)
+  - Implemented proper 50m radius filtering with haversine distance
+  - Added Stripe webhook with signature verification
+  - Updated Firebase Admin with proper credential handling
+  - Added company analytics endpoint
 
 ## Future Enhancements (Not in MVP)
 - Customer rating and review system
