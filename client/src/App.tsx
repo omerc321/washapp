@@ -8,7 +8,9 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BottomNav } from "@/components/bottom-nav";
 import NotFound from "@/pages/not-found";
-import AuthPage from "@/pages/auth";
+import LoginPage from "@/pages/login";
+import RegisterCleanerPage from "@/pages/register-cleaner";
+import RegisterCompanyPage from "@/pages/register-company";
 import CustomerHome from "@/pages/customer-home";
 import SelectCompany from "@/pages/select-company";
 import Checkout from "@/pages/checkout";
@@ -36,11 +38,11 @@ function ProtectedRoute({
   }
 
   if (!currentUser) {
-    return <Redirect to="/auth" />;
+    return <Redirect to="/login" />;
   }
 
   if (allowedRoles && !allowedRoles.includes(currentUser.role)) {
-    return <Redirect to="/auth" />;
+    return <Redirect to="/login" />;
   }
 
   return <Component />;
@@ -55,42 +57,34 @@ function Router() {
       </div>
 
       <Switch>
-        {/* Auth */}
-        <Route path="/auth" component={AuthPage} />
+        {/* Auth Routes */}
+        <Route path="/login" component={LoginPage} />
+        <Route path="/register/cleaner" component={RegisterCleanerPage} />
+        <Route path="/register/company" component={RegisterCompanyPage} />
 
-        {/* Customer Routes */}
-        <Route path="/customer">
-          {() => <ProtectedRoute component={CustomerHome} allowedRoles={[UserRole.CUSTOMER]} />}
-        </Route>
-        <Route path="/customer/select-company">
-          {() => <ProtectedRoute component={SelectCompany} allowedRoles={[UserRole.CUSTOMER]} />}
-        </Route>
-        <Route path="/customer/checkout">
-          {() => <ProtectedRoute component={Checkout} allowedRoles={[UserRole.CUSTOMER]} />}
-        </Route>
-        <Route path="/customer/jobs">
-          {() => <ProtectedRoute component={CustomerJobs} allowedRoles={[UserRole.CUSTOMER]} />}
-        </Route>
+        {/* Customer Routes - No auth required */}
+        <Route path="/customer" component={CustomerHome} />
+        <Route path="/customer/select-company" component={SelectCompany} />
+        <Route path="/customer/checkout" component={Checkout} />
+        <Route path="/customer/jobs" component={CustomerJobs} />
 
-        {/* Cleaner Routes */}
+        {/* Cleaner Routes - Auth required */}
         <Route path="/cleaner">
           {() => <ProtectedRoute component={CleanerDashboard} allowedRoles={[UserRole.CLEANER]} />}
         </Route>
 
-        {/* Company Routes */}
+        {/* Company Routes - Auth required */}
         <Route path="/company">
           {() => <ProtectedRoute component={CompanyDashboard} allowedRoles={[UserRole.COMPANY_ADMIN]} />}
         </Route>
 
-        {/* Admin Routes */}
+        {/* Admin Routes - Auth required */}
         <Route path="/admin">
           {() => <ProtectedRoute component={AdminDashboard} allowedRoles={[UserRole.ADMIN]} />}
         </Route>
 
-        {/* Default Route */}
-        <Route path="/">
-          <Redirect to="/auth" />
-        </Route>
+        {/* Default Route - Customer booking home */}
+        <Route path="/" component={CustomerHome} />
 
         {/* 404 */}
         <Route component={NotFound} />

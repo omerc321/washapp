@@ -1,6 +1,12 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { User as FirebaseUser, onAuthStateChanged, signInWithRedirect, signOut as firebaseSignOut, getRedirectResult } from "firebase/auth";
-import { auth, googleProvider, db } from "./firebase";
+import { 
+  User as FirebaseUser, 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut 
+} from "firebase/auth";
+import { auth, db } from "./firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { User, UserRole } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
@@ -9,8 +15,18 @@ interface AuthContextType {
   currentUser: User | null;
   firebaseUser: FirebaseUser | null;
   loading: boolean;
-  signInWithGoogle: () => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  register: (data: RegisterData) => Promise<void>;
   signOut: () => Promise<void>;
+}
+
+export interface RegisterData {
+  email: string;
+  password: string;
+  displayName: string;
+  phoneNumber?: string;
+  role: UserRole;
+  companyId?: string; // For cleaners
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,23 +46,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Handle redirect result on page load
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result?.user) {
-          // User just signed in, create/update their profile
-          handleUserSignIn(result.user);
-        }
-      })
-      .catch((error) => {
-        console.error("Redirect error:", error);
-        toast({
-          title: "Sign-in Error",
-          description: error.message,
-          variant: "destructive",
-        });
-      });
-
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setFirebaseUser(user);
       if (user) {
@@ -60,29 +59,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe;
   }, []);
 
-  const handleUserSignIn = async (firebaseUser: FirebaseUser) => {
-    // Check if user exists in Firestore
-    const userRef = doc(db, "users", firebaseUser.uid);
-    const userSnap = await getDoc(userRef);
-
-    if (!userSnap.exists()) {
-      // New user - create with customer role by default
-      const newUser: User = {
-        id: firebaseUser.uid,
-        email: firebaseUser.email || "",
-        displayName: firebaseUser.displayName || "User",
-        role: UserRole.CUSTOMER,
-        photoURL: firebaseUser.photoURL || undefined,
-        phoneNumber: firebaseUser.phoneNumber || undefined,
-        createdAt: Date.now(),
-      };
-      await setDoc(userRef, newUser);
-      setCurrentUser(newUser);
-    } else {
-      setCurrentUser(userSnap.data() as User);
-    }
-  };
-
   const loadUserProfile = async (firebaseUser: FirebaseUser) => {
     const userRef = doc(db, "users", firebaseUser.uid);
     const userSnap = await getDoc(userRef);
@@ -92,15 +68,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signInWithGoogle = async () => {
+  const signIn = async (email: string, password: string) => {
     try {
-      await signInWithRedirect(auth, googleProvider);
+      await signInWithEmailAndPassword(auth, email, password);
+      toast({
+        title: "Signed In",
+        description: "Welcome back!",
+      });
     } catch (error: any) {
       toast({
         title: "Sign-in Error",
         description: error.message,
         variant: "destructive",
       });
+      throw error;
+    }
+  };
+
+  const register = async (data: RegisterData) => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+      
+      // Create user profile in Firestore
+      const newUser: User = {
+        id: userCredential.user.uid,
+        email: data.email,
+        displayName: data.displayName,
+        role: data.role,
+        phoneNumber: data.phoneNumber,
+        companyId: data.companyId,
+        createdAt: Date.now(),
+      };
+      
+      const userRef = doc(db, "users", userCredential.user.uid);
+      await setDoc(userRef, newUser);
+      
+      // If registering as cleaner, create cleaner profile
+      if (data.role === UserRole.CLEANER && data.companyId) {
+        await fetch('/api/cleaner/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: userCredential.user.uid,
+            companyId: data.companyId,
+          }),
+        });
+      }
+      
+      setCurrentUser(newUser);
+      toast({
+        title: "Registration Successful",
+        description: "Your account has been created!",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Registration Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      throw error;
     }
   };
 
@@ -125,7 +151,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     currentUser,
     firebaseUser,
     loading,
-    signInWithGoogle,
+    signIn,
+    register,
     signOut,
   };
 

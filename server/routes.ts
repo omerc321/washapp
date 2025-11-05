@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import express from "express";
 import Stripe from "stripe";
-import { adminDb } from "./lib/firebase-admin";
+import { adminDb, adminAuth } from "./lib/firebase-admin";
 import { sendEmail } from "./lib/resend";
 import { calculateDistance } from "./lib/geo-utils";
 import { 
@@ -13,7 +13,8 @@ import {
   Company,
   CompanyWithCleaners,
   AdminAnalytics,
-  UserRole
+  UserRole,
+  User
 } from "@shared/schema";
 
 // Stripe setup - from javascript_stripe blueprint
@@ -21,12 +22,23 @@ if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
 }
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2023-10-16",
+  apiVersion: "2025-10-29.clover",
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
   // ===== CUSTOMER ROUTES =====
+  
+  // Get all companies (for registration dropdown)
+  app.get("/api/companies/all", async (req: Request, res: Response) => {
+    try {
+      const companiesSnapshot = await adminDb.collection("companies").get();
+      const companies = companiesSnapshot.docs.map(doc => doc.data() as Company);
+      res.json(companies);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
   
   // Get nearby companies with on-duty cleaners within 50m radius
   app.get("/api/companies/nearby", async (req: Request, res: Response) => {
@@ -471,6 +483,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ===== COMPANY ROUTES =====
+
+  // Register company with admin user
+  app.post("/api/company/register", async (req: Request, res: Response) => {
+    try {
+      const { 
+        email, 
+        password, 
+        displayName, 
+        phoneNumber,
+        companyName, 
+        companyDescription, 
+        pricePerWash 
+      } = req.body;
+      
+      // Create Firebase user
+      const userRecord = await adminAuth.createUser({
+        email,
+        password,
+        displayName,
+        phoneNumber,
+      });
+      
+      // Create company
+      const companyRef = adminDb.collection("companies").doc();
+      const company: Company = {
+        id: companyRef.id,
+        name: companyName,
+        description: companyDescription || "",
+        pricePerWash: pricePerWash || 25,
+        totalJobsCompleted: 0,
+        totalRevenue: 0,
+        rating: 0,
+        totalRatings: 0,
+        adminId: userRecord.uid,
+        createdAt: Date.now(),
+      };
+      await companyRef.set(company);
+      
+      // Create user profile in Firestore
+      const userRef = adminDb.collection("users").doc(userRecord.uid);
+      const user: User = {
+        id: userRecord.uid,
+        email,
+        displayName,
+        role: UserRole.COMPANY_ADMIN,
+        phoneNumber,
+        companyId: company.id, // Link user to company
+        createdAt: Date.now(),
+      };
+      await userRef.set(user);
+      
+      res.json({ success: true, userId: userRecord.uid, companyId: company.id });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Create cleaner profile
+  app.post("/api/cleaner/create", async (req: Request, res: Response) => {
+    try {
+      const { userId, companyId } = req.body;
+      
+      const cleanerRef = adminDb.collection("cleaners").doc();
+      const cleaner: Cleaner = {
+        id: cleanerRef.id,
+        userId,
+        companyId,
+        status: CleanerStatus.OFF_DUTY,
+        currentLatitude: 0,
+        currentLongitude: 0,
+        totalJobsCompleted: 0,
+        rating: 0,
+        totalRatings: 0,
+        averageCompletionTime: 0,
+        createdAt: Date.now(),
+      };
+      
+      await cleanerRef.set(cleaner);
+      res.json(cleaner);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

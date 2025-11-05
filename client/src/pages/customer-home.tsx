@@ -51,11 +51,25 @@ export default function CustomerHome() {
   return (
     <div className="min-h-screen bg-background p-4 pb-20">
       <div className="max-w-md mx-auto">
-        {/* Header */}
+        {/* Header with Login CTA */}
         <div className="mb-6 pt-4">
-          <h1 className="text-2xl font-bold text-foreground mb-1">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Car className="h-8 w-8" />
+              <h1 className="text-2xl font-bold text-foreground">CarWash Pro</h1>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setLocation("/login")}
+              data-testid="button-staff-login"
+            >
+              Staff Login
+            </Button>
+          </div>
+          <h2 className="text-xl font-semibold text-foreground mb-1">
             Request Car Wash
-          </h1>
+          </h2>
           <p className="text-muted-foreground">
             Fill in your details to get started
           </p>
