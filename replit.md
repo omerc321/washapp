@@ -3,6 +3,8 @@
 ## Overview
 A professional car wash booking platform with Uber-style black/white design. Customers can request car washes, companies manage cleaners, and cleaners complete jobs with photo proof.
 
+**Admin Login:** omer.eldirdieri@gmail.com / 12345678
+
 ## Tech Stack
 - **Frontend**: React, Tailwind CSS, shadcn/ui components, Roboto font
 - **Backend**: Express.js, Node.js
