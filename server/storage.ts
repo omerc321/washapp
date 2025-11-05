@@ -19,6 +19,7 @@ import {
 import { db } from "./db";
 import { eq, and, desc, sql, gte } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { pool } from "./db";
 
 export interface IStorage {
   // User operations
@@ -34,12 +35,34 @@ export interface IStorage {
   updateCompany(id: number, updates: Partial<Company>): Promise<void>;
   getNearbyCompanies(lat: number, lon: number, maxDistanceMeters: number): Promise<CompanyWithCleaners[]>;
   
+  // Transactional company+admin creation
+  createCompanyWithAdmin(data: {
+    email: string;
+    password: string;
+    displayName: string;
+    phoneNumber?: string;
+    companyName: string;
+    companyDescription?: string;
+    pricePerWash: number;
+    tradeLicenseNumber?: string;
+    tradeLicenseDocumentURL?: string;
+  }): Promise<{ user: User; company: Company }>;
+  
   // Cleaner operations
   getCleaner(id: number): Promise<Cleaner | undefined>;
   getCleanerByUserId(userId: number): Promise<Cleaner | undefined>;
   createCleaner(cleaner: InsertCleaner): Promise<Cleaner>;
   updateCleaner(id: number, updates: Partial<Cleaner>): Promise<void>;
   getCompanyCleaners(companyId: number, status?: CleanerStatus): Promise<Cleaner[]>;
+  
+  // Transactional cleaner+user creation
+  createCleanerWithUser(data: {
+    email: string;
+    password: string;
+    displayName: string;
+    phoneNumber?: string;
+    companyId: number;
+  }): Promise<{ user: User; cleaner: Cleaner }>;
   
   // Job operations
   createJob(job: InsertJob): Promise<Job>;

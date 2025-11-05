@@ -190,36 +190,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Email already registered" });
       }
       
-      // Create company admin user first
-      const user = await storage.createUser({
+      // Use transaction to ensure atomicity
+      const result = await storage.createCompanyWithAdmin({
         email,
         password,
         displayName,
         phoneNumber,
-        role: UserRole.COMPANY_ADMIN,
-      });
-      
-      // Create company
-      const company = await storage.createCompany({
-        name: companyName,
-        description: companyDescription,
+        companyName,
+        companyDescription,
         pricePerWash: parseFloat(pricePerWash),
-        adminId: user.id,
         tradeLicenseNumber,
         tradeLicenseDocumentURL,
       });
       
-      // Update user with companyId
-      await storage.updateUser(user.id, { companyId: company.id });
-      const updatedUser = await storage.getUser(user.id);
-      
       // Log in the user
-      req.login(updatedUser!, (err) => {
+      req.login(result.user, (err) => {
         if (err) {
           return res.status(500).json({ message: err.message });
         }
-        const { passwordHash, ...userWithoutPassword } = updatedUser!;
-        res.json({ user: userWithoutPassword, company });
+        const { passwordHash, ...userWithoutPassword } = result.user;
+        res.json({ user: userWithoutPassword, company: result.company });
       });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -249,30 +239,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Company not found" });
       }
       
-      // Create cleaner user
-      const user = await storage.createUser({
+      // Use transaction to ensure atomicity
+      const result = await storage.createCleanerWithUser({
         email,
         password,
         displayName,
         phoneNumber,
-        role: UserRole.CLEANER,
         companyId: parseInt(companyId),
-      });
-      
-      // Create cleaner profile
-      const cleaner = await storage.createCleaner({
-        userId: user.id,
-        companyId: parseInt(companyId),
-        status: CleanerStatus.OFF_DUTY,
       });
       
       // Log in the user
-      req.login(user, (err) => {
+      req.login(result.user, (err) => {
         if (err) {
           return res.status(500).json({ message: err.message });
         }
-        const { passwordHash, ...userWithoutPassword } = user;
-        res.json({ user: userWithoutPassword, cleaner });
+        const { passwordHash, ...userWithoutPassword } = result.user;
+        res.json({ user: userWithoutPassword, cleaner: result.cleaner });
       });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
