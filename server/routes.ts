@@ -488,14 +488,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== ADMIN INITIALIZATION =====
+  
+  // Initialize platform admin user (one-time setup)
+  app.post("/api/admin/init", async (req: Request, res: Response) => {
+    try {
+      const adminEmail = "omer.eldirdieri@gmail.com"; // Normalized to lowercase
+      const adminPassword = "12345678";
+      
+      // Check if admin already exists
+      let adminUserRecord;
+      try {
+        adminUserRecord = await adminAuth.getUserByEmail(adminEmail);
+        res.json({ success: true, message: "Admin user already exists", userId: adminUserRecord.uid });
+        return;
+      } catch (error) {
+        // User doesn't exist, create it
+        adminUserRecord = await adminAuth.createUser({
+          email: adminEmail,
+          password: adminPassword,
+          displayName: "Platform Admin",
+        });
+      }
+
+      // Create user profile in Firestore
+      const adminUserRef = adminDb.collection("users").doc(adminUserRecord.uid);
+      const adminUser: User = {
+        id: adminUserRecord.uid,
+        email: adminEmail,
+        displayName: "Platform Admin",
+        role: UserRole.ADMIN,
+        createdAt: Date.now(),
+      };
+      await adminUserRef.set(adminUser, { merge: true });
+
+      res.json({ success: true, message: "Admin user created successfully", userId: adminUserRecord.uid });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ===== COMPANY ROUTES =====
 
   // Register company with admin user
+  // NOTE: This creates the company first, then the user registers via client SDK
   app.post("/api/company/register", async (req: Request, res: Response) => {
     try {
       const { 
-        email, 
-        password, 
+        userId, // User ID from Firebase Auth (created on client)
+        email,
         displayName, 
         phoneNumber,
         companyName, 
@@ -507,20 +548,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Normalize email to lowercase for case-insensitive matching
       const normalizedEmail = email.toLowerCase().trim();
-      
-      // Create Firebase user with optional phone number
-      const userCreateRequest: any = {
-        email: normalizedEmail,
-        password,
-        displayName,
-      };
-      
-      // Only add phoneNumber if provided (Firebase requires E.164 format)
-      if (phoneNumber) {
-        userCreateRequest.phoneNumber = phoneNumber;
-      }
-      
-      const userRecord = await adminAuth.createUser(userCreateRequest);
       
       // Create company
       const companyRef = adminDb.collection("companies").doc();
@@ -535,15 +562,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalRevenue: 0,
         rating: 0,
         totalRatings: 0,
-        adminId: userRecord.uid,
+        adminId: userId,
         createdAt: Date.now(),
       };
       await companyRef.set(company);
       
       // Create user profile in Firestore
-      const userRef = adminDb.collection("users").doc(userRecord.uid);
+      const userRef = adminDb.collection("users").doc(userId);
       const user: User = {
-        id: userRecord.uid,
+        id: userId,
         email: normalizedEmail,
         displayName,
         role: UserRole.COMPANY_ADMIN,
@@ -553,7 +580,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       await userRef.set(user);
       
-      res.json({ success: true, userId: userRecord.uid, companyId: company.id });
+      res.json({ success: true, userId, companyId: company.id });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

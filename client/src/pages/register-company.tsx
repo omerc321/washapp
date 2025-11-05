@@ -33,22 +33,24 @@ export default function RegisterCompanyPage() {
     setSubmitting(true);
     
     try {
-      // Register will be called with companyId after company creation
-      // So we'll do this manually here in the correct order
+      // Step 1: Create Firebase Auth user first using client SDK
+      const normalizedEmail = formData.email.toLowerCase().trim();
+      const { createUserWithEmailAndPassword } = await import("firebase/auth");
+      const { auth } = await import("@/lib/firebase");
       
+      const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, formData.password);
+      const userId = userCredential.user.uid;
+      
+      // Step 2: Create company and user profile via API
       // TODO: Upload license file to Firebase Storage if provided
-      // For now, we'll just send the license number
-      
       const response = await fetch('/api/company/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          // User data
-          email: formData.email,
-          password: formData.password,
+          userId,
+          email: normalizedEmail,
           displayName: formData.displayName,
-          phoneNumber: formData.phoneNumber || undefined, // Make it optional
-          // Company data
+          phoneNumber: formData.phoneNumber || undefined,
           companyName: formData.companyName,
           companyDescription: formData.companyDescription,
           pricePerWash: parseFloat(formData.pricePerWash),
@@ -61,9 +63,12 @@ export default function RegisterCompanyPage() {
         throw new Error(error.message || "Failed to create company");
       }
 
-      // Now sign in with the created credentials
-      await signIn(formData.email, formData.password);
+      // User is already signed in after createUserWithEmailAndPassword
       // Redirect to company dashboard
+      toast({
+        title: "Success",
+        description: "Company registered successfully!",
+      });
       setLocation("/company");
     } catch (error: any) {
       toast({

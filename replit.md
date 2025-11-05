@@ -14,10 +14,10 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 - **Real-time**: Firebase Firestore listeners
 
 ## User Roles
-1. **Customer**: Request car washes, select companies, pay via Stripe, track jobs
-2. **Cleaner**: Toggle availability, accept jobs, upload completion photos
-3. **Company Admin**: View company analytics and performance
-4. **Admin**: Platform-wide analytics and management
+1. **Customer**: Request car washes, select companies, pay via Stripe, track jobs (anonymous - no login)
+2. **Cleaner**: Toggle availability, accept jobs, upload completion photos (email/password auth)
+3. **Company Admin**: View company analytics and performance (email/password auth, no approval needed)
+4. **Admin**: Platform-wide analytics and management (email/password auth, register via /register/admin)
 
 ## Key Features
 
@@ -40,10 +40,11 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 7. Start and complete jobs with photo proof upload
 
 ### Company Admin Flow (Email/Password Auth Required)
-1. Register via /register/company (creates user + company atomically)
-2. Login via /login with email/password
-3. View company analytics and performance
-4. Manage company settings
+1. Register via /register/company (creates user + company - **no admin approval required, auto-active**)
+2. Login via /login with email/password (case-insensitive)
+3. Provide trade license number and upload trade license document (optional)
+4. View company analytics and performance
+5. Manage company settings
 
 ### Payment & Assignment
 - Stripe payment creates job in PENDING_PAYMENT status
@@ -57,7 +58,7 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 - id, email, displayName, role, photoURL, phoneNumber, companyId (for cleaners/company admins)
 
 ### Companies
-- id, name, description, pricePerWash, adminId, totalJobsCompleted, totalRevenue, rating
+- id, name, description, pricePerWash, adminId, tradeLicenseNumber (optional), tradeLicenseDocumentURL (optional), totalJobsCompleted, totalRevenue, rating
 
 ### Cleaners
 - id, userId, companyId, status (on_duty/off_duty/busy), currentLatitude, currentLongitude, totalJobsCompleted, rating
@@ -124,6 +125,14 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 Run `tsx server/seed.ts` to create test companies and cleaners
 
 ## Recent Changes
+- 2025-11-05: **Company Registration & Authentication Improvements**
+  - Added trade license number and document upload fields to company registration
+  - Made email authentication case-insensitive (normalized to lowercase)
+  - Fixed company registration to work without Firebase Admin service account credentials
+  - Changed registration flow: user created via client SDK, then company/profile via API
+  - Companies are auto-approved - no admin approval required
+  - Created /register/admin page for platform admin registration
+  - Admin user credentials: omer.eldirdieri@gmail.com / 12345678 (register via /register/admin)
 - 2025-11-05: **OpenStreetMap Integration**
   - Added interactive map-based location selection for customers
   - Implemented LocationPicker component with click-to-select and current location features

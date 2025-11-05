@@ -11,6 +11,7 @@ import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
 import RegisterCleanerPage from "@/pages/register-cleaner";
 import RegisterCompanyPage from "@/pages/register-company";
+import RegisterAdminPage from "@/pages/register-admin";
 import CustomerHome from "@/pages/customer-home";
 import SelectCompany from "@/pages/select-company";
 import Checkout from "@/pages/checkout";
@@ -61,6 +62,7 @@ function Router() {
         <Route path="/login" component={LoginPage} />
         <Route path="/register/cleaner" component={RegisterCleanerPage} />
         <Route path="/register/company" component={RegisterCompanyPage} />
+        <Route path="/register/admin" component={RegisterAdminPage} />
 
         {/* Customer Routes - No auth required */}
         <Route path="/customer" component={CustomerHome} />
