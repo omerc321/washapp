@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Car, MapPin, Phone, Building2, Upload, CheckCircle2, Clock } from "lucide-react";
+import { Car, MapPin, Phone, Building2, Upload, CheckCircle2, Clock, Navigation } from "lucide-react";
 import { Job, Cleaner, CleanerStatus, JobStatus } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -304,9 +304,24 @@ function JobCard({ job, action }: { job: Job; action: React.ReactNode }) {
 
         <div className="flex items-start gap-2">
           <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
-          <div>
+          <div className="flex-1">
             <p className="text-sm text-muted-foreground">Location</p>
             <p className="font-medium">{job.locationAddress}</p>
+            {job.locationLatitude && job.locationLongitude && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={() => {
+                  const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${job.locationLatitude},${job.locationLongitude}`;
+                  window.open(googleMapsUrl, "_blank");
+                }}
+                data-testid={`button-navigate-${job.id}`}
+              >
+                <Navigation className="h-3 w-3 mr-1" />
+                Open in Google Maps
+              </Button>
+            )}
           </div>
         </div>
 

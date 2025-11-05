@@ -63,7 +63,10 @@ export default function LocationPicker({ onLocationSelect, initialPosition = [1.
       setLoading(false);
     }
     
-    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    // Fallback: use coordinates as address if geocoding fails
+    const fallbackAddress = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    setAddress(fallbackAddress);
+    return fallbackAddress;
   }, []);
 
   const handleMapClick = useCallback(async (lat: number, lng: number) => {
