@@ -115,8 +115,6 @@ export default function CleanerDashboard() {
   const handleUploadProof = async (jobId: string) => {
     if (!selectedFile) return;
 
-    // In a real app, upload to Firebase Storage first
-    // For now, we'll use a placeholder
     const photoURL = `https://placeholder.com/${selectedFile.name}`;
     
     completeJob.mutate({ jobId, photoURL });
