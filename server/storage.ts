@@ -3,6 +3,7 @@ import {
   companies, 
   cleaners, 
   jobs,
+  cleanerInvitations,
   type User, 
   type InsertUser,
   type Company,
@@ -11,6 +12,8 @@ import {
   type InsertCleaner,
   type Job,
   type InsertJob,
+  type CleanerInvitation,
+  type InsertCleanerInvitation,
   UserRole,
   JobStatus,
   CleanerStatus,
@@ -50,6 +53,12 @@ export interface IStorage {
     tradeLicenseNumber?: string;
     tradeLicenseDocumentURL?: string;
   }): Promise<{ user: User; company: Company }>;
+  
+  // Cleaner invitation operations
+  createInvitation(invitation: InsertCleanerInvitation): Promise<CleanerInvitation>;
+  getInvitationByPhone(phoneNumber: string): Promise<CleanerInvitation | undefined>;
+  getCompanyInvitations(companyId: number): Promise<CleanerInvitation[]>;
+  consumeInvitation(phoneNumber: string): Promise<void>;
   
   // Cleaner operations
   getCleaner(id: number): Promise<Cleaner | undefined>;
@@ -269,6 +278,44 @@ export class DatabaseStorage implements IStorage {
     return Array.from(companyMap.values()).sort((a, b) => 
       (a.distanceInMeters || 0) - (b.distanceInMeters || 0)
     );
+  }
+
+  // ===== CLEANER INVITATION OPERATIONS =====
+  
+  async createInvitation(invitationData: InsertCleanerInvitation): Promise<CleanerInvitation> {
+    const [invitation] = await db
+      .insert(cleanerInvitations)
+      .values(invitationData)
+      .returning();
+    
+    return invitation;
+  }
+
+  async getInvitationByPhone(phoneNumber: string): Promise<CleanerInvitation | undefined> {
+    const [invitation] = await db
+      .select()
+      .from(cleanerInvitations)
+      .where(eq(cleanerInvitations.phoneNumber, phoneNumber));
+    
+    return invitation;
+  }
+
+  async getCompanyInvitations(companyId: number): Promise<CleanerInvitation[]> {
+    return await db
+      .select()
+      .from(cleanerInvitations)
+      .where(eq(cleanerInvitations.companyId, companyId))
+      .orderBy(desc(cleanerInvitations.invitedAt));
+  }
+
+  async consumeInvitation(phoneNumber: string): Promise<void> {
+    await db
+      .update(cleanerInvitations)
+      .set({ 
+        status: "consumed",
+        consumedAt: new Date()
+      })
+      .where(eq(cleanerInvitations.phoneNumber, phoneNumber));
   }
 
   // ===== CLEANER OPERATIONS =====

@@ -35,8 +35,8 @@ export interface RegisterCleanerData {
   email: string;
   password: string;
   displayName: string;
-  phoneNumber?: string;
-  companyId: string;
+  phoneNumber: string;
+  companyId?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

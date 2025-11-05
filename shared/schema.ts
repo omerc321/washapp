@@ -7,6 +7,7 @@ import { z } from "zod";
 export const userRoleEnum = pgEnum("user_role", ["customer", "cleaner", "company_admin", "admin"]);
 export const jobStatusEnum = pgEnum("job_status", ["pending_payment", "paid", "assigned", "in_progress", "completed", "cancelled"]);
 export const cleanerStatusEnum = pgEnum("cleaner_status", ["on_duty", "off_duty", "busy"]);
+export const invitationStatusEnum = pgEnum("invitation_status", ["pending", "consumed", "revoked"]);
 
 // Users Table
 export const users = pgTable("users", {
@@ -83,6 +84,28 @@ export const cleanersRelations = relations(cleaners, ({ one, many }) => ({
     references: [companies.id],
   }),
   jobs: many(jobs),
+}));
+
+// Cleaner Invitations Table
+export const cleanerInvitations = pgTable("cleaner_invitations", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull(),
+  phoneNumber: varchar("phone_number", { length: 50 }).notNull().unique(),
+  status: invitationStatusEnum("status").notNull().default("pending"),
+  invitedBy: integer("invited_by").notNull(),
+  invitedAt: timestamp("invited_at").notNull().defaultNow(),
+  consumedAt: timestamp("consumed_at"),
+});
+
+export const cleanerInvitationsRelations = relations(cleanerInvitations, ({ one }) => ({
+  company: one(companies, {
+    fields: [cleanerInvitations.companyId],
+    references: [companies.id],
+  }),
+  inviter: one(users, {
+    fields: [cleanerInvitations.invitedBy],
+    references: [users.id],
+  }),
 }));
 
 // Jobs Table
@@ -170,6 +193,14 @@ export const insertJobSchema = createInsertSchema(jobs).omit({
 
 export const selectJobSchema = createSelectSchema(jobs);
 
+export const insertCleanerInvitationSchema = createInsertSchema(cleanerInvitations).omit({
+  id: true,
+  invitedAt: true,
+  consumedAt: true,
+});
+
+export const selectCleanerInvitationSchema = createSelectSchema(cleanerInvitations);
+
 // TypeScript Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -182,6 +213,9 @@ export type InsertCleaner = z.infer<typeof insertCleanerSchema>;
 
 export type Job = typeof jobs.$inferSelect;
 export type InsertJob = z.infer<typeof insertJobSchema>;
+
+export type CleanerInvitation = typeof cleanerInvitations.$inferSelect;
+export type InsertCleanerInvitation = z.infer<typeof insertCleanerInvitationSchema>;
 
 // Additional validation schemas
 export const createJobSchema = z.object({

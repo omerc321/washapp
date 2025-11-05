@@ -216,7 +216,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Register cleaner (requires company selection)
+  // Validate cleaner phone number (step 1 of registration)
+  app.post("/api/auth/validate-cleaner-phone", async (req: Request, res: Response) => {
+    try {
+      const { phoneNumber } = req.body;
+      
+      // Check if phone number has a pending invitation
+      const invitation = await storage.getInvitationByPhone(phoneNumber);
+      
+      if (!invitation) {
+        return res.status(400).json({ message: "Phone number not invited" });
+      }
+      
+      if (invitation.status !== "pending") {
+        return res.status(400).json({ message: "Invitation already used or revoked" });
+      }
+      
+      // Get company details
+      const company = await storage.getCompany(invitation.companyId);
+      if (!company) {
+        return res.status(400).json({ message: "Company not found" });
+      }
+      
+      res.json({ 
+        valid: true, 
+        companyId: invitation.companyId,
+        companyName: company.name
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Register cleaner (step 2 - requires valid phone invitation)
   app.post("/api/auth/register/cleaner", async (req: Request, res: Response) => {
     try {
       const { 
@@ -224,19 +256,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password,
         displayName, 
         phoneNumber,
-        companyId,
       } = req.body;
+      
+      // Validate phone number invitation again
+      const invitation = await storage.getInvitationByPhone(phoneNumber);
+      if (!invitation || invitation.status !== "pending") {
+        return res.status(400).json({ message: "Invalid or expired invitation" });
+      }
       
       // Check if user already exists
       const existing = await storage.getUserByEmail(email);
       if (existing) {
         return res.status(400).json({ message: "Email already registered" });
-      }
-      
-      // Verify company exists
-      const company = await storage.getCompany(parseInt(companyId));
-      if (!company) {
-        return res.status(404).json({ message: "Company not found" });
       }
       
       // Use transaction to ensure atomicity
@@ -245,8 +276,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password,
         displayName,
         phoneNumber,
-        companyId: parseInt(companyId),
+        companyId: invitation.companyId,
       });
+      
+      // Consume the invitation
+      await storage.consumeInvitation(phoneNumber);
       
       // Log in the user
       req.login(result.user, (err) => {
@@ -643,25 +677,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Add cleaner to company
-  app.post("/api/company/add-cleaner", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+  // Get company invitations
+  app.get("/api/company/invitations", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
     try {
       if (!req.user?.companyId) {
         return res.status(400).json({ message: "No company associated with user" });
       }
 
-      const { email, password, displayName, phoneNumber } = req.body;
+      const invitations = await storage.getCompanyInvitations(req.user.companyId);
+      res.json(invitations);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
 
-      // Create cleaner with user
-      const result = await storage.createCleanerWithUser({
-        email,
-        password,
-        displayName,
-        phoneNumber,
+  // Invite cleaner by phone number
+  app.post("/api/company/invite-cleaner", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(400).json({ message: "No company associated with user" });
+      }
+
+      const { phoneNumber } = req.body;
+
+      // Check if phone number already has an invitation
+      const existing = await storage.getInvitationByPhone(phoneNumber);
+      if (existing) {
+        return res.status(400).json({ message: "Phone number already invited" });
+      }
+
+      // Create invitation
+      const invitation = await storage.createInvitation({
         companyId: req.user.companyId,
+        phoneNumber,
+        invitedBy: req.user.id,
+        status: "pending",
       });
 
-      res.json(result);
+      res.json(invitation);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

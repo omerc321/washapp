@@ -34,22 +34,26 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 6. Track job status (Paid → Assigned → In Progress → Completed)
 7. Customer homepage (/) is the default landing page with "Staff Login" CTA
 
-### Cleaner Flow (Email/Password Auth Required)
-1. Register via /register/cleaner (select company from dropdown)
-2. Login via /login with email/password
-3. Toggle on-duty/off-duty status
-4. View available jobs from their company
-5. Accept jobs (auto-assigned based on proximity)
-6. **Navigate to job location** - "Open in Google Maps" button for turn-by-turn directions
-7. Start and complete jobs with photo proof upload
+### Cleaner Flow (Email/Password Auth Required - Invitation-Based)
+1. Company admin invites cleaner by phone number via /company dashboard
+2. Cleaner registers via /register/cleaner (two-step process):
+   - Step 1: Enter invited phone number for validation
+   - Step 2: Complete registration form (company auto-assigned from invitation)
+3. Login via /login with email/password
+4. Toggle on-duty/off-duty status
+5. View available jobs from their company
+6. Accept jobs (auto-assigned based on proximity)
+7. **Navigate to job location** - "Open in Google Maps" button for turn-by-turn directions
+8. Start and complete jobs with photo proof upload
 
 ### Company Admin Flow (Email/Password Auth Required)
 1. Register via /register/company (creates user + company - **requires admin approval**)
 2. Wait for admin approval before company becomes active
 3. Login via /login with email/password (case-insensitive)
-4. Add car washers (cleaners) to the company
-5. View company analytics and performance
-6. Manage company settings
+4. **Invite cleaners** - Add phone numbers to invite cleaners (invitation-based onboarding)
+5. View invited phone numbers and their registration status (pending/consumed/revoked)
+6. View company analytics and performance
+7. Manage company settings
 
 ### Payment & Assignment
 - Stripe payment creates job in PENDING_PAYMENT status
@@ -67,6 +71,9 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 
 ### Cleaners
 - id, userId, companyId, status (on_duty/off_duty/busy), currentLatitude, currentLongitude, totalJobsCompleted, rating
+
+### Cleaner Invitations
+- id, companyId, phoneNumber (unique), status (pending/consumed/revoked), invitedBy, invitedAt, consumedAt
 
 ### Jobs
 - id, customerId, companyId, cleanerId, carPlateNumber, locationAddress, locationLatitude, locationLongitude, parkingNumber, customerPhone, price, status, stripePaymentIntentId, proofPhotoURL
@@ -140,6 +147,15 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 - Automatic updates when job status changes (assigned, in progress, completed)
 
 ## Recent Changes
+- 2025-11-05: **Cleaner Invitation System**
+  - Refactored cleaner onboarding to invitation-based workflow
+  - Company admins now invite cleaners by phone number only
+  - Created `cleaner_invitations` table with status tracking (pending/consumed/revoked)
+  - Two-step cleaner registration: phone validation → full registration
+  - Company auto-assigned to cleaner based on invitation (no manual selection)
+  - Added invitation management UI in company dashboard
+  - Invitations are consumed after cleaner successfully registers
+  - Backend routes: `/api/company/invite-cleaner`, `/api/company/invitations`, `/api/auth/validate-cleaner-phone`
 - 2025-11-05: **Complete PostgreSQL Migration**
   - Migrated from Firebase (Auth + Firestore + Storage) to PostgreSQL + Passport.js
   - Implemented Passport.js local strategy with bcrypt password hashing

@@ -6,23 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Users, Briefcase, DollarSign, Star, TrendingUp, UserPlus, AlertCircle } from "lucide-react";
-import { CompanyAnalytics, Cleaner, Company } from "@shared/schema";
+import { Users, Briefcase, DollarSign, Star, TrendingUp, UserPlus, AlertCircle, Phone, CheckCircle, Clock, XCircle } from "lucide-react";
+import { CompanyAnalytics, Cleaner, Company, CleanerInvitation } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 
 export default function CompanyDashboard() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newCleaner, setNewCleaner] = useState({
-    email: "",
-    password: "",
-    displayName: "",
-    phoneNumber: "",
-  });
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState("");
 
   const { data: company, isLoading: isLoadingCompany } = useQuery<Company>({
     queryKey: ["/api/companies", currentUser?.companyId],
@@ -39,18 +35,22 @@ export default function CompanyDashboard() {
     enabled: !!currentUser?.companyId && company?.isActive === 1,
   });
 
-  const addCleanerMutation = useMutation({
-    mutationFn: async (data: typeof newCleaner) => {
-      return await apiRequest("POST", "/api/company/add-cleaner", data);
+  const { data: invitations, isLoading: isLoadingInvitations } = useQuery<CleanerInvitation[]>({
+    queryKey: ["/api/company/invitations"],
+    enabled: !!currentUser?.companyId && company?.isActive === 1,
+  });
+
+  const inviteCleanerMutation = useMutation({
+    mutationFn: async (phone: string) => {
+      return await apiRequest("POST", "/api/company/invite-cleaner", { phoneNumber: phone });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/company/cleaners"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/company/analytics"] });
-      setIsAddDialogOpen(false);
-      setNewCleaner({ email: "", password: "", displayName: "", phoneNumber: "" });
+      queryClient.invalidateQueries({ queryKey: ["/api/company/invitations"] });
+      setIsInviteDialogOpen(false);
+      setPhoneNumber("");
       toast({
-        title: "Cleaner Added",
-        description: "The cleaner has been successfully added to your company.",
+        title: "Invitation Sent",
+        description: "The cleaner invitation has been created. They can now register using this phone number.",
       });
     },
     onError: (error: Error) => {
@@ -193,75 +193,46 @@ export default function CompanyDashboard() {
                   Manage your team of car wash cleaners
                 </CardDescription>
               </div>
-              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
                 <DialogTrigger asChild>
                   <Button 
-                    data-testid="button-add-cleaner"
+                    data-testid="button-invite-cleaner"
                     disabled={company?.isActive === 0}
                   >
                     <UserPlus className="mr-2 h-4 w-4" />
-                    Add Cleaner
+                    Invite Cleaner
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Add Car Washer</DialogTitle>
+                    <DialogTitle>Invite Car Washer</DialogTitle>
                     <DialogDescription>
-                      Create a new cleaner account for your company
+                      Invite a cleaner by their phone number. They will be able to register using this number.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="displayName">Full Name</Label>
-                      <Input
-                        id="displayName"
-                        placeholder="John Doe"
-                        value={newCleaner.displayName}
-                        onChange={(e) => setNewCleaner({ ...newCleaner, displayName: e.target.value })}
-                        data-testid="input-cleaner-name"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="cleaner@example.com"
-                        value={newCleaner.email}
-                        onChange={(e) => setNewCleaner({ ...newCleaner, email: e.target.value })}
-                        data-testid="input-cleaner-email"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="password">Password</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={newCleaner.password}
-                        onChange={(e) => setNewCleaner({ ...newCleaner, password: e.target.value })}
-                        data-testid="input-cleaner-password"
-                      />
-                    </div>
                     <div className="space-y-2">
                       <Label htmlFor="phoneNumber">Phone Number</Label>
                       <Input
                         id="phoneNumber"
                         type="tel"
                         placeholder="+65 1234 5678"
-                        value={newCleaner.phoneNumber}
-                        onChange={(e) => setNewCleaner({ ...newCleaner, phoneNumber: e.target.value })}
-                        data-testid="input-cleaner-phone"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        data-testid="input-phone-number"
                       />
+                      <p className="text-sm text-muted-foreground">
+                        The cleaner will use this number to register on the platform
+                      </p>
                     </div>
                   </div>
                   <DialogFooter>
                     <Button
-                      onClick={() => addCleanerMutation.mutate(newCleaner)}
-                      disabled={addCleanerMutation.isPending || !newCleaner.email || !newCleaner.password || !newCleaner.displayName}
-                      data-testid="button-submit-cleaner"
+                      onClick={() => inviteCleanerMutation.mutate(phoneNumber)}
+                      disabled={inviteCleanerMutation.isPending || !phoneNumber}
+                      data-testid="button-submit-invite"
                     >
-                      {addCleanerMutation.isPending ? "Adding..." : "Add Cleaner"}
+                      {inviteCleanerMutation.isPending ? "Inviting..." : "Send Invitation"}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -301,6 +272,69 @@ export default function CompanyDashboard() {
                 <p className="text-center text-muted-foreground py-8">
                   No cleaners yet. Add your first car washer to get started!
                 </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Cleaner Invitations */}
+        <div className="mt-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Cleaner Invitations</CardTitle>
+              <CardDescription>
+                Track invited phone numbers and registration status
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingInvitations ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : invitations && invitations.length > 0 ? (
+                <div className="space-y-4">
+                  {invitations.map((invitation) => {
+                    const statusIcons = {
+                      pending: { icon: Clock, color: "text-yellow-500", label: "Pending" },
+                      consumed: { icon: CheckCircle, color: "text-green-500", label: "Registered" },
+                      revoked: { icon: XCircle, color: "text-red-500", label: "Revoked" },
+                    };
+                    const status = statusIcons[invitation.status];
+                    const StatusIcon = status.icon;
+                    
+                    return (
+                      <div
+                        key={invitation.id}
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                        data-testid={`invitation-${invitation.id}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Phone className="h-5 w-5 text-muted-foreground" />
+                          <div>
+                            <p className="font-medium">{invitation.phoneNumber}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Invited {new Date(invitation.invitedAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <StatusIcon className={`h-4 w-4 ${status.color}`} />
+                          <Badge variant={invitation.status === "pending" ? "secondary" : "default"}>
+                            {status.label}
+                          </Badge>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center text-muted-foreground py-8">
+                  <Phone className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No invitations sent yet</p>
+                  <p className="text-sm mt-1">Use the "Invite Cleaner" button to get started</p>
+                </div>
               )}
             </CardContent>
           </Card>
