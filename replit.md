@@ -8,6 +8,7 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 - **Backend**: Express.js, Node.js
 - **Database**: Firebase Firestore
 - **Authentication**: Firebase Auth (Email/Password for staff roles only)
+- **Maps**: OpenStreetMap (via react-leaflet), Nominatim reverse geocoding, Google Maps navigation
 - **Payments**: Stripe
 - **Email**: Resend
 - **Real-time**: Firebase Firestore listeners
@@ -21,11 +22,13 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 ## Key Features
 
 ### Customer Flow (Anonymous - No Login Required)
-1. Enter car plate number, location, optional parking number, and phone
-2. View nearby companies (within 50m) with available cleaners
-3. Select company and pay via Stripe
-4. Track job status (Paid → Assigned → In Progress → Completed)
-5. Customer homepage (/) is the default landing page with "Staff Login" CTA
+1. Enter car plate number
+2. **Select location on OpenStreetMap** - Interactive map with click-to-select, "Use Current Location" button, and automatic reverse geocoding
+3. Enter optional parking number and phone
+4. View nearby companies (within 50m) with available cleaners
+5. Select company and pay via Stripe
+6. Track job status (Paid → Assigned → In Progress → Completed)
+7. Customer homepage (/) is the default landing page with "Staff Login" CTA
 
 ### Cleaner Flow (Email/Password Auth Required)
 1. Register via /register/cleaner (select company from dropdown)
@@ -33,7 +36,8 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 3. Toggle on-duty/off-duty status
 4. View available jobs from their company
 5. Accept jobs (auto-assigned based on proximity)
-6. Start and complete jobs with photo proof upload
+6. **Navigate to job location** - "Open in Google Maps" button for turn-by-turn directions
+7. Start and complete jobs with photo proof upload
 
 ### Company Admin Flow (Email/Password Auth Required)
 1. Register via /register/company (creates user + company atomically)
@@ -69,6 +73,8 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 - Dark mode support with theme toggle
 - Bottom navigation for role-based routing
 - Protected routes by user role
+- Interactive OpenStreetMap integration with Leaflet
+- Geolocation support for "Use Current Location" feature
 
 ### Backend
 - Express.js REST API
@@ -118,6 +124,13 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 Run `tsx server/seed.ts` to create test companies and cleaners
 
 ## Recent Changes
+- 2025-11-05: **OpenStreetMap Integration**
+  - Added interactive map-based location selection for customers
+  - Implemented LocationPicker component with click-to-select and current location features
+  - Integrated Nominatim reverse geocoding (free, no API key required)
+  - Added fallback handling for geocoding failures to ensure booking flow never blocks
+  - Added "Open in Google Maps" button for cleaners to navigate to job locations
+  - Coordinates and address now automatically captured from map selection
 - 2025-11-05: **Major Authentication Refactor**
   - Removed Google Sign-In completely
   - Implemented email/password authentication for staff roles (cleaners, company admins, admins)
