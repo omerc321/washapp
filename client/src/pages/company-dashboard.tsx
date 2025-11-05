@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Users, Briefcase, DollarSign, Star, TrendingUp, UserPlus } from "lucide-react";
-import { CompanyAnalytics, Cleaner } from "@shared/schema";
+import { Users, Briefcase, DollarSign, Star, TrendingUp, UserPlus, AlertCircle } from "lucide-react";
+import { CompanyAnalytics, Cleaner, Company } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function CompanyDashboard() {
   const { currentUser } = useAuth();
@@ -23,6 +24,11 @@ export default function CompanyDashboard() {
     phoneNumber: "",
   });
 
+  const { data: company, isLoading: isLoadingCompany } = useQuery<Company>({
+    queryKey: ["/api/companies", currentUser?.companyId],
+    enabled: !!currentUser?.companyId,
+  });
+
   const { data: analytics, isLoading } = useQuery<CompanyAnalytics>({
     queryKey: ["/api/company/analytics", currentUser?.companyId],
     enabled: !!currentUser?.companyId,
@@ -30,16 +36,12 @@ export default function CompanyDashboard() {
 
   const { data: cleaners, isLoading: isLoadingCleaners } = useQuery<Cleaner[]>({
     queryKey: ["/api/company/cleaners"],
-    enabled: !!currentUser?.companyId,
+    enabled: !!currentUser?.companyId && company?.isActive === 1,
   });
 
   const addCleanerMutation = useMutation({
     mutationFn: async (data: typeof newCleaner) => {
-      return await apiRequest("/api/company/add-cleaner", {
-        method: "POST",
-        body: JSON.stringify(data),
-        headers: { "Content-Type": "application/json" },
-      });
+      return await apiRequest("POST", "/api/company/add-cleaner", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/company/cleaners"] });
@@ -147,6 +149,17 @@ export default function CompanyDashboard() {
           </p>
         </div>
 
+        {/* Pending Approval Alert */}
+        {company && company.isActive === 0 && (
+          <Alert className="mb-6" data-testid="alert-pending-approval">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Pending Approval</AlertTitle>
+            <AlertDescription>
+              Your company registration is pending admin approval. You will be able to add cleaners and accept jobs once your company is approved.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Metrics Grid */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {metrics.map((metric) => {
@@ -182,7 +195,10 @@ export default function CompanyDashboard() {
               </div>
               <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button data-testid="button-add-cleaner">
+                  <Button 
+                    data-testid="button-add-cleaner"
+                    disabled={company?.isActive === 0}
+                  >
                     <UserPlus className="mr-2 h-4 w-4" />
                     Add Cleaner
                   </Button>

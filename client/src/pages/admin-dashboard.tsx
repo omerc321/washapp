@@ -20,7 +20,7 @@ export default function AdminDashboard() {
 
   const approveMutation = useMutation({
     mutationFn: async (companyId: number) => {
-      return await apiRequest(`/api/admin/approve-company/${companyId}`, { method: "POST" });
+      return await apiRequest("POST", `/api/admin/approve-company/${companyId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/pending-companies"] });
@@ -41,7 +41,7 @@ export default function AdminDashboard() {
 
   const rejectMutation = useMutation({
     mutationFn: async (companyId: number) => {
-      return await apiRequest(`/api/admin/reject-company/${companyId}`, { method: "POST" });
+      return await apiRequest("POST", `/api/admin/reject-company/${companyId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/pending-companies"] });
