@@ -2,22 +2,20 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import express from "express";
 import Stripe from "stripe";
-import { adminDb, adminAuth } from "./lib/firebase-admin";
+import passport from "./auth";
+import { storage } from "./storage";
+import { requireAuth, requireRole, optionalAuth } from "./middleware";
 import { sendEmail } from "./lib/resend";
-import { calculateDistance } from "./lib/geo-utils";
 import { 
-  Job, 
   JobStatus, 
   CleanerStatus, 
-  Cleaner, 
-  Company,
-  CompanyWithCleaners,
-  AdminAnalytics,
   UserRole,
-  User
+  type Company,
+  type Cleaner,
+  type Job,
 } from "@shared/schema";
 
-// Stripe setup - from javascript_stripe blueprint
+// Stripe setup
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
 }
@@ -27,13 +25,195 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
-  // ===== CUSTOMER ROUTES =====
+  // ===== AUTHENTICATION ROUTES =====
+  
+  // Login
+  app.post("/api/auth/login", (req, res, next) => {
+    passport.authenticate("local", (err: any, user: any, info: any) => {
+      if (err) {
+        return res.status(500).json({ message: err.message });
+      }
+      if (!user) {
+        return res.status(401).json({ message: info?.message || "Invalid credentials" });
+      }
+      req.logIn(user, (err) => {
+        if (err) {
+          return res.status(500).json({ message: err.message });
+        }
+        return res.json({ user });
+      });
+    })(req, res, next);
+  });
+  
+  // Logout
+  app.post("/api/auth/logout", (req, res) => {
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({ message: err.message });
+      }
+      res.json({ success: true });
+    });
+  });
+  
+  // Get current user
+  app.get("/api/auth/me", (req, res) => {
+    if (req.isAuthenticated()) {
+      res.json({ user: req.user });
+    } else {
+      res.json({ user: null });
+    }
+  });
+  
+  // ===== REGISTRATION ROUTES =====
+  
+  // Register platform admin
+  app.post("/api/auth/register/admin", async (req: Request, res: Response) => {
+    try {
+      const { email, password, displayName } = req.body;
+      
+      // Check if user already exists
+      const existing = await storage.getUserByEmail(email);
+      if (existing) {
+        return res.status(400).json({ message: "Email already registered" });
+      }
+      
+      // Create admin user
+      const user = await storage.createUser({
+        email,
+        password,
+        displayName,
+        role: UserRole.ADMIN,
+      });
+      
+      // Log in the user
+      req.login(user, (err) => {
+        if (err) {
+          return res.status(500).json({ message: err.message });
+        }
+        const { passwordHash, ...userWithoutPassword } = user;
+        res.json({ user: userWithoutPassword });
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Register company admin (creates user + company)
+  app.post("/api/auth/register/company", async (req: Request, res: Response) => {
+    try {
+      const { 
+        email,
+        password,
+        displayName, 
+        phoneNumber,
+        companyName, 
+        companyDescription, 
+        pricePerWash,
+        tradeLicenseNumber,
+        tradeLicenseDocumentURL
+      } = req.body;
+      
+      // Check if user already exists
+      const existing = await storage.getUserByEmail(email);
+      if (existing) {
+        return res.status(400).json({ message: "Email already registered" });
+      }
+      
+      // Create company admin user first
+      const user = await storage.createUser({
+        email,
+        password,
+        displayName,
+        phoneNumber,
+        role: UserRole.COMPANY_ADMIN,
+      });
+      
+      // Create company
+      const company = await storage.createCompany({
+        name: companyName,
+        description: companyDescription,
+        pricePerWash: parseFloat(pricePerWash),
+        adminId: user.id,
+        tradeLicenseNumber,
+        tradeLicenseDocumentURL,
+      });
+      
+      // Update user with companyId
+      await storage.updateUser(user.id, { companyId: company.id });
+      const updatedUser = await storage.getUser(user.id);
+      
+      // Log in the user
+      req.login(updatedUser!, (err) => {
+        if (err) {
+          return res.status(500).json({ message: err.message });
+        }
+        const { passwordHash, ...userWithoutPassword } = updatedUser!;
+        res.json({ user: userWithoutPassword, company });
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Register cleaner (requires company selection)
+  app.post("/api/auth/register/cleaner", async (req: Request, res: Response) => {
+    try {
+      const { 
+        email,
+        password,
+        displayName, 
+        phoneNumber,
+        companyId,
+      } = req.body;
+      
+      // Check if user already exists
+      const existing = await storage.getUserByEmail(email);
+      if (existing) {
+        return res.status(400).json({ message: "Email already registered" });
+      }
+      
+      // Verify company exists
+      const company = await storage.getCompany(parseInt(companyId));
+      if (!company) {
+        return res.status(404).json({ message: "Company not found" });
+      }
+      
+      // Create cleaner user
+      const user = await storage.createUser({
+        email,
+        password,
+        displayName,
+        phoneNumber,
+        role: UserRole.CLEANER,
+        companyId: parseInt(companyId),
+      });
+      
+      // Create cleaner profile
+      const cleaner = await storage.createCleaner({
+        userId: user.id,
+        companyId: parseInt(companyId),
+        status: CleanerStatus.OFF_DUTY,
+      });
+      
+      // Log in the user
+      req.login(user, (err) => {
+        if (err) {
+          return res.status(500).json({ message: err.message });
+        }
+        const { passwordHash, ...userWithoutPassword } = user;
+        res.json({ user: userWithoutPassword, cleaner });
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // ===== CUSTOMER ROUTES (ANONYMOUS) =====
   
   // Get all companies (for registration dropdown)
   app.get("/api/companies/all", async (req: Request, res: Response) => {
     try {
-      const companiesSnapshot = await adminDb.collection("companies").get();
-      const companies = companiesSnapshot.docs.map(doc => doc.data() as Company);
+      const companies = await storage.getAllCompanies();
       res.json(companies);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -47,57 +227,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const lon = parseFloat(req.query.lon as string) || 0;
       const maxDistanceMeters = 50;
 
-      // Get all companies
-      const companiesSnapshot = await adminDb.collection("companies").get();
-      const companiesWithCleaners: CompanyWithCleaners[] = [];
-
-      for (const companyDoc of companiesSnapshot.docs) {
-        const company = companyDoc.data() as Company;
-        
-        // Get on-duty cleaners for this company
-        const cleanersSnapshot = await adminDb
-          .collection("cleaners")
-          .where("companyId", "==", company.id)
-          .where("status", "==", CleanerStatus.ON_DUTY)
-          .get();
-
-        if (cleanersSnapshot.size > 0) {
-          // Check if any cleaner is within 50m radius
-          let minDistance = Infinity;
-          for (const cleanerDoc of cleanersSnapshot.docs) {
-            const cleaner = cleanerDoc.data() as Cleaner;
-            if (cleaner.currentLatitude && cleaner.currentLongitude) {
-              const distance = calculateDistance(
-                lat,
-                lon,
-                cleaner.currentLatitude,
-                cleaner.currentLongitude
-              );
-              minDistance = Math.min(minDistance, distance);
-            }
-          }
-
-          // Only include company if at least one cleaner is within radius
-          if (minDistance <= maxDistanceMeters) {
-            companiesWithCleaners.push({
-              ...company,
-              onDutyCleanersCount: cleanersSnapshot.size,
-              distanceInMeters: minDistance,
-            });
-          }
-        }
-      }
-
-      // Sort by distance
-      companiesWithCleaners.sort((a, b) => (a.distanceInMeters || 0) - (b.distanceInMeters || 0));
-
+      const companiesWithCleaners = await storage.getNearbyCompanies(lat, lon, maxDistanceMeters);
       res.json(companiesWithCleaners);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
   });
 
-  // Create payment intent and job - from javascript_stripe blueprint
+  // Create payment intent and job
   app.post("/api/create-payment-intent", async (req: Request, res: Response) => {
     try {
       const jobData = req.body;
@@ -113,25 +250,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       });
 
-      // Create job in Firestore with pending payment status
-      const jobRef = adminDb.collection("jobs").doc();
-      const job: Job = {
-        id: jobRef.id,
+      // Create job in database with pending payment status
+      const job = await storage.createJob({
         customerId: jobData.customerId || "temp-customer",
-        companyId: jobData.companyId,
+        companyId: parseInt(jobData.companyId),
         carPlateNumber: jobData.carPlateNumber,
         locationAddress: jobData.locationAddress,
-        locationLatitude: jobData.locationLatitude || 0,
-        locationLongitude: jobData.locationLongitude || 0,
+        locationLatitude: parseFloat(jobData.locationLatitude),
+        locationLongitude: parseFloat(jobData.locationLongitude),
         parkingNumber: jobData.parkingNumber,
         customerPhone: jobData.customerPhone,
-        price: jobData.price,
+        price: parseFloat(jobData.price),
         stripePaymentIntentId: paymentIntent.id,
         status: JobStatus.PENDING_PAYMENT,
-        createdAt: Date.now(),
-      };
-
-      await jobRef.set(job);
+      });
 
       res.json({ clientSecret: paymentIntent.client_secret, jobId: job.id });
     } catch (error: any) {
@@ -155,7 +287,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (webhookSecret) {
         event = stripe.webhooks.constructEvent(req.rawBody as Buffer, sig, webhookSecret);
       } else {
-        // In development without webhook secret, use the event from body
         console.warn('No STRIPE_WEBHOOK_SECRET - skipping signature verification');
         event = req.body;
       }
@@ -164,66 +295,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
         
         // Find job by payment intent ID
-        const jobsSnapshot = await adminDb
-          .collection("jobs")
-          .where("stripePaymentIntentId", "==", paymentIntent.id)
-          .get();
+        const job = await storage.getJobByPaymentIntent(paymentIntent.id);
 
-        if (!jobsSnapshot.empty) {
-          const jobDoc = jobsSnapshot.docs[0];
-          const job = jobDoc.data() as Job;
-
+        if (job) {
           // Update job status to PAID
-          await jobDoc.ref.update({
+          await storage.updateJob(job.id, {
             status: JobStatus.PAID,
           });
 
           // Assign to closest available cleaner within 50m
-          const cleanersSnapshot = await adminDb
-            .collection("cleaners")
-            .where("companyId", "==", job.companyId)
-            .where("status", "==", CleanerStatus.ON_DUTY)
-            .get();
+          const cleaners = await storage.getCompanyCleaners(job.companyId, CleanerStatus.ON_DUTY);
 
-          if (!cleanersSnapshot.empty) {
+          if (cleaners.length > 0) {
             // Find the closest on-duty cleaner within 50m
-            let closestCleaner: { id: string; userId: string; distance: number } | null = null;
+            let closestCleaner: { cleaner: Cleaner; distance: number } | null = null;
             
-            for (const cleanerDoc of cleanersSnapshot.docs) {
-              const cleaner = cleanerDoc.data() as Cleaner;
+            for (const cleaner of cleaners) {
               if (cleaner.currentLatitude && cleaner.currentLongitude) {
                 const distance = calculateDistance(
-                  job.locationLatitude,
-                  job.locationLongitude,
-                  cleaner.currentLatitude,
-                  cleaner.currentLongitude
+                  parseFloat(job.locationLatitude as any),
+                  parseFloat(job.locationLongitude as any),
+                  parseFloat(cleaner.currentLatitude as any),
+                  parseFloat(cleaner.currentLongitude as any)
                 );
                 
                 if (distance <= 50 && (!closestCleaner || distance < closestCleaner.distance)) {
-                  closestCleaner = {
-                    id: cleaner.id,
-                    userId: cleaner.userId,
-                    distance,
-                  };
+                  closestCleaner = { cleaner, distance };
                 }
               }
             }
 
             if (closestCleaner) {
-              await jobDoc.ref.update({
-                cleanerId: closestCleaner.id,
+              await storage.updateJob(job.id, {
+                cleanerId: closestCleaner.cleaner.id,
                 status: JobStatus.ASSIGNED,
-                assignedAt: Date.now(),
+                assignedAt: new Date(),
               });
 
               // Update cleaner status
-              await adminDb.collection("cleaners").doc(closestCleaner.id).update({
+              await storage.updateCleaner(closestCleaner.cleaner.id, {
                 status: CleanerStatus.BUSY,
               });
 
               // Send email notification to cleaner
-              const userSnapshot = await adminDb.collection("users").doc(closestCleaner.userId).get();
-              const user = userSnapshot.data();
+              const user = await storage.getUser(closestCleaner.cleaner.userId);
               if (user?.email) {
                 await sendEmail(
                   user.email,
@@ -249,16 +364,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get customer's jobs
   app.get("/api/customer/jobs/:customerId?", async (req: Request, res: Response) => {
     try {
-      // Get customerId from URL params or query
       const customerId = req.params.customerId || req.query.customerId || "temp-customer";
-
-      const jobsSnapshot = await adminDb
-        .collection("jobs")
-        .where("customerId", "==", customerId)
-        .orderBy("createdAt", "desc")
-        .get();
-
-      const jobs = jobsSnapshot.docs.map(doc => doc.data() as Job);
+      const jobs = await storage.getJobsByCustomer(customerId as string);
       res.json(jobs);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -268,22 +375,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== CLEANER ROUTES =====
 
   // Get cleaner profile
-  app.get("/api/cleaner/profile/:userId?", async (req: Request, res: Response) => {
+  app.get("/api/cleaner/profile", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
     try {
-      // Get userId from URL params or query
-      const userId = req.params.userId || req.query.userId || "temp-cleaner";
-
-      const cleanersSnapshot = await adminDb
-        .collection("cleaners")
-        .where("userId", "==", userId)
-        .limit(1)
-        .get();
-
-      if (cleanersSnapshot.empty) {
+      const cleaner = await storage.getCleanerByUserId(req.user!.id);
+      if (!cleaner) {
         return res.status(404).json({ message: "Cleaner profile not found" });
       }
-
-      const cleaner = cleanersSnapshot.docs[0].data() as Cleaner;
       res.json(cleaner);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -291,18 +388,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Toggle cleaner availability
-  app.post("/api/cleaner/toggle-status", async (req: Request, res: Response) => {
+  app.post("/api/cleaner/toggle-status", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
     try {
-      const { status, userId } = req.body;
+      const { status } = req.body;
+      const cleaner = await storage.getCleanerByUserId(req.user!.id);
 
-      const cleanersSnapshot = await adminDb
-        .collection("cleaners")
-        .where("userId", "==", userId || "temp-cleaner")
-        .limit(1)
-        .get();
+      if (cleaner) {
+        await storage.updateCleaner(cleaner.id, { status });
+        res.json({ success: true });
+      } else {
+        res.status(404).json({ message: "Cleaner not found" });
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
 
-      if (!cleanersSnapshot.empty) {
-        await cleanersSnapshot.docs[0].ref.update({ status });
+  // Update cleaner location
+  app.post("/api/cleaner/update-location", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
+    try {
+      const { latitude, longitude } = req.body;
+      const cleaner = await storage.getCleanerByUserId(req.user!.id);
+
+      if (cleaner) {
+        await storage.updateCleaner(cleaner.id, { 
+          currentLatitude: latitude.toString(),
+          currentLongitude: longitude.toString(),
+        });
         res.json({ success: true });
       } else {
         res.status(404).json({ message: "Cleaner not found" });
@@ -313,32 +425,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get available jobs for cleaner
-  app.get("/api/cleaner/available-jobs", async (req: Request, res: Response) => {
+  app.get("/api/cleaner/available-jobs", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
     try {
-      const userId = req.query.userId || "temp-cleaner";
+      const cleaner = await storage.getCleanerByUserId(req.user!.id);
 
-      // Get cleaner's company
-      const cleanersSnapshot = await adminDb
-        .collection("cleaners")
-        .where("userId", "==", userId)
-        .limit(1)
-        .get();
-
-      if (cleanersSnapshot.empty) {
+      if (!cleaner) {
         return res.json([]);
       }
 
-      const cleaner = cleanersSnapshot.docs[0].data() as Cleaner;
-
       // Get paid jobs for this company without a cleaner assigned
-      const jobsSnapshot = await adminDb
-        .collection("jobs")
-        .where("companyId", "==", cleaner.companyId)
-        .where("status", "==", JobStatus.PAID)
-        .orderBy("createdAt", "desc")
-        .get();
-
-      const jobs = jobsSnapshot.docs.map(doc => doc.data() as Job);
+      const jobs = await storage.getJobsByCompany(cleaner.companyId, JobStatus.PAID);
       res.json(jobs);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -346,29 +442,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get cleaner's active jobs
-  app.get("/api/cleaner/my-jobs", async (req: Request, res: Response) => {
+  app.get("/api/cleaner/my-jobs", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
     try {
-      const userId = req.query.userId || "temp-cleaner";
+      const cleaner = await storage.getCleanerByUserId(req.user!.id);
 
-      const cleanersSnapshot = await adminDb
-        .collection("cleaners")
-        .where("userId", "==", userId)
-        .limit(1)
-        .get();
-
-      if (cleanersSnapshot.empty) {
+      if (!cleaner) {
         return res.json([]);
       }
 
-      const cleaner = cleanersSnapshot.docs[0].data() as Cleaner;
-
-      const jobsSnapshot = await adminDb
-        .collection("jobs")
-        .where("cleanerId", "==", cleaner.id)
-        .orderBy("createdAt", "desc")
-        .get();
-
-      const jobs = jobsSnapshot.docs.map(doc => doc.data() as Job);
+      const jobs = await storage.getJobsByCleaner(cleaner.id);
       res.json(jobs);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -376,31 +458,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Accept job
-  app.post("/api/cleaner/accept-job/:jobId", async (req: Request, res: Response) => {
+  app.post("/api/cleaner/accept-job/:jobId", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
     try {
       const { jobId } = req.params;
-      const userId = req.body.userId || "temp-cleaner";
+      const cleaner = await storage.getCleanerByUserId(req.user!.id);
 
-      const cleanersSnapshot = await adminDb
-        .collection("cleaners")
-        .where("userId", "==", userId)
-        .limit(1)
-        .get();
-
-      if (cleanersSnapshot.empty) {
+      if (!cleaner) {
         return res.status(404).json({ message: "Cleaner not found" });
       }
 
-      const cleaner = cleanersSnapshot.docs[0].data() as Cleaner;
-      const jobRef = adminDb.collection("jobs").doc(jobId);
-
-      await jobRef.update({
+      await storage.updateJob(parseInt(jobId), {
         cleanerId: cleaner.id,
         status: JobStatus.ASSIGNED,
-        assignedAt: Date.now(),
+        assignedAt: new Date(),
       });
 
-      await cleanersSnapshot.docs[0].ref.update({
+      await storage.updateCleaner(cleaner.id, {
         status: CleanerStatus.BUSY,
       });
 
@@ -411,13 +484,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Start job
-  app.post("/api/cleaner/start-job/:jobId", async (req: Request, res: Response) => {
+  app.post("/api/cleaner/start-job/:jobId", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
     try {
       const { jobId } = req.params;
 
-      await adminDb.collection("jobs").doc(jobId).update({
+      await storage.updateJob(parseInt(jobId), {
         status: JobStatus.IN_PROGRESS,
-        startedAt: Date.now(),
+        startedAt: new Date(),
       });
 
       res.json({ success: true });
@@ -427,59 +500,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Complete job with proof
-  app.post("/api/cleaner/complete-job/:jobId", async (req: Request, res: Response) => {
+  app.post("/api/cleaner/complete-job/:jobId", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
     try {
       const { jobId } = req.params;
-      const { proofPhotoURL, userId } = req.body;
+      const { proofPhotoURL } = req.body;
 
-      const jobRef = adminDb.collection("jobs").doc(jobId);
-      const jobDoc = await jobRef.get();
-      const job = jobDoc.data() as Job;
+      const job = await storage.getJob(parseInt(jobId));
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
 
-      await jobRef.update({
+      await storage.updateJob(parseInt(jobId), {
         status: JobStatus.COMPLETED,
-        completedAt: Date.now(),
+        completedAt: new Date(),
         proofPhotoURL,
       });
 
       // Update cleaner status back to on-duty
-      const cleanersSnapshot = await adminDb
-        .collection("cleaners")
-        .where("userId", "==", userId || "temp-cleaner")
-        .limit(1)
-        .get();
-
-      if (!cleanersSnapshot.empty) {
-        const cleanerDoc = cleanersSnapshot.docs[0];
-        const cleaner = cleanerDoc.data() as Cleaner;
-        
-        await cleanerDoc.ref.update({
+      const cleaner = await storage.getCleanerByUserId(req.user!.id);
+      if (cleaner) {
+        await storage.updateCleaner(cleaner.id, {
           status: CleanerStatus.ON_DUTY,
           totalJobsCompleted: cleaner.totalJobsCompleted + 1,
         });
 
         // Update company stats
-        const companyRef = adminDb.collection("companies").doc(job.companyId);
-        const companyDoc = await companyRef.get();
-        const company = companyDoc.data() as Company;
-
-        await companyRef.update({
-          totalJobsCompleted: company.totalJobsCompleted + 1,
-          totalRevenue: company.totalRevenue + job.price,
-        });
-      }
-
-      // Send completion email to customer
-      const customerDoc = await adminDb.collection("users").doc(job.customerId).get();
-      const customer = customerDoc.data();
-      if (customer?.email) {
-        await sendEmail(
-          customer.email,
-          "Car Wash Completed",
-          `<h2>Your car wash is complete!</h2>
-          <p>Car Plate: ${job.carPlateNumber}</p>
-          <p>Thank you for using our service.</p>`
-        );
+        const company = await storage.getCompany(job.companyId);
+        if (company) {
+          await storage.updateCompany(company.id, {
+            totalJobsCompleted: company.totalJobsCompleted + 1,
+            totalRevenue: (parseFloat(company.totalRevenue as any) + parseFloat(job.price as any)).toString(),
+          });
+        }
       }
 
       res.json({ success: true });
@@ -488,126 +540,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ===== ADMIN INITIALIZATION =====
-  
-  // Initialize platform admin user (one-time setup)
-  app.post("/api/admin/init", async (req: Request, res: Response) => {
+  // ===== COMPANY ADMIN ROUTES =====
+
+  // Get company analytics
+  app.get("/api/company/analytics", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
     try {
-      const adminEmail = "omer.eldirdieri@gmail.com"; // Normalized to lowercase
-      const adminPassword = "12345678";
-      
-      // Check if admin already exists
-      let adminUserRecord;
-      try {
-        adminUserRecord = await adminAuth.getUserByEmail(adminEmail);
-        res.json({ success: true, message: "Admin user already exists", userId: adminUserRecord.uid });
-        return;
-      } catch (error) {
-        // User doesn't exist, create it
-        adminUserRecord = await adminAuth.createUser({
-          email: adminEmail,
-          password: adminPassword,
-          displayName: "Platform Admin",
-        });
+      if (!req.user?.companyId) {
+        return res.status(400).json({ message: "No company associated with user" });
       }
 
-      // Create user profile in Firestore
-      const adminUserRef = adminDb.collection("users").doc(adminUserRecord.uid);
-      const adminUser: User = {
-        id: adminUserRecord.uid,
-        email: adminEmail,
-        displayName: "Platform Admin",
-        role: UserRole.ADMIN,
-        createdAt: Date.now(),
-      };
-      await adminUserRef.set(adminUser, { merge: true });
-
-      res.json({ success: true, message: "Admin user created successfully", userId: adminUserRecord.uid });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  // ===== COMPANY ROUTES =====
-
-  // Register company with admin user
-  // NOTE: This creates the company first, then the user registers via client SDK
-  app.post("/api/company/register", async (req: Request, res: Response) => {
-    try {
-      const { 
-        userId, // User ID from Firebase Auth (created on client)
-        email,
-        displayName, 
-        phoneNumber,
-        companyName, 
-        companyDescription, 
-        pricePerWash,
-        tradeLicenseNumber,
-        tradeLicenseDocumentURL
-      } = req.body;
-      
-      // Normalize email to lowercase for case-insensitive matching
-      const normalizedEmail = email.toLowerCase().trim();
-      
-      // Create company
-      const companyRef = adminDb.collection("companies").doc();
-      const company: Company = {
-        id: companyRef.id,
-        name: companyName,
-        description: companyDescription || "",
-        pricePerWash: pricePerWash || 25,
-        tradeLicenseNumber: tradeLicenseNumber || undefined,
-        tradeLicenseDocumentURL: tradeLicenseDocumentURL || undefined,
-        totalJobsCompleted: 0,
-        totalRevenue: 0,
-        rating: 0,
-        totalRatings: 0,
-        adminId: userId,
-        createdAt: Date.now(),
-      };
-      await companyRef.set(company);
-      
-      // Create user profile in Firestore
-      const userRef = adminDb.collection("users").doc(userId);
-      const user: User = {
-        id: userId,
-        email: normalizedEmail,
-        displayName,
-        role: UserRole.COMPANY_ADMIN,
-        phoneNumber,
-        companyId: company.id, // Link user to company
-        createdAt: Date.now(),
-      };
-      await userRef.set(user);
-      
-      res.json({ success: true, userId, companyId: company.id });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  // Create cleaner profile
-  app.post("/api/cleaner/create", async (req: Request, res: Response) => {
-    try {
-      const { userId, companyId } = req.body;
-      
-      const cleanerRef = adminDb.collection("cleaners").doc();
-      const cleaner: Cleaner = {
-        id: cleanerRef.id,
-        userId,
-        companyId,
-        status: CleanerStatus.OFF_DUTY,
-        currentLatitude: 0,
-        currentLongitude: 0,
-        totalJobsCompleted: 0,
-        rating: 0,
-        totalRatings: 0,
-        averageCompletionTime: 0,
-        createdAt: Date.now(),
-      };
-      
-      await cleanerRef.set(cleaner);
-      res.json(cleaner);
+      const analytics = await storage.getCompanyAnalytics(req.user.companyId);
+      res.json(analytics);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -615,92 +558,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===== ADMIN ROUTES =====
 
-  // Get admin analytics
-  app.get("/api/admin/analytics", async (req: Request, res: Response) => {
+  // Get platform analytics
+  app.get("/api/admin/analytics", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
     try {
-      const companiesSnapshot = await adminDb.collection("companies").get();
-      const cleanersSnapshot = await adminDb.collection("cleaners").get();
-      const jobsSnapshot = await adminDb.collection("jobs").get();
-
-      const jobs = jobsSnapshot.docs.map(doc => doc.data() as Job);
-      const activeJobs = jobs.filter(j => 
-        [JobStatus.PAID, JobStatus.ASSIGNED, JobStatus.IN_PROGRESS].includes(j.status)
-      );
-      const completedJobs = jobs.filter(j => j.status === JobStatus.COMPLETED);
-
-      const totalRevenue = completedJobs.reduce((sum, job) => sum + job.price, 0);
-      
-      const now = Date.now();
-      const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-      const revenueThisMonth = completedJobs
-        .filter(j => j.completedAt && j.completedAt >= monthStart)
-        .reduce((sum, job) => sum + job.price, 0);
-
-      const analytics: AdminAnalytics = {
-        totalCompanies: companiesSnapshot.size,
-        totalCleaners: cleanersSnapshot.size,
-        activeJobs: activeJobs.length,
-        completedJobs: completedJobs.length,
-        totalRevenue,
-        revenueThisMonth,
-      };
-
+      const analytics = await storage.getAdminAnalytics();
       res.json(analytics);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
   });
 
-  // Get company analytics
-  app.get("/api/company/analytics/:companyId?", async (req: Request, res: Response) => {
-    try {
-      const companyId = req.params.companyId || req.query.companyId;
-      
-      if (!companyId) {
-        return res.status(400).json({ message: "Company ID is required" });
-      }
+  return createServer(app);
+}
 
-      const companyDoc = await adminDb.collection("companies").doc(companyId as string).get();
-      if (!companyDoc.exists) {
-        return res.status(404).json({ message: "Company not found" });
-      }
+// Utility function for distance calculation
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3; // Earth's radius in meters
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
 
-      const company = companyDoc.data() as Company;
-      
-      // Get active cleaners count
-      const activeCleanersSnapshot = await adminDb
-        .collection("cleaners")
-        .where("companyId", "==", companyId)
-        .where("status", "in", [CleanerStatus.ON_DUTY, CleanerStatus.BUSY])
-        .get();
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-      // Get jobs this month
-      const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-      const jobsSnapshot = await adminDb
-        .collection("jobs")
-        .where("companyId", "==", companyId)
-        .where("createdAt", ">=", monthStart)
-        .get();
-
-      const monthJobs = jobsSnapshot.docs.map(doc => doc.data() as Job);
-      const completedMonthJobs = monthJobs.filter(j => j.status === JobStatus.COMPLETED);
-      const revenueThisMonth = completedMonthJobs.reduce((sum, job) => sum + job.price, 0);
-
-      const analytics = {
-        totalJobsCompleted: company.totalJobsCompleted,
-        totalRevenue: company.totalRevenue,
-        averageRating: company.rating,
-        activeCleaners: activeCleanersSnapshot.size,
-        jobsThisMonth: completedMonthJobs.length,
-        revenueThisMonth,
-      };
-
-      res.json(analytics);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  const httpServer = createServer(app);
-  return httpServer;
+  return R * c; // Distance in meters
 }
