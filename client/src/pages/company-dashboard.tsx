@@ -140,13 +140,61 @@ export default function CompanyDashboard() {
     <div className="min-h-screen bg-background p-4 pb-20">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-6 pt-4">
-          <h1 className="text-2xl font-bold text-foreground mb-1">
-            Company Dashboard
-          </h1>
-          <p className="text-muted-foreground">
-            Company analytics and performance
-          </p>
+        <div className="mb-6 pt-4 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground mb-1">
+              Company Dashboard
+            </h1>
+            <p className="text-muted-foreground">
+              Company analytics and performance
+            </p>
+          </div>
+          
+          {/* Invite Cleaner Button */}
+          <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                data-testid="button-invite-cleaner"
+                disabled={company?.isActive === 0}
+              >
+                <UserPlus className="mr-2 h-4 w-4" />
+                Invite Cleaner
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Invite Car Washer</DialogTitle>
+                <DialogDescription>
+                  Invite a cleaner by their phone number. They will be able to register using this number.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="phoneNumber">Phone Number</Label>
+                  <Input
+                    id="phoneNumber"
+                    type="tel"
+                    placeholder="+65 1234 5678"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    data-testid="input-phone-number"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    The cleaner will use this number to register on the platform
+                  </p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  onClick={() => inviteCleanerMutation.mutate(phoneNumber)}
+                  disabled={inviteCleanerMutation.isPending || !phoneNumber}
+                  data-testid="button-submit-invite"
+                >
+                  {inviteCleanerMutation.isPending ? "Inviting..." : "Send Invitation"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Pending Approval Alert */}
@@ -186,57 +234,11 @@ export default function CompanyDashboard() {
         {/* Car Washers Management */}
         <div className="mt-8">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-4">
-              <div>
-                <CardTitle>Car Washers</CardTitle>
-                <CardDescription>
-                  Manage your team of car wash cleaners
-                </CardDescription>
-              </div>
-              <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button 
-                    data-testid="button-invite-cleaner"
-                    disabled={company?.isActive === 0}
-                  >
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Invite Cleaner
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Invite Car Washer</DialogTitle>
-                    <DialogDescription>
-                      Invite a cleaner by their phone number. They will be able to register using this number.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="phoneNumber">Phone Number</Label>
-                      <Input
-                        id="phoneNumber"
-                        type="tel"
-                        placeholder="+65 1234 5678"
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        data-testid="input-phone-number"
-                      />
-                      <p className="text-sm text-muted-foreground">
-                        The cleaner will use this number to register on the platform
-                      </p>
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      onClick={() => inviteCleanerMutation.mutate(phoneNumber)}
-                      disabled={inviteCleanerMutation.isPending || !phoneNumber}
-                      data-testid="button-submit-invite"
-                    >
-                      {inviteCleanerMutation.isPending ? "Inviting..." : "Send Invitation"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+            <CardHeader>
+              <CardTitle>Car Washers</CardTitle>
+              <CardDescription>
+                Manage your team of car wash cleaners
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {isLoadingCleaners ? (
