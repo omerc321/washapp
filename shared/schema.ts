@@ -1,142 +1,188 @@
+import { pgTable, serial, varchar, text, numeric, timestamp, pgEnum, integer } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Enums for user roles and job statuses
-export enum UserRole {
-  CUSTOMER = "customer",
-  CLEANER = "cleaner",
-  COMPANY_ADMIN = "company_admin",
-  ADMIN = "admin"
-}
+// PostgreSQL Enums
+export const userRoleEnum = pgEnum("user_role", ["customer", "cleaner", "company_admin", "admin"]);
+export const jobStatusEnum = pgEnum("job_status", ["pending_payment", "paid", "assigned", "in_progress", "completed", "cancelled"]);
+export const cleanerStatusEnum = pgEnum("cleaner_status", ["on_duty", "off_duty", "busy"]);
 
-export enum JobStatus {
-  PENDING_PAYMENT = "pending_payment",
-  PAID = "paid",
-  ASSIGNED = "assigned",
-  IN_PROGRESS = "in_progress",
-  COMPLETED = "completed",
-  CANCELLED = "cancelled"
-}
-
-export enum CleanerStatus {
-  ON_DUTY = "on_duty",
-  OFF_DUTY = "off_duty",
-  BUSY = "busy"
-}
-
-// User Schema
-export const userSchema = z.object({
-  id: z.string(),
-  email: z.string().email(),
-  displayName: z.string(),
-  role: z.nativeEnum(UserRole),
-  photoURL: z.string().optional(),
-  phoneNumber: z.string().optional(),
-  createdAt: z.number(),
-  companyId: z.string().optional(), // For company_admin and cleaner
+// Users Table
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+  displayName: varchar("display_name", { length: 255 }).notNull(),
+  role: userRoleEnum("role").notNull(),
+  photoURL: text("photo_url"),
+  phoneNumber: varchar("phone_number", { length: 50 }),
+  companyId: integer("company_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertUserSchema = userSchema.omit({ id: true, createdAt: true });
+export const usersRelations = relations(users, ({ one, many }) => ({
+  company: one(companies, {
+    fields: [users.companyId],
+    references: [companies.id],
+  }),
+  cleaner: one(cleaners, {
+    fields: [users.id],
+    references: [cleaners.userId],
+  }),
+}));
 
-export type User = z.infer<typeof userSchema>;
-export type InsertUser = z.infer<typeof insertUserSchema>;
-
-// Company Schema
-export const companySchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: z.string().optional(),
-  pricePerWash: z.number(),
-  adminId: z.string(),
-  tradeLicenseNumber: z.string().optional(),
-  tradeLicenseDocumentURL: z.string().optional(),
-  totalJobsCompleted: z.number().default(0),
-  totalRevenue: z.number().default(0),
-  rating: z.number().default(0),
-  totalRatings: z.number().default(0),
-  createdAt: z.number(),
+// Companies Table
+export const companies = pgTable("companies", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  pricePerWash: numeric("price_per_wash", { precision: 10, scale: 2 }).notNull(),
+  adminId: integer("admin_id").notNull(),
+  tradeLicenseNumber: varchar("trade_license_number", { length: 100 }),
+  tradeLicenseDocumentURL: text("trade_license_document_url"),
+  totalJobsCompleted: integer("total_jobs_completed").notNull().default(0),
+  totalRevenue: numeric("total_revenue", { precision: 10, scale: 2 }).notNull().default("0"),
+  rating: numeric("rating", { precision: 3, scale: 2 }).notNull().default("0"),
+  totalRatings: integer("total_ratings").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertCompanySchema = companySchema.omit({ 
-  id: true, 
+export const companiesRelations = relations(companies, ({ one, many }) => ({
+  admin: one(users, {
+    fields: [companies.adminId],
+    references: [users.id],
+  }),
+  cleaners: many(cleaners),
+  jobs: many(jobs),
+}));
+
+// Cleaners Table
+export const cleaners = pgTable("cleaners", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().unique(),
+  companyId: integer("company_id").notNull(),
+  status: cleanerStatusEnum("status").notNull().default("off_duty"),
+  currentLatitude: numeric("current_latitude", { precision: 10, scale: 8 }),
+  currentLongitude: numeric("current_longitude", { precision: 11, scale: 8 }),
+  totalJobsCompleted: integer("total_jobs_completed").notNull().default(0),
+  averageCompletionTime: integer("average_completion_time").notNull().default(0),
+  rating: numeric("rating", { precision: 3, scale: 2 }).notNull().default("0"),
+  totalRatings: integer("total_ratings").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const cleanersRelations = relations(cleaners, ({ one, many }) => ({
+  user: one(users, {
+    fields: [cleaners.userId],
+    references: [users.id],
+  }),
+  company: one(companies, {
+    fields: [cleaners.companyId],
+    references: [companies.id],
+  }),
+  jobs: many(jobs),
+}));
+
+// Jobs Table
+export const jobs = pgTable("jobs", {
+  id: serial("id").primaryKey(),
+  customerId: varchar("customer_id", { length: 255 }),
+  companyId: integer("company_id").notNull(),
+  cleanerId: integer("cleaner_id"),
+  
+  // Car and location details
+  carPlateNumber: varchar("car_plate_number", { length: 50 }).notNull(),
+  locationAddress: text("location_address").notNull(),
+  locationLatitude: numeric("location_latitude", { precision: 10, scale: 8 }).notNull(),
+  locationLongitude: numeric("location_longitude", { precision: 11, scale: 8 }).notNull(),
+  parkingNumber: varchar("parking_number", { length: 50 }),
+  customerPhone: varchar("customer_phone", { length: 50 }).notNull(),
+  
+  // Payment and pricing
+  price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+  stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
+  
+  // Job status and timing
+  status: jobStatusEnum("status").notNull().default("pending_payment"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  assignedAt: timestamp("assigned_at"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  
+  // Completion proof
+  proofPhotoURL: text("proof_photo_url"),
+  
+  // Rating and review
+  rating: numeric("rating", { precision: 3, scale: 2 }),
+  review: text("review"),
+});
+
+export const jobsRelations = relations(jobs, ({ one }) => ({
+  company: one(companies, {
+    fields: [jobs.companyId],
+    references: [companies.id],
+  }),
+  cleaner: one(cleaners, {
+    fields: [jobs.cleanerId],
+    references: [cleaners.id],
+  }),
+}));
+
+// Drizzle Zod Schemas for validation
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const selectUserSchema = createSelectSchema(users);
+
+export const insertCompanySchema = createInsertSchema(companies).omit({
+  id: true,
   createdAt: true,
   totalJobsCompleted: true,
   totalRevenue: true,
   rating: true,
-  totalRatings: true
+  totalRatings: true,
 });
 
-export type Company = z.infer<typeof companySchema>;
-export type InsertCompany = z.infer<typeof insertCompanySchema>;
+export const selectCompanySchema = createSelectSchema(companies);
 
-// Cleaner Schema
-export const cleanerSchema = z.object({
-  id: z.string(),
-  userId: z.string(),
-  companyId: z.string(),
-  status: z.nativeEnum(CleanerStatus),
-  currentLatitude: z.number().optional(),
-  currentLongitude: z.number().optional(),
-  totalJobsCompleted: z.number().default(0),
-  averageCompletionTime: z.number().default(0), // in minutes
-  rating: z.number().default(0),
-  totalRatings: z.number().default(0),
-  createdAt: z.number(),
-});
-
-export const insertCleanerSchema = cleanerSchema.omit({ 
-  id: true, 
+export const insertCleanerSchema = createInsertSchema(cleaners).omit({
+  id: true,
   createdAt: true,
   totalJobsCompleted: true,
   averageCompletionTime: true,
   rating: true,
-  totalRatings: true
+  totalRatings: true,
 });
 
-export type Cleaner = z.infer<typeof cleanerSchema>;
-export type InsertCleaner = z.infer<typeof insertCleanerSchema>;
+export const selectCleanerSchema = createSelectSchema(cleaners);
 
-// Job Schema
-export const jobSchema = z.object({
-  id: z.string(),
-  customerId: z.string(),
-  companyId: z.string(),
-  cleanerId: z.string().optional(),
-  
-  // Car and location details
-  carPlateNumber: z.string(),
-  locationAddress: z.string(),
-  locationLatitude: z.number(),
-  locationLongitude: z.number(),
-  parkingNumber: z.string().optional(),
-  customerPhone: z.string(),
-  
-  // Payment and pricing
-  price: z.number(),
-  stripePaymentIntentId: z.string().optional(),
-  
-  // Job status and timing
-  status: z.nativeEnum(JobStatus),
-  createdAt: z.number(),
-  assignedAt: z.number().optional(),
-  startedAt: z.number().optional(),
-  completedAt: z.number().optional(),
-  
-  // Completion proof
-  proofPhotoURL: z.string().optional(),
-  
-  // Rating and review
-  rating: z.number().optional(),
-  review: z.string().optional(),
-});
-
-export const insertJobSchema = jobSchema.omit({ 
-  id: true, 
+export const insertJobSchema = createInsertSchema(jobs).omit({
+  id: true,
   createdAt: true,
   assignedAt: true,
   startedAt: true,
-  completedAt: true
+  completedAt: true,
 });
 
+export const selectJobSchema = createSelectSchema(jobs);
+
+// TypeScript Types
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+
+export type Company = typeof companies.$inferSelect;
+export type InsertCompany = z.infer<typeof insertCompanySchema>;
+
+export type Cleaner = typeof cleaners.$inferSelect;
+export type InsertCleaner = z.infer<typeof insertCleanerSchema>;
+
+export type Job = typeof jobs.$inferSelect;
+export type InsertJob = z.infer<typeof insertJobSchema>;
+
+// Additional validation schemas
 export const createJobSchema = z.object({
   carPlateNumber: z.string().min(1, "Plate number is required"),
   locationAddress: z.string().min(1, "Location is required"),
@@ -144,14 +190,12 @@ export const createJobSchema = z.object({
   locationLongitude: z.number(),
   parkingNumber: z.string().optional(),
   customerPhone: z.string().min(10, "Valid phone number required"),
-  companyId: z.string(),
+  companyId: z.number(),
 });
 
-export type Job = z.infer<typeof jobSchema>;
-export type InsertJob = z.infer<typeof insertJobSchema>;
 export type CreateJob = z.infer<typeof createJobSchema>;
 
-// Analytics Schemas
+// Analytics Types
 export const adminAnalyticsSchema = z.object({
   totalCompanies: z.number(),
   totalCleaners: z.number(),
@@ -183,9 +227,32 @@ export type CompanyAnalytics = z.infer<typeof companyAnalyticsSchema>;
 export type CleanerAnalytics = z.infer<typeof cleanerAnalyticsSchema>;
 
 // Company with cleaner count (for customer selection)
-export const companyWithCleanersSchema = companySchema.extend({
+export const companyWithCleanersSchema = selectCompanySchema.extend({
   onDutyCleanersCount: z.number(),
   distanceInMeters: z.number().optional(),
 });
 
 export type CompanyWithCleaners = z.infer<typeof companyWithCleanersSchema>;
+
+// Enums for TypeScript
+export enum UserRole {
+  CUSTOMER = "customer",
+  CLEANER = "cleaner",
+  COMPANY_ADMIN = "company_admin",
+  ADMIN = "admin"
+}
+
+export enum JobStatus {
+  PENDING_PAYMENT = "pending_payment",
+  PAID = "paid",
+  ASSIGNED = "assigned",
+  IN_PROGRESS = "in_progress",
+  COMPLETED = "completed",
+  CANCELLED = "cancelled"
+}
+
+export enum CleanerStatus {
+  ON_DUTY = "on_duty",
+  OFF_DUTY = "off_duty",
+  BUSY = "busy"
+}
