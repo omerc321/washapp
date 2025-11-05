@@ -23,7 +23,9 @@ export default function RegisterCompanyPage() {
     companyName: "",
     companyDescription: "",
     pricePerWash: "",
+    tradeLicenseNumber: "",
   });
+  const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,6 +36,9 @@ export default function RegisterCompanyPage() {
       // Register will be called with companyId after company creation
       // So we'll do this manually here in the correct order
       
+      // TODO: Upload license file to Firebase Storage if provided
+      // For now, we'll just send the license number
+      
       const response = await fetch('/api/company/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -42,11 +47,12 @@ export default function RegisterCompanyPage() {
           email: formData.email,
           password: formData.password,
           displayName: formData.displayName,
-          phoneNumber: formData.phoneNumber,
+          phoneNumber: formData.phoneNumber || undefined, // Make it optional
           // Company data
           companyName: formData.companyName,
           companyDescription: formData.companyDescription,
           pricePerWash: parseFloat(formData.pricePerWash),
+          tradeLicenseNumber: formData.tradeLicenseNumber || undefined,
         }),
       });
 
@@ -126,6 +132,30 @@ export default function RegisterCompanyPage() {
                     data-testid="input-price"
                   />
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="tradeLicenseNumber">Trade License Number</Label>
+                  <Input
+                    id="tradeLicenseNumber"
+                    placeholder="ABC-12345-2024"
+                    value={formData.tradeLicenseNumber}
+                    onChange={(e) => setFormData({ ...formData, tradeLicenseNumber: e.target.value })}
+                    data-testid="input-trade-license"
+                  />
+                  <p className="text-xs text-muted-foreground">Optional: Your business trade license number</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="licenseDocument">Trade License Document</Label>
+                  <Input
+                    id="licenseDocument"
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => setLicenseFile(e.target.files?.[0] || null)}
+                    data-testid="input-license-document"
+                  />
+                  <p className="text-xs text-muted-foreground">Optional: Upload your trade license (PDF, JPG, or PNG)</p>
+                </div>
               </div>
             </div>
 
@@ -159,16 +189,16 @@ export default function RegisterCompanyPage() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="phoneNumber">Phone Number</Label>
+                  <Label htmlFor="phoneNumber">Phone Number (Optional)</Label>
                   <Input
                     id="phoneNumber"
                     type="tel"
-                    placeholder="+65 1234 5678"
+                    placeholder="+6512345678 (E.164 format)"
                     value={formData.phoneNumber}
                     onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                    required
                     data-testid="input-phone"
                   />
+                  <p className="text-xs text-muted-foreground">Use E.164 format: +[country code][number] (e.g., +6512345678)</p>
                 </div>
                 
                 <div className="space-y-2">

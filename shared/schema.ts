@@ -47,6 +47,8 @@ export const companySchema = z.object({
   description: z.string().optional(),
   pricePerWash: z.number(),
   adminId: z.string(),
+  tradeLicenseNumber: z.string().optional(),
+  tradeLicenseDocumentURL: z.string().optional(),
   totalJobsCompleted: z.number().default(0),
   totalRevenue: z.number().default(0),
   rating: z.number().default(0),

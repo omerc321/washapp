@@ -500,16 +500,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phoneNumber,
         companyName, 
         companyDescription, 
-        pricePerWash 
+        pricePerWash,
+        tradeLicenseNumber,
+        tradeLicenseDocumentURL
       } = req.body;
       
-      // Create Firebase user
-      const userRecord = await adminAuth.createUser({
+      // Create Firebase user with optional phone number
+      const userCreateRequest: any = {
         email,
         password,
         displayName,
-        phoneNumber,
-      });
+      };
+      
+      // Only add phoneNumber if provided (Firebase requires E.164 format)
+      if (phoneNumber) {
+        userCreateRequest.phoneNumber = phoneNumber;
+      }
+      
+      const userRecord = await adminAuth.createUser(userCreateRequest);
       
       // Create company
       const companyRef = adminDb.collection("companies").doc();
@@ -518,6 +526,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: companyName,
         description: companyDescription || "",
         pricePerWash: pricePerWash || 25,
+        tradeLicenseNumber: tradeLicenseNumber || undefined,
+        tradeLicenseDocumentURL: tradeLicenseDocumentURL || undefined,
         totalJobsCompleted: 0,
         totalRevenue: 0,
         rating: 0,
