@@ -12,7 +12,7 @@ import { Loader2, Car } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function RegisterCleanerPage() {
-  const { register } = useAuth();
+  const { registerCleaner } = useAuth();
   const [, setLocation] = useLocation();
   const [formData, setFormData] = useState({
     email: "",
@@ -25,11 +25,6 @@ export default function RegisterCleanerPage() {
 
   const { data: companies, isLoading } = useQuery<Company[]>({
     queryKey: ["/api/companies/all"],
-    queryFn: async () => {
-      const res = await fetch("/api/companies/all");
-      if (!res.ok) throw new Error("Failed to fetch companies");
-      return res.json();
-    },
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,10 +32,7 @@ export default function RegisterCleanerPage() {
     setSubmitting(true);
     
     try {
-      await register({
-        ...formData,
-        role: UserRole.CLEANER,
-      });
+      await registerCleaner(formData);
       setLocation("/cleaner");
     } catch (error) {
       // Error shown by toast in auth context

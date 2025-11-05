@@ -12,7 +12,7 @@ import { Loader2, Car } from "lucide-react";
 export default function RegisterCompanyPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { signIn } = useAuth();
+  const { registerCompany } = useAuth();
   const [formData, setFormData] = useState({
     // Admin details
     email: "",
@@ -33,49 +33,40 @@ export default function RegisterCompanyPage() {
     setSubmitting(true);
     
     try {
-      // Step 1: Create Firebase Auth user first using client SDK
-      const normalizedEmail = formData.email.toLowerCase().trim();
-      const { createUserWithEmailAndPassword } = await import("firebase/auth");
-      const { auth } = await import("@/lib/firebase");
+      let tradeLicenseDocumentURL: string | undefined;
       
-      const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, formData.password);
-      const userId = userCredential.user.uid;
-      
-      // Step 2: Create company and user profile via API
-      // TODO: Upload license file to Firebase Storage if provided
-      const response = await fetch('/api/company/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          email: normalizedEmail,
-          displayName: formData.displayName,
-          phoneNumber: formData.phoneNumber || undefined,
-          companyName: formData.companyName,
-          companyDescription: formData.companyDescription,
-          pricePerWash: parseFloat(formData.pricePerWash),
-          tradeLicenseNumber: formData.tradeLicenseNumber || undefined,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to create company");
+      // Upload license document if provided
+      if (licenseFile) {
+        const uploadData = new FormData();
+        uploadData.append("tradeLicense", licenseFile);
+        
+        const uploadResponse = await fetch("/api/upload/trade-license", {
+          method: "POST",
+          body: uploadData,
+        });
+        
+        if (uploadResponse.ok) {
+          const uploadResult = await uploadResponse.json();
+          tradeLicenseDocumentURL = uploadResult.url;
+        }
       }
-
-      // User is already signed in after createUserWithEmailAndPassword
-      // Redirect to company dashboard
-      toast({
-        title: "Success",
-        description: "Company registered successfully!",
+      
+      // Register company and admin user
+      await registerCompany({
+        email: formData.email,
+        password: formData.password,
+        displayName: formData.displayName,
+        phoneNumber: formData.phoneNumber || undefined,
+        companyName: formData.companyName,
+        companyDescription: formData.companyDescription || undefined,
+        pricePerWash: formData.pricePerWash,
+        tradeLicenseNumber: formData.tradeLicenseNumber || undefined,
+        tradeLicenseDocumentURL,
       });
+      
       setLocation("/company");
     } catch (error: any) {
-      toast({
-        title: "Registration Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      // Error is already shown by auth context
     } finally {
       setSubmitting(false);
     }

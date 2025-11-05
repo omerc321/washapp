@@ -117,6 +117,66 @@ export class DatabaseStorage implements IStorage {
 
   // ===== COMPANY OPERATIONS =====
   
+  // Transactional company + admin creation
+  async createCompanyWithAdmin(data: {
+    email: string;
+    password: string;
+    displayName: string;
+    phoneNumber?: string;
+    companyName: string;
+    companyDescription?: string;
+    pricePerWash: number;
+    tradeLicenseNumber?: string;
+    tradeLicenseDocumentURL?: string;
+  }): Promise<{ user: User; company: Company }> {
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+      
+      // Create user
+      const passwordHash = await bcrypt.hash(data.password, 10);
+      const userResult = await client.query(
+        `INSERT INTO users (email, password_hash, display_name, phone_number, role, created_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())
+         RETURNING *`,
+        [data.email.toLowerCase(), passwordHash, data.displayName, data.phoneNumber, UserRole.COMPANY_ADMIN]
+      );
+      const user = userResult.rows[0];
+      
+      // Create company
+      const companyResult = await client.query(
+        `INSERT INTO companies (name, description, price_per_wash, admin_id, trade_license_number, trade_license_document_url, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())
+         RETURNING *`,
+        [data.companyName, data.companyDescription, data.pricePerWash, user.id, data.tradeLicenseNumber, data.tradeLicenseDocumentURL]
+      );
+      const company = companyResult.rows[0];
+      
+      // Update user with company_id
+      await client.query(
+        `UPDATE users SET company_id = $1 WHERE id = $2`,
+        [company.id, user.id]
+      );
+      
+      await client.query('COMMIT');
+      
+      // Fetch updated user
+      const updatedUserResult = await client.query('SELECT * FROM users WHERE id = $1', [user.id]);
+      const updatedUser = updatedUserResult.rows[0];
+      
+      return { 
+        user: this.mapUserRow(updatedUser), 
+        company: this.mapCompanyRow(company) 
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+  
   async getAllCompanies(): Promise<Company[]> {
     return await db.select().from(companies);
   }
@@ -232,6 +292,52 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(cleaners)
       .where(eq(cleaners.companyId, companyId));
+  }
+  
+  // Transactional cleaner + user creation
+  async createCleanerWithUser(data: {
+    email: string;
+    password: string;
+    displayName: string;
+    phoneNumber?: string;
+    companyId: number;
+  }): Promise<{ user: User; cleaner: Cleaner }> {
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+      
+      // Create user
+      const passwordHash = await bcrypt.hash(data.password, 10);
+      const userResult = await client.query(
+        `INSERT INTO users (email, password_hash, display_name, phone_number, role, company_id, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())
+         RETURNING *`,
+        [data.email.toLowerCase(), passwordHash, data.displayName, data.phoneNumber, UserRole.CLEANER, data.companyId]
+      );
+      const user = userResult.rows[0];
+      
+      // Create cleaner profile
+      const cleanerResult = await client.query(
+        `INSERT INTO cleaners (user_id, company_id, status, created_at)
+         VALUES ($1, $2, $3, NOW())
+         RETURNING *`,
+        [user.id, data.companyId, CleanerStatus.OFF_DUTY]
+      );
+      const cleaner = cleanerResult.rows[0];
+      
+      await client.query('COMMIT');
+      
+      return { 
+        user: this.mapUserRow(user), 
+        cleaner: this.mapCleanerRow(cleaner) 
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   // ===== JOB OPERATIONS =====
@@ -378,6 +484,54 @@ export class DatabaseStorage implements IStorage {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c; // Distance in meters
+  }
+  
+  // Map database rows to TypeScript types
+  private mapUserRow(row: any): User {
+    return {
+      id: row.id,
+      email: row.email,
+      passwordHash: row.password_hash,
+      displayName: row.display_name,
+      role: row.role,
+      photoURL: row.photo_url,
+      phoneNumber: row.phone_number,
+      companyId: row.company_id,
+      createdAt: row.created_at,
+    };
+  }
+  
+  private mapCompanyRow(row: any): Company {
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      pricePerWash: row.price_per_wash,
+      adminId: row.admin_id,
+      tradeLicenseNumber: row.trade_license_number,
+      tradeLicenseDocumentURL: row.trade_license_document_url,
+      totalJobsCompleted: row.total_jobs_completed,
+      totalRevenue: row.total_revenue,
+      rating: row.rating,
+      totalRatings: row.total_ratings,
+      createdAt: row.created_at,
+    };
+  }
+  
+  private mapCleanerRow(row: any): Cleaner {
+    return {
+      id: row.id,
+      userId: row.user_id,
+      companyId: row.company_id,
+      status: row.status,
+      currentLatitude: row.current_latitude,
+      currentLongitude: row.current_longitude,
+      totalJobsCompleted: row.total_jobs_completed,
+      averageCompletionTime: row.average_completion_time,
+      rating: row.rating,
+      totalRatings: row.total_ratings,
+      createdAt: row.created_at,
+    };
   }
 }
 

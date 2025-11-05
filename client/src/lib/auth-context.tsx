@@ -1,32 +1,42 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { 
-  User as FirebaseUser, 
-  onAuthStateChanged, 
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut as firebaseSignOut 
-} from "firebase/auth";
-import { auth, db } from "./firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
 import { User, UserRole } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface AuthContextType {
   currentUser: User | null;
-  firebaseUser: FirebaseUser | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  register: (data: RegisterData) => Promise<void>;
+  registerAdmin: (data: RegisterAdminData) => Promise<void>;
+  registerCompany: (data: RegisterCompanyData) => Promise<void>;
+  registerCleaner: (data: RegisterCleanerData) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
-export interface RegisterData {
+export interface RegisterAdminData {
+  email: string;
+  password: string;
+  displayName: string;
+}
+
+export interface RegisterCompanyData {
   email: string;
   password: string;
   displayName: string;
   phoneNumber?: string;
-  role: UserRole;
-  companyId?: string; // For cleaners
+  companyName: string;
+  companyDescription?: string;
+  pricePerWash: string;
+  tradeLicenseNumber?: string;
+  tradeLicenseDocumentURL?: string;
+}
+
+export interface RegisterCleanerData {
+  email: string;
+  password: string;
+  displayName: string;
+  phoneNumber?: string;
+  companyId: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,38 +51,51 @@ export function useAuth() {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
+  // Check auth status on mount
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setFirebaseUser(user);
-      if (user) {
-        await loadUserProfile(user);
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      const response = await fetch("/api/auth/me", {
+        credentials: "include",
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentUser(data.user);
       } else {
         setCurrentUser(null);
       }
+    } catch (error) {
+      console.error("Auth check failed:", error);
+      setCurrentUser(null);
+    } finally {
       setLoading(false);
-    });
-
-    return unsubscribe;
-  }, []);
-
-  const loadUserProfile = async (firebaseUser: FirebaseUser) => {
-    const userRef = doc(db, "users", firebaseUser.uid);
-    const userSnap = await getDoc(userRef);
-    
-    if (userSnap.exists()) {
-      setCurrentUser(userSnap.data() as User);
     }
   };
 
   const signIn = async (email: string, password: string) => {
     try {
-      // Normalize email to lowercase for case-insensitive login
-      const normalizedEmail = email.toLowerCase().trim();
-      await signInWithEmailAndPassword(auth, normalizedEmail, password);
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Login failed");
+      }
+
+      const data = await response.json();
+      setCurrentUser(data.user);
+      
       toast({
         title: "Signed In",
         description: "Welcome back!",
@@ -87,42 +110,88 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const register = async (data: RegisterData) => {
+  const registerAdmin = async (data: RegisterAdminData) => {
     try {
-      // Normalize email to lowercase for case-insensitive matching
-      const normalizedEmail = data.email.toLowerCase().trim();
-      const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, data.password);
-      
-      // Create user profile in Firestore
-      const newUser: User = {
-        id: userCredential.user.uid,
-        email: normalizedEmail,
-        displayName: data.displayName,
-        role: data.role,
-        phoneNumber: data.phoneNumber,
-        companyId: data.companyId,
-        createdAt: Date.now(),
-      };
-      
-      const userRef = doc(db, "users", userCredential.user.uid);
-      await setDoc(userRef, newUser);
-      
-      // If registering as cleaner, create cleaner profile
-      if (data.role === UserRole.CLEANER && data.companyId) {
-        await fetch('/api/cleaner/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: userCredential.user.uid,
-            companyId: data.companyId,
-          }),
-        });
+      const response = await fetch("/api/auth/register/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Registration failed");
       }
+
+      const result = await response.json();
+      setCurrentUser(result.user);
       
-      setCurrentUser(newUser);
       toast({
         title: "Registration Successful",
-        description: "Your account has been created!",
+        description: "Admin account created!",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Registration Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
+  const registerCompany = async (data: RegisterCompanyData) => {
+    try {
+      const response = await fetch("/api/auth/register/company", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Registration failed");
+      }
+
+      const result = await response.json();
+      setCurrentUser(result.user);
+      
+      toast({
+        title: "Registration Successful",
+        description: "Your company has been registered!",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Registration Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
+  const registerCleaner = async (data: RegisterCleanerData) => {
+    try {
+      const response = await fetch("/api/auth/register/cleaner", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Registration failed");
+      }
+
+      const result = await response.json();
+      setCurrentUser(result.user);
+      
+      toast({
+        title: "Registration Successful",
+        description: "Your cleaner account has been created!",
       });
     } catch (error: any) {
       toast({
@@ -136,15 +205,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      await firebaseSignOut(auth);
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+      
       setCurrentUser(null);
       toast({
         title: "Signed Out",
-        description: "You have been successfully signed out.",
+        description: "You have been signed out successfully.",
       });
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: "Sign-out Error",
         description: error.message,
         variant: "destructive",
       });
@@ -153,10 +226,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = {
     currentUser,
-    firebaseUser,
     loading,
     signIn,
-    register,
+    registerAdmin,
+    registerCompany,
+    registerCleaner,
     signOut,
   };
 

@@ -9,7 +9,7 @@ import { UserRole } from "@shared/schema";
 import { Loader2, Shield } from "lucide-react";
 
 export default function RegisterAdminPage() {
-  const { register } = useAuth();
+  const { registerAdmin } = useAuth();
   const [, setLocation] = useLocation();
   const [formData, setFormData] = useState({
     email: "",
@@ -23,10 +23,7 @@ export default function RegisterAdminPage() {
     setSubmitting(true);
     
     try {
-      await register({
-        ...formData,
-        role: UserRole.ADMIN,
-      });
+      await registerAdmin(formData);
       setLocation("/admin");
     } catch (error) {
       // Error shown by toast in auth context

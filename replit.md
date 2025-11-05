@@ -6,12 +6,14 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 ## Tech Stack
 - **Frontend**: React, Tailwind CSS, shadcn/ui components, Roboto font
 - **Backend**: Express.js, Node.js
-- **Database**: Firebase Firestore
-- **Authentication**: Firebase Auth (Email/Password for staff roles only)
+- **Database**: PostgreSQL with Drizzle ORM
+- **Authentication**: Passport.js with bcrypt password hashing (Email/Password for staff roles only)
+- **Session Store**: connect-pg-simple (PostgreSQL session storage)
 - **Maps**: OpenStreetMap (via react-leaflet), Nominatim reverse geocoding, Google Maps navigation
 - **Payments**: Stripe
 - **Email**: Resend
-- **Real-time**: Firebase Firestore listeners
+- **Real-time**: WebSocket server for job status updates
+- **File Uploads**: multer (local file storage)
 
 ## User Roles
 1. **Customer**: Request car washes, select companies, pay via Stripe, track jobs (anonymous - no login)
@@ -79,37 +81,45 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 
 ### Backend
 - Express.js REST API
-- Firebase Admin SDK for Firestore and Auth operations
+- PostgreSQL with Drizzle ORM for all data persistence
+- Database transactions for multi-step operations
+- Passport.js local strategy for authentication
+- bcrypt for password hashing (10 salt rounds)
 - Haversine formula for distance calculations (50m radius matching)
 - Stripe webhook with signature verification
 - Resend email notifications
-- `/api/company/register` - Atomic user+company creation for company admins
-- `/api/cleaner/create` - Create cleaner profile linked to company
+- WebSocket pub/sub for real-time job updates
+- multer for file uploads (trade licenses, job photos)
+- `/api/auth/register/*` - Registration endpoints for admin/company/cleaner
+- `/api/auth/login` - Authentication endpoint
 - `/api/companies/all` - Get all companies for registration dropdown
 
 ### Security
-- Firebase Authentication with Email/Password (staff roles only)
+- Session-based authentication with Passport.js (staff roles only)
+- SameSite='lax' cookies with CSRF protection
 - Anonymous customer booking (no authentication required)
 - Role-based access control and redirects
 - Stripe webhook signature verification
-- Protected API endpoints
+- Protected API endpoints with session middleware
 - User profiles store role and companyId for authorization
+- 30-day session cookies with secure storage in PostgreSQL
 
 ## Environment Variables Required
-- `VITE_FIREBASE_PROJECT_ID`
-- `VITE_FIREBASE_APP_ID`
-- `VITE_FIREBASE_API_KEY`
-- `VITE_STRIPE_PUBLIC_KEY`
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET` (optional for development)
-- `GOOGLE_APPLICATION_CREDENTIALS` (for Firebase Admin in production)
+- `DATABASE_URL` - PostgreSQL connection string (provided by Replit)
+- `SESSION_SECRET` - Secret for session encryption
+- `VITE_STRIPE_PUBLIC_KEY` - Stripe publishable key
+- `STRIPE_SECRET_KEY` - Stripe secret key
+- `STRIPE_WEBHOOK_SECRET` - (optional for development)
 
 ## Development Notes
 
-### Firebase Setup
-- Firebase Admin uses Application Default Credentials
-- For local dev, gcloud SDK provides credentials
-- For Replit deployment, credentials come from environment
+### Database Setup
+- PostgreSQL database provided by Replit
+- Drizzle ORM for schema management and queries
+- Session store using connect-pg-simple
+- File uploads stored locally in `uploads/` directory
+- Run `npm run db:push` to sync schema to database
+- Run `tsx server/seed.ts` to create test data
 
 ### Stripe Webhook
 - Development: Can work without webhook secret (signature verification skipped)
@@ -121,10 +131,24 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 - 50-meter radius for company/cleaner matching
 - Closest cleaner auto-assigned after payment
 
-### Seed Data
-Run `tsx server/seed.ts` to create test companies and cleaners
+### WebSocket Real-time Updates
+- WebSocket server for real-time job status updates
+- Clients subscribe to job updates by jobId
+- Automatic updates when job status changes (assigned, in progress, completed)
 
 ## Recent Changes
+- 2025-11-05: **Complete PostgreSQL Migration**
+  - Migrated from Firebase (Auth + Firestore + Storage) to PostgreSQL + Passport.js
+  - Implemented Passport.js local strategy with bcrypt password hashing
+  - Converted all 17 API endpoints from Firestore to PostgreSQL with Drizzle ORM
+  - Added database transactions for atomic multi-step operations (company registration, cleaner creation)
+  - Implemented session-based authentication with connect-pg-simple session store
+  - Added WebSocket server for real-time job status updates (replacing Firestore listeners)
+  - Implemented file upload handling with multer for trade licenses and job photos
+  - Added CSRF protection with SameSite='lax' cookies
+  - Updated frontend auth context to use session-based API
+  - Removed all Firebase dependencies (firebase, firebase-admin packages)
+  - 30-day persistent sessions with PostgreSQL storage
 - 2025-11-05: **Company Registration & Authentication Improvements**
   - Added trade license number and document upload fields to company registration
   - Made email authentication case-insensitive (normalized to lowercase)
