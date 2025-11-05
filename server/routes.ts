@@ -9,6 +9,7 @@ import passport from "./auth";
 import { storage } from "./storage";
 import { requireAuth, requireRole, optionalAuth } from "./middleware";
 import { sendEmail } from "./lib/resend";
+import { broadcastJobUpdate } from "./websocket";
 import { 
   JobStatus, 
   CleanerStatus, 
@@ -372,6 +373,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateJob(job.id, {
             status: JobStatus.PAID,
           });
+          
+          // Broadcast update
+          const updatedJob = await storage.getJob(job.id);
+          if (updatedJob) broadcastJobUpdate(updatedJob);
 
           // Assign to closest available cleaner within 50m
           const cleaners = await storage.getCompanyCleaners(job.companyId, CleanerStatus.ON_DUTY);
@@ -401,6 +406,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 status: JobStatus.ASSIGNED,
                 assignedAt: new Date(),
               });
+              
+              // Broadcast assignment
+              const assignedJob = await storage.getJob(job.id);
+              if (assignedJob) broadcastJobUpdate(assignedJob);
 
               // Update cleaner status
               await storage.updateCleaner(closestCleaner.cleaner.id, {
@@ -546,6 +555,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateCleaner(cleaner.id, {
         status: CleanerStatus.BUSY,
       });
+      
+      // Broadcast job assignment
+      const assignedJob = await storage.getJob(parseInt(jobId));
+      if (assignedJob) broadcastJobUpdate(assignedJob);
 
       res.json({ success: true });
     } catch (error: any) {
@@ -562,6 +575,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: JobStatus.IN_PROGRESS,
         startedAt: new Date(),
       });
+      
+      // Broadcast job start
+      const startedJob = await storage.getJob(parseInt(jobId));
+      if (startedJob) broadcastJobUpdate(startedJob);
 
       res.json({ success: true });
     } catch (error: any) {
@@ -585,6 +602,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         completedAt: new Date(),
         proofPhotoURL,
       });
+      
+      // Broadcast job completion
+      const completedJob = await storage.getJob(parseInt(jobId));
+      if (completedJob) broadcastJobUpdate(completedJob);
 
       // Update cleaner status back to on-duty
       const cleaner = await storage.getCleanerByUserId(req.user!.id);
