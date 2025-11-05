@@ -4,11 +4,10 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { MapPin, Car, Phone, Building2 } from "lucide-react";
+import { Car, Phone, Building2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { createJobSchema } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import LocationPicker from "@/components/location-picker";
 
 export default function CustomerHome() {
   const { currentUser } = useAuth();
@@ -18,20 +17,45 @@ export default function CustomerHome() {
   const [formData, setFormData] = useState({
     carPlateNumber: "",
     locationAddress: "",
+    locationLatitude: 0,
+    locationLongitude: 0,
     parkingNumber: "",
     customerPhone: "",
   });
+  
+  const [showMap, setShowMap] = useState(false);
+
+  const handleLocationSelect = (location: {
+    address: string;
+    latitude: number;
+    longitude: number;
+  }) => {
+    setFormData({
+      ...formData,
+      locationAddress: location.address,
+      locationLatitude: location.latitude,
+      locationLongitude: location.longitude,
+    });
+    setShowMap(false);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Basic validation
+    // Validation
+    if (!formData.locationAddress || formData.locationLatitude === 0) {
+      toast({
+        title: "Location Required",
+        description: "Please select your location on the map",
+        variant: "destructive",
+      });
+      setShowMap(true);
+      return;
+    }
+    
     try {
-      // For now, use hardcoded coordinates (will be replaced with actual geocoding)
       const jobData = {
         ...formData,
-        locationLatitude: 1.3521, // Singapore coordinates as example
-        locationLongitude: 103.8198,
         companyId: "", // Will be selected in next step
         customerId: currentUser?.id || "temp-customer",
       };
@@ -97,25 +121,36 @@ export default function CustomerHome() {
               />
             </div>
 
-            {/* Location */}
-            <div className="space-y-2">
-              <Label htmlFor="locationAddress" className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                Location Address
-              </Label>
-              <Textarea
-                id="locationAddress"
-                data-testid="input-location"
-                placeholder="Enter your current location or mall name"
-                value={formData.locationAddress}
-                onChange={(e) =>
-                  setFormData({ ...formData, locationAddress: e.target.value })
+            {/* Location Picker */}
+            {!showMap && formData.locationAddress ? (
+              <div className="space-y-2">
+                <Label>Selected Location</Label>
+                <div className="p-3 bg-muted rounded-md">
+                  <p className="text-sm" data-testid="text-selected-location">
+                    {formData.locationAddress}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => setShowMap(true)}
+                    data-testid="button-change-location"
+                  >
+                    Change Location
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <LocationPicker
+                onLocationSelect={handleLocationSelect}
+                initialPosition={
+                  formData.locationLatitude !== 0
+                    ? [formData.locationLatitude, formData.locationLongitude]
+                    : undefined
                 }
-                required
-                rows={2}
-                className="text-base resize-none"
               />
-            </div>
+            )}
 
             {/* Parking Number (Optional) */}
             <div className="space-y-2">
