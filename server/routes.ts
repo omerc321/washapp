@@ -629,6 +629,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get company cleaners
+  app.get("/api/company/cleaners", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(400).json({ message: "No company associated with user" });
+      }
+
+      const cleaners = await storage.getCompanyCleaners(req.user.companyId);
+      res.json(cleaners);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Add cleaner to company
+  app.post("/api/company/add-cleaner", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(400).json({ message: "No company associated with user" });
+      }
+
+      const { email, password, displayName, phoneNumber } = req.body;
+
+      // Create cleaner with user
+      const result = await storage.createCleanerWithUser({
+        email,
+        password,
+        displayName,
+        phoneNumber,
+        companyId: req.user.companyId,
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ===== ADMIN ROUTES =====
 
   // Get platform analytics
@@ -636,6 +674,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const analytics = await storage.getAdminAnalytics();
       res.json(analytics);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get pending companies for approval
+  app.get("/api/admin/pending-companies", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
+    try {
+      const companies = await storage.getPendingCompanies();
+      res.json(companies);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Approve company
+  app.post("/api/admin/approve-company/:companyId", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
+    try {
+      const { companyId } = req.params;
+      await storage.approveCompany(parseInt(companyId));
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Reject company
+  app.post("/api/admin/reject-company/:companyId", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
+    try {
+      const { companyId } = req.params;
+      await storage.rejectCompany(parseInt(companyId));
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

@@ -41,6 +41,7 @@ export const companies = pgTable("companies", {
   adminId: integer("admin_id").notNull(),
   tradeLicenseNumber: varchar("trade_license_number", { length: 100 }),
   tradeLicenseDocumentURL: text("trade_license_document_url"),
+  isActive: integer("is_active").notNull().default(0),
   totalJobsCompleted: integer("total_jobs_completed").notNull().default(0),
   totalRevenue: numeric("total_revenue", { precision: 10, scale: 2 }).notNull().default("0"),
   rating: numeric("rating", { precision: 3, scale: 2 }).notNull().default("0"),

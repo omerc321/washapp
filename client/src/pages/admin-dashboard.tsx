@@ -1,12 +1,63 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Building2, Users, Briefcase, DollarSign, TrendingUp, CheckCircle2 } from "lucide-react";
-import { AdminAnalytics } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Building2, Users, Briefcase, DollarSign, TrendingUp, CheckCircle2, Check, X } from "lucide-react";
+import { AdminAnalytics, Company } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminDashboard() {
+  const { toast } = useToast();
   const { data: analytics, isLoading } = useQuery<AdminAnalytics>({
     queryKey: ["/api/admin/analytics"],
+  });
+
+  const { data: pendingCompanies, isLoading: isLoadingPending } = useQuery<Company[]>({
+    queryKey: ["/api/admin/pending-companies"],
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async (companyId: number) => {
+      return await apiRequest(`/api/admin/approve-company/${companyId}`, { method: "POST" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/pending-companies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics"] });
+      toast({
+        title: "Company Approved",
+        description: "The company has been approved and is now active.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async (companyId: number) => {
+      return await apiRequest(`/api/admin/reject-company/${companyId}`, { method: "POST" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/pending-companies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics"] });
+      toast({
+        title: "Company Rejected",
+        description: "The company has been rejected.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   if (isLoading) {
@@ -111,6 +162,75 @@ export default function AdminDashboard() {
               </Card>
             );
           })}
+        </div>
+
+        {/* Pending Companies */}
+        <div className="mt-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Pending Company Approvals</CardTitle>
+              <CardDescription>
+                Review and approve new company registrations
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingPending ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : pendingCompanies && pendingCompanies.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Company Name</TableHead>
+                      <TableHead>Admin Email</TableHead>
+                      <TableHead>Price/Wash</TableHead>
+                      <TableHead>License</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pendingCompanies.map((company) => (
+                      <TableRow key={company.id} data-testid={`pending-company-${company.id}`}>
+                        <TableCell className="font-medium">{company.name}</TableCell>
+                        <TableCell className="text-muted-foreground">{company.description || "N/A"}</TableCell>
+                        <TableCell>${company.pricePerWash}</TableCell>
+                        <TableCell className="text-sm">{company.tradeLicenseNumber || "N/A"}</TableCell>
+                        <TableCell className="text-right space-x-2">
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => approveMutation.mutate(company.id)}
+                            disabled={approveMutation.isPending || rejectMutation.isPending}
+                            data-testid={`button-approve-${company.id}`}
+                          >
+                            <Check className="h-4 w-4 mr-1" />
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => rejectMutation.mutate(company.id)}
+                            disabled={approveMutation.isPending || rejectMutation.isPending}
+                            data-testid={`button-reject-${company.id}`}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Reject
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <p className="text-center text-muted-foreground py-8">
+                  No pending companies to review
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

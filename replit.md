@@ -21,7 +21,7 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 1. **Customer**: Request car washes, select companies, pay via Stripe, track jobs (anonymous - no login)
 2. **Cleaner**: Toggle availability, accept jobs, upload completion photos (email/password auth)
 3. **Company Admin**: View company analytics and performance (email/password auth, no approval needed)
-4. **Admin**: Platform-wide analytics and management (email/password auth, register via /register/admin)
+4. **Admin**: Platform-wide analytics, approve/reject companies, manage platform (email/password auth)
 
 ## Key Features
 
@@ -44,11 +44,12 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 7. Start and complete jobs with photo proof upload
 
 ### Company Admin Flow (Email/Password Auth Required)
-1. Register via /register/company (creates user + company - **no admin approval required, auto-active**)
-2. Login via /login with email/password (case-insensitive)
-3. Provide trade license number and upload trade license document (optional)
-4. View company analytics and performance
-5. Manage company settings
+1. Register via /register/company (creates user + company - **requires admin approval**)
+2. Wait for admin approval before company becomes active
+3. Login via /login with email/password (case-insensitive)
+4. Add car washers (cleaners) to the company
+5. View company analytics and performance
+6. Manage company settings
 
 ### Payment & Assignment
 - Stripe payment creates job in PENDING_PAYMENT status

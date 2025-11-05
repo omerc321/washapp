@@ -30,6 +30,9 @@ export interface IStorage {
   
   // Company operations
   getAllCompanies(): Promise<Company[]>;
+  getPendingCompanies(): Promise<Company[]>;
+  approveCompany(companyId: number): Promise<void>;
+  rejectCompany(companyId: number): Promise<void>;
   getCompany(id: number): Promise<Company | undefined>;
   createCompany(company: InsertCompany): Promise<Company>;
   updateCompany(id: number, updates: Partial<Company>): Promise<void>;
@@ -181,6 +184,22 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(companies);
   }
 
+  async getPendingCompanies(): Promise<Company[]> {
+    return await db.select().from(companies).where(eq(companies.isActive, 0));
+  }
+
+  async approveCompany(companyId: number): Promise<void> {
+    await db
+      .update(companies)
+      .set({ isActive: 1 })
+      .where(eq(companies.id, companyId));
+  }
+
+  async rejectCompany(companyId: number): Promise<void> {
+    // For now, just delete the company. In production, you might want to keep a record
+    await db.delete(companies).where(eq(companies.id, companyId));
+  }
+
   async getCompany(id: number): Promise<Company | undefined> {
     const [company] = await db.select().from(companies).where(eq(companies.id, id));
     return company;
@@ -203,7 +222,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNearbyCompanies(lat: number, lon: number, maxDistanceMeters: number): Promise<CompanyWithCleaners[]> {
-    // Get all companies with on-duty cleaners
+    // Get all ACTIVE companies with on-duty cleaners
     const companiesWithCleaners = await db
       .select({
         company: companies,
@@ -211,7 +230,10 @@ export class DatabaseStorage implements IStorage {
       })
       .from(companies)
       .innerJoin(cleaners, eq(cleaners.companyId, companies.id))
-      .where(eq(cleaners.status, "on_duty"));
+      .where(and(
+        eq(cleaners.status, "on_duty"),
+        eq(companies.isActive, 1)
+      ));
 
     // Calculate distances and filter
     const companyMap = new Map<number, CompanyWithCleaners>();
