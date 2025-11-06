@@ -94,6 +94,21 @@ export default function CustomerHome() {
     }
   };
 
+  const [mode, setMode] = useState<'book' | 'track'>('book');
+  const [trackingPlate, setTrackingPlate] = useState("");
+
+  const handleTrack = () => {
+    if (!trackingPlate.trim()) {
+      toast({
+        title: "Plate Number Required",
+        description: "Please enter your car plate number",
+        variant: "destructive",
+      });
+      return;
+    }
+    setLocation(`/customer/track/${trackingPlate.toUpperCase()}`);
+  };
+
   return (
     <div className="min-h-screen bg-background p-4 pb-20">
       <div className="max-w-md mx-auto">
@@ -113,35 +128,86 @@ export default function CustomerHome() {
               Staff Login
             </Button>
           </div>
+          
+          {/* Mode Selector */}
+          <div className="flex gap-2 mb-4">
+            <Button 
+              variant={mode === 'book' ? 'default' : 'outline'}
+              className="flex-1"
+              onClick={() => setMode('book')}
+              data-testid="button-book-mode"
+            >
+              Book New Wash
+            </Button>
+            <Button 
+              variant={mode === 'track' ? 'default' : 'outline'}
+              className="flex-1"
+              onClick={() => setMode('track')}
+              data-testid="button-track-mode"
+            >
+              Track Your Wash
+            </Button>
+          </div>
+          
           <h2 className="text-xl font-semibold text-foreground mb-1">
-            Request Car Wash
+            {mode === 'book' ? 'Request Car Wash' : 'Track Your Wash'}
           </h2>
           <p className="text-muted-foreground">
-            Fill in your details to get started
+            {mode === 'book' ? 'Fill in your details to get started' : 'Enter your car plate number to track status'}
           </p>
         </div>
 
         {/* Form Card */}
         <Card className="p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Car Plate Number */}
-            <div className="space-y-2">
-              <Label htmlFor="carPlateNumber" className="flex items-center gap-2">
-                <Car className="h-4 w-4" />
-                Car Plate Number
-              </Label>
-              <Input
-                id="carPlateNumber"
-                data-testid="input-plate-number"
-                placeholder="e.g. ABC 1234"
-                value={formData.carPlateNumber}
-                onChange={(e) =>
-                  setFormData({ ...formData, carPlateNumber: e.target.value.toUpperCase() })
-                }
-                required
-                className="text-base"
-              />
+          {mode === 'track' ? (
+            /* Tracking Form */
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="trackingPlate" className="flex items-center gap-2">
+                  <Car className="h-4 w-4" />
+                  Car Plate Number
+                </Label>
+                <Input
+                  id="trackingPlate"
+                  data-testid="input-tracking-plate"
+                  placeholder="e.g. ABC 1234"
+                  value={trackingPlate}
+                  onChange={(e) => setTrackingPlate(e.target.value.toUpperCase())}
+                  className="text-base"
+                  onKeyDown={(e) => e.key === 'Enter' && handleTrack()}
+                />
+              </div>
+              <Button
+                type="button"
+                className="w-full"
+                size="lg"
+                onClick={handleTrack}
+                data-testid="button-track"
+              >
+                Track My Wash
+              </Button>
             </div>
+          ) : (
+            /* Booking Form */
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Car Plate Number */}
+              <div className="space-y-2">
+                <Label htmlFor="carPlateNumber" className="flex items-center gap-2">
+                  <Car className="h-4 w-4" />
+                  Car Plate Number
+                </Label>
+                <Input
+                  id="carPlateNumber"
+                  data-testid="input-plate-number"
+                  placeholder="e.g. ABC 1234"
+                  value={formData.carPlateNumber}
+                  onChange={(e) =>
+                    setFormData({ ...formData, carPlateNumber: e.target.value.toUpperCase() })
+                  }
+                  required
+                  className="text-base"
+                />
+              </div>
 
             {/* Location Picker */}
             {!showMap && formData.locationAddress ? (
@@ -215,16 +281,17 @@ export default function CustomerHome() {
               </p>
             </div>
 
-            {/* Submit Button */}
-            <Button
-              type="submit"
-              className="w-full"
-              size="lg"
-              data-testid="button-continue"
-            >
-              Continue to Select Company
-            </Button>
-          </form>
+              {/* Submit Button */}
+              <Button
+                type="submit"
+                className="w-full"
+                size="lg"
+                data-testid="button-continue"
+              >
+                Continue to Select Company
+              </Button>
+            </form>
+          )}
         </Card>
       </div>
     </div>

@@ -521,6 +521,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get jobs by car plate number (for tracking)
+  app.get("/api/jobs/track/:plateNumber", async (req: Request, res: Response) => {
+    try {
+      const { plateNumber } = req.params;
+      if (!plateNumber) {
+        return res.status(400).json({ message: "Plate number is required" });
+      }
+      const jobs = await storage.getJobsByPlateNumber(plateNumber);
+      res.json(jobs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Rate a completed job
   app.post("/api/jobs/:jobId/rate", async (req: Request, res: Response) => {
     try {
