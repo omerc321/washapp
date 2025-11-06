@@ -26,7 +26,7 @@ import {
   type CompanyWithCleaners,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, gte, inArray, isNull } from "drizzle-orm";
+import { eq, and, desc, sql, gte, inArray, isNull, isNotNull } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { pool } from "./db";
 
@@ -249,50 +249,64 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNearbyCompanies(lat: number, lon: number, maxDistanceMeters: number): Promise<CompanyWithCleaners[]> {
-    console.log('[getNearbyCompanies] Input:', { lat, lon, maxDistanceMeters, latType: typeof lat, lonType: typeof lon });
+    // Use raw SQL query to avoid Drizzle ORM issues
+    const query = `
+      SELECT 
+        c.id as company_id,
+        c.name,
+        c.description,
+        c.price_per_wash,
+        c.total_jobs_completed,
+        c.total_revenue,
+        c.rating,
+        cl.id as cleaner_id,
+        cl.current_latitude,
+        cl.current_longitude
+      FROM companies c
+      INNER JOIN cleaners cl ON cl.company_id = c.id
+      WHERE cl.status = 'on_duty' 
+        AND c.is_active = 1
+        AND cl.current_latitude IS NOT NULL
+        AND cl.current_longitude IS NOT NULL
+    `;
     
-    // Get all ACTIVE companies with on-duty cleaners  
-    const companiesWithCleaners = await db
-      .select({
-        company: companies,
-        cleaner: cleaners,
-      })
-      .from(companies)
-      .innerJoin(cleaners, eq(cleaners.companyId, companies.id))
-      .where(and(
-        eq(cleaners.status, "on_duty"),
-        eq(companies.isActive, 1)
-      ));
-    
-    console.log('[getNearbyCompanies] Query returned', companiesWithCleaners.length, 'rows');
+    const result = await pool.query(query);
+    const rows = result.rows;
 
     // Calculate distances and filter
     const companyMap = new Map<number, CompanyWithCleaners>();
     
-    for (const row of companiesWithCleaners) {
-      const { company, cleaner } = row;
+    for (const row of rows) {
+      const cleanerLat = parseFloat(row.current_latitude);
+      const cleanerLon = parseFloat(row.current_longitude);
       
-      if (cleaner.currentLatitude && cleaner.currentLongitude) {
-        const distance = this.calculateDistance(
-          lat,
-          lon,
-          parseFloat(cleaner.currentLatitude as any),
-          parseFloat(cleaner.currentLongitude as any)
-        );
+      const distance = this.calculateDistance(lat, lon, cleanerLat, cleanerLon);
+      
+      if (distance <= maxDistanceMeters) {
+        const companyId = row.company_id;
+        const existing = companyMap.get(companyId);
         
-        if (distance <= maxDistanceMeters) {
-          const existing = companyMap.get(company.id);
-          
-          if (!existing) {
-            companyMap.set(company.id, {
-              ...company,
-              onDutyCleanersCount: 1,
-              distanceInMeters: distance,
-            });
-          } else {
-            existing.onDutyCleanersCount++;
-            existing.distanceInMeters = Math.min(existing.distanceInMeters || Infinity, distance);
-          }
+        if (!existing) {
+          companyMap.set(companyId, {
+            id: row.company_id,
+            name: row.name,
+            description: row.description,
+            pricePerWash: row.price_per_wash,
+            adminId: 0, // Not needed for nearby companies
+            tradeLicenseNumber: null,
+            tradeLicenseDocumentURL: null,
+            isActive: 1,
+            totalJobsCompleted: row.total_jobs_completed,
+            totalRevenue: row.total_revenue,
+            rating: row.rating,
+            totalRatings: 0,
+            createdAt: new Date(),
+            onDutyCleanersCount: 1,
+            distanceInMeters: distance,
+          });
+        } else {
+          existing.onDutyCleanersCount++;
+          existing.distanceInMeters = Math.min(existing.distanceInMeters || Infinity, distance);
         }
       }
     }
