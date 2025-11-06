@@ -486,6 +486,19 @@ export class DatabaseStorage implements IStorage {
 
   async getJobsByCompany(companyId: number, status?: JobStatus): Promise<Job[]> {
     if (status) {
+      // For PAID status, only return jobs without a cleaner assigned (available jobs)
+      if (status === JobStatus.PAID) {
+        return await db
+          .select()
+          .from(jobs)
+          .where(and(
+            eq(jobs.companyId, companyId),
+            eq(jobs.status, status),
+            isNull(jobs.cleanerId)
+          ))
+          .orderBy(desc(jobs.createdAt));
+      }
+      
       return await db
         .select()
         .from(jobs)
