@@ -16,6 +16,7 @@ import CustomerHome from "@/pages/customer-home";
 import SelectCompany from "@/pages/select-company";
 import Checkout from "@/pages/checkout";
 import CustomerJobs from "@/pages/customer-jobs";
+import CustomerTracking from "@/pages/customer-tracking";
 import CleanerDashboard from "@/pages/cleaner-dashboard";
 import AdminDashboard from "@/pages/admin-dashboard";
 import CompanyDashboard from "@/pages/company-dashboard";
@@ -69,6 +70,7 @@ function Router() {
         <Route path="/customer/select-company" component={SelectCompany} />
         <Route path="/customer/checkout" component={Checkout} />
         <Route path="/customer/jobs" component={CustomerJobs} />
+        <Route path="/customer/track" component={CustomerTracking} />
 
         {/* Cleaner Routes - Auth required */}
         <Route path="/cleaner">

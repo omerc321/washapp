@@ -4,6 +4,8 @@ import {
   cleaners, 
   jobs,
   cleanerInvitations,
+  customers,
+  shiftSessions,
   type User, 
   type InsertUser,
   type Company,
@@ -14,6 +16,10 @@ import {
   type InsertJob,
   type CleanerInvitation,
   type InsertCleanerInvitation,
+  type Customer,
+  type InsertCustomer,
+  type ShiftSession,
+  type InsertShiftSession,
   UserRole,
   JobStatus,
   CleanerStatus,
@@ -80,10 +86,22 @@ export interface IStorage {
   createJob(job: InsertJob): Promise<Job>;
   getJob(id: number): Promise<Job | undefined>;
   updateJob(id: number, updates: Partial<Job>): Promise<void>;
-  getJobsByCustomer(customerId: string): Promise<Job[]>;
+  getJobsByCustomer(customerId: number): Promise<Job[]>;
   getJobsByCleaner(cleanerId: number): Promise<Job[]>;
   getJobsByCompany(companyId: number, status?: JobStatus): Promise<Job[]>;
   getJobByPaymentIntent(paymentIntentId: string): Promise<Job | undefined>;
+  acceptJob(jobId: number, cleanerId: number): Promise<boolean>;
+  
+  // Customer operations
+  createOrGetCustomer(phoneNumber: string, displayName?: string): Promise<Customer>;
+  getCustomerByPhone(phoneNumber: string): Promise<Customer | undefined>;
+  updateCustomerLastLogin(id: number): Promise<void>;
+  
+  // Shift session operations
+  startShift(cleanerId: number): Promise<ShiftSession>;
+  endShift(cleanerId: number): Promise<void>;
+  getActiveShift(cleanerId: number): Promise<ShiftSession | undefined>;
+  getCleanerShiftHistory(cleanerId: number, limit?: number): Promise<ShiftSession[]>;
   
   // Analytics
   getAdminAnalytics(): Promise<any>;
@@ -432,7 +450,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(jobs.id, id));
   }
 
-  async getJobsByCustomer(customerId: string): Promise<Job[]> {
+  async getJobsByCustomer(customerId: number): Promise<Job[]> {
     return await db
       .select()
       .from(jobs)
@@ -474,6 +492,140 @@ export class DatabaseStorage implements IStorage {
       .where(eq(jobs.stripePaymentIntentId, paymentIntentId));
     
     return job;
+  }
+
+  async acceptJob(jobId: number, cleanerId: number): Promise<boolean> {
+    const result = await db.transaction(async (tx) => {
+      const [job] = await tx
+        .select()
+        .from(jobs)
+        .where(and(
+          eq(jobs.id, jobId),
+          eq(jobs.status, JobStatus.PAID)
+        ))
+        .for('update');
+
+      if (!job || job.cleanerId !== null) {
+        return false;
+      }
+
+      await tx
+        .update(jobs)
+        .set({
+          cleanerId,
+          status: JobStatus.ASSIGNED,
+          assignedAt: new Date(),
+          acceptedAt: new Date(),
+        })
+        .where(eq(jobs.id, jobId));
+
+      await tx
+        .update(cleaners)
+        .set({ status: CleanerStatus.BUSY })
+        .where(eq(cleaners.id, cleanerId));
+
+      return true;
+    });
+
+    return result;
+  }
+
+  // ===== CUSTOMER OPERATIONS =====
+
+  async createOrGetCustomer(phoneNumber: string, displayName?: string): Promise<Customer> {
+    const existing = await this.getCustomerByPhone(phoneNumber);
+    if (existing) {
+      await this.updateCustomerLastLogin(existing.id);
+      return existing;
+    }
+
+    const [customer] = await db
+      .insert(customers)
+      .values({
+        phoneNumber,
+        displayName,
+      })
+      .returning();
+
+    return customer;
+  }
+
+  async getCustomerByPhone(phoneNumber: string): Promise<Customer | undefined> {
+    const [customer] = await db
+      .select()
+      .from(customers)
+      .where(eq(customers.phoneNumber, phoneNumber));
+    return customer;
+  }
+
+  async updateCustomerLastLogin(id: number): Promise<void> {
+    await db
+      .update(customers)
+      .set({ lastLoginAt: new Date() })
+      .where(eq(customers.id, id));
+  }
+
+  // ===== SHIFT SESSION OPERATIONS =====
+
+  async startShift(cleanerId: number): Promise<ShiftSession> {
+    await this.endShift(cleanerId);
+
+    const [session] = await db
+      .insert(shiftSessions)
+      .values({ cleanerId })
+      .returning();
+
+    await db
+      .update(cleaners)
+      .set({ status: CleanerStatus.ON_DUTY })
+      .where(eq(cleaners.id, cleanerId));
+
+    return session;
+  }
+
+  async endShift(cleanerId: number): Promise<void> {
+    const activeShift = await this.getActiveShift(cleanerId);
+    if (!activeShift) return;
+
+    const endedAt = new Date();
+    const durationMinutes = Math.floor(
+      (endedAt.getTime() - new Date(activeShift.startedAt).getTime()) / (1000 * 60)
+    );
+
+    await db
+      .update(shiftSessions)
+      .set({
+        endedAt,
+        durationMinutes,
+      })
+      .where(eq(shiftSessions.id, activeShift.id));
+
+    await db
+      .update(cleaners)
+      .set({ status: CleanerStatus.OFF_DUTY })
+      .where(eq(cleaners.id, cleanerId));
+  }
+
+  async getActiveShift(cleanerId: number): Promise<ShiftSession | undefined> {
+    const [session] = await db
+      .select()
+      .from(shiftSessions)
+      .where(and(
+        eq(shiftSessions.cleanerId, cleanerId),
+        sql`${shiftSessions.endedAt} IS NULL`
+      ))
+      .orderBy(desc(shiftSessions.startedAt))
+      .limit(1);
+    return session;
+  }
+
+  async getCleanerShiftHistory(cleanerId: number, limit: number = 10): Promise<ShiftSession[]> {
+    return await db
+      .select()
+      .from(shiftSessions)
+      .where(eq(shiftSessions.cleanerId, cleanerId))
+      .orderBy(desc(shiftSessions.startedAt))
+      .limit(limit);
   }
 
   // ===== ANALYTICS =====
@@ -579,6 +731,7 @@ export class DatabaseStorage implements IStorage {
       adminId: row.admin_id,
       tradeLicenseNumber: row.trade_license_number,
       tradeLicenseDocumentURL: row.trade_license_document_url,
+      isActive: row.is_active,
       totalJobsCompleted: row.total_jobs_completed,
       totalRevenue: row.total_revenue,
       rating: row.rating,

@@ -39,7 +39,7 @@ export default function CustomerHome() {
     setShowMap(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validation
@@ -53,11 +53,33 @@ export default function CustomerHome() {
       return;
     }
     
+    if (!formData.customerPhone) {
+      toast({
+        title: "Phone Required",
+        description: "Please enter your phone number",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     try {
+      // Create or get customer profile
+      const customerResponse = await fetch("/api/customer/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber: formData.customerPhone }),
+      });
+      
+      if (!customerResponse.ok) {
+        throw new Error("Failed to create customer profile");
+      }
+      
+      const customer = await customerResponse.json();
+      
       const jobData = {
         ...formData,
         companyId: "", // Will be selected in next step
-        customerId: currentUser?.id || "temp-customer",
+        customerId: customer.id,
       };
       
       // Store in session for next step
@@ -65,7 +87,7 @@ export default function CustomerHome() {
       setLocation("/customer/select-company");
     } catch (error: any) {
       toast({
-        title: "Validation Error",
+        title: "Error",
         description: error.message,
         variant: "destructive",
       });

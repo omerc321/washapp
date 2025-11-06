@@ -116,14 +116,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     })(req, res, next);
   });
   
-  // Logout
-  app.post("/api/auth/logout", (req, res) => {
-    req.logout((err) => {
-      if (err) {
-        return res.status(500).json({ message: err.message });
+  // Logout (with auto shift end for cleaners)
+  app.post("/api/auth/logout", async (req, res) => {
+    try {
+      // End active shift if user is a cleaner
+      if (req.user && req.user.role === UserRole.CLEANER) {
+        const cleaner = await storage.getCleanerByUserId(req.user.id);
+        if (cleaner) {
+          const activeShift = await storage.getActiveShift(cleaner.id);
+          if (activeShift) {
+            await storage.endShift(cleaner.id);
+          }
+        }
       }
-      res.json({ success: true });
-    });
+      
+      req.logout((err) => {
+        if (err) {
+          return res.status(500).json({ message: err.message });
+        }
+        res.json({ success: true });
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
   });
   
   // Get current user
@@ -296,6 +311,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // ===== CUSTOMER ROUTES (ANONYMOUS) =====
+
+  // Customer phone-based login/registration
+  app.post("/api/customer/login", async (req: Request, res: Response) => {
+    try {
+      const { phoneNumber, displayName } = req.body;
+      
+      if (!phoneNumber) {
+        return res.status(400).json({ message: "Phone number is required" });
+      }
+      
+      const customer = await storage.createOrGetCustomer(phoneNumber, displayName);
+      res.json(customer);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get customer profile by phone
+  app.get("/api/customer/profile/:phoneNumber", async (req: Request, res: Response) => {
+    try {
+      const customer = await storage.getCustomerByPhone(req.params.phoneNumber);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+      res.json(customer);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
   
   // Get all companies (for registration dropdown)
   app.get("/api/companies/all", async (req: Request, res: Response) => {
@@ -352,15 +396,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create job in database with pending payment status
       const job = await storage.createJob({
-        customerId: jobData.customerId || "temp-customer",
+        customerId: jobData.customerId ? parseInt(jobData.customerId) : undefined,
         companyId: parseInt(jobData.companyId),
         carPlateNumber: jobData.carPlateNumber,
         locationAddress: jobData.locationAddress,
-        locationLatitude: parseFloat(jobData.locationLatitude),
-        locationLongitude: parseFloat(jobData.locationLongitude),
+        locationLatitude: jobData.locationLatitude,
+        locationLongitude: jobData.locationLongitude,
         parkingNumber: jobData.parkingNumber,
         customerPhone: jobData.customerPhone,
-        price: parseFloat(jobData.price),
+        price: jobData.price,
         stripePaymentIntentId: paymentIntent.id,
         status: JobStatus.PENDING_PAYMENT,
       });
@@ -472,9 +516,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get customer's jobs
   app.get("/api/customer/jobs/:customerId?", async (req: Request, res: Response) => {
     try {
-      const customerId = req.params.customerId || req.query.customerId || "temp-customer";
-      const jobs = await storage.getJobsByCustomer(customerId as string);
+      const customerIdParam = req.params.customerId || req.query.customerId;
+      if (!customerIdParam) {
+        return res.status(400).json({ message: "Customer ID is required" });
+      }
+      const customerId = parseInt(customerIdParam as string);
+      const jobs = await storage.getJobsByCustomer(customerId);
       res.json(jobs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Rate a completed job
+  app.post("/api/jobs/:jobId/rate", async (req: Request, res: Response) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      const { rating, review } = req.body;
+      
+      if (!rating || rating < 1 || rating > 5) {
+        return res.status(400).json({ message: "Rating must be between 1 and 5" });
+      }
+      
+      const job = await storage.getJob(jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+      
+      if (job.status !== JobStatus.COMPLETED) {
+        return res.status(400).json({ message: "Job must be completed before rating" });
+      }
+      
+      if (job.rating) {
+        return res.status(400).json({ message: "Job has already been rated" });
+      }
+      
+      await storage.updateJob(jobId, {
+        rating: parseFloat(rating),
+        review: review || null,
+        ratedAt: new Date(),
+      });
+      
+      res.json({ message: "Rating submitted successfully" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -490,6 +573,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Cleaner profile not found" });
       }
       res.json(cleaner);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Start shift
+  app.post("/api/cleaner/start-shift", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
+    try {
+      const cleaner = await storage.getCleanerByUserId(req.user!.id);
+      if (!cleaner) {
+        return res.status(404).json({ message: "Cleaner profile not found" });
+      }
+      
+      const session = await storage.startShift(cleaner.id);
+      res.json(session);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // End shift
+  app.post("/api/cleaner/end-shift", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
+    try {
+      const cleaner = await storage.getCleanerByUserId(req.user!.id);
+      if (!cleaner) {
+        return res.status(404).json({ message: "Cleaner profile not found" });
+      }
+      
+      await storage.endShift(cleaner.id);
+      res.json({ message: "Shift ended successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get active shift
+  app.get("/api/cleaner/shift-status", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
+    try {
+      const cleaner = await storage.getCleanerByUserId(req.user!.id);
+      if (!cleaner) {
+        return res.status(404).json({ message: "Cleaner profile not found" });
+      }
+      
+      const activeShift = await storage.getActiveShift(cleaner.id);
+      res.json({ activeShift, cleaner });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get shift history
+  app.get("/api/cleaner/shift-history", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
+    try {
+      const cleaner = await storage.getCleanerByUserId(req.user!.id);
+      if (!cleaner) {
+        return res.status(404).json({ message: "Cleaner profile not found" });
+      }
+      
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const history = await storage.getCleanerShiftHistory(cleaner.id, limit);
+      res.json(history);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Accept job (single cleaner can accept with locking)
+  app.post("/api/cleaner/accept-job/:jobId", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
+    try {
+      const cleaner = await storage.getCleanerByUserId(req.user!.id);
+      if (!cleaner) {
+        return res.status(404).json({ message: "Cleaner profile not found" });
+      }
+      
+      const jobId = parseInt(req.params.jobId);
+      const accepted = await storage.acceptJob(jobId, cleaner.id);
+      
+      if (!accepted) {
+        return res.status(409).json({ message: "Job already assigned or not available" });
+      }
+      
+      const job = await storage.getJob(jobId);
+      
+      // Broadcast update via WebSocket
+      if (job) {
+        broadcastJobUpdate(job);
+      }
+      
+      res.json({ message: "Job accepted successfully", job });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -565,31 +737,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Accept job
+  // Accept job (uses transactional locking)
   app.post("/api/cleaner/accept-job/:jobId", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
     try {
-      const { jobId } = req.params;
       const cleaner = await storage.getCleanerByUserId(req.user!.id);
-
       if (!cleaner) {
-        return res.status(404).json({ message: "Cleaner not found" });
+        return res.status(404).json({ message: "Cleaner profile not found" });
       }
-
-      await storage.updateJob(parseInt(jobId), {
-        cleanerId: cleaner.id,
-        status: JobStatus.ASSIGNED,
-        assignedAt: new Date(),
-      });
-
-      await storage.updateCleaner(cleaner.id, {
-        status: CleanerStatus.BUSY,
-      });
       
-      // Broadcast job assignment
-      const assignedJob = await storage.getJob(parseInt(jobId));
-      if (assignedJob) broadcastJobUpdate(assignedJob);
-
-      res.json({ success: true });
+      const jobId = parseInt(req.params.jobId);
+      const accepted = await storage.acceptJob(jobId, cleaner.id);
+      
+      if (!accepted) {
+        return res.status(409).json({ message: "Job already assigned or not available" });
+      }
+      
+      const job = await storage.getJob(jobId);
+      
+      // Broadcast update via WebSocket
+      if (job) {
+        broadcastJobUpdate(job);
+      }
+      
+      res.json({ message: "Job accepted successfully", job });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

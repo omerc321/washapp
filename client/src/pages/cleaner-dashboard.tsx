@@ -38,6 +38,44 @@ export default function CleanerDashboard() {
     enabled: !!cleaner,
   });
 
+  // Get shift status
+  const { data: shiftData } = useQuery<{ activeShift: any; cleaner: Cleaner }>({
+    queryKey: ["/api/cleaner/shift-status"],
+    enabled: !!cleaner,
+  });
+
+  // Start shift mutation
+  const startShift = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/cleaner/start-shift", {});
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/shift-status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/profile"] });
+      toast({
+        title: "Shift Started",
+        description: "You are now on duty",
+      });
+    },
+  });
+
+  // End shift mutation
+  const endShift = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/cleaner/end-shift", {});
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/shift-status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/profile"] });
+      toast({
+        title: "Shift Ended",
+        description: "You are now off duty",
+      });
+    },
+  });
+
   // Toggle availability mutation
   const toggleAvailability = useMutation({
     mutationFn: async (status: CleanerStatus) => {
@@ -154,7 +192,7 @@ export default function CleanerDashboard() {
               </Badge>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <Label htmlFor="availability" className="text-base">
                 Available for Jobs
@@ -167,6 +205,45 @@ export default function CleanerDashboard() {
                 }
                 data-testid="switch-availability"
               />
+            </div>
+
+            {/* Shift Status */}
+            <div className="pt-4 border-t">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className={shiftData?.activeShift ? "text-green-500" : "text-muted-foreground"} />
+                  <div>
+                    <p className="text-sm font-medium">
+                      {shiftData?.activeShift ? "Shift Active" : "No Active Shift"}
+                    </p>
+                    {shiftData?.activeShift && (
+                      <p className="text-xs text-muted-foreground">
+                        Started {new Date(shiftData.activeShift.startedAt).toLocaleTimeString()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {shiftData?.activeShift ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => endShift.mutate()}
+                    disabled={endShift.isPending}
+                    data-testid="button-end-shift"
+                  >
+                    End Shift
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={() => startShift.mutate()}
+                    disabled={startShift.isPending}
+                    data-testid="button-start-shift"
+                  >
+                    Start Shift
+                  </Button>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>

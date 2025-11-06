@@ -33,6 +33,19 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   }),
 }));
 
+// Customers Table (phone-based profiles)
+export const customers = pgTable("customers", {
+  id: serial("id").primaryKey(),
+  phoneNumber: varchar("phone_number", { length: 50 }).notNull().unique(),
+  displayName: varchar("display_name", { length: 255 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastLoginAt: timestamp("last_login_at"),
+});
+
+export const customersRelations = relations(customers, ({ many }) => ({
+  jobs: many(jobs),
+}));
+
 // Companies Table
 export const companies = pgTable("companies", {
   id: serial("id").primaryKey(),
@@ -111,7 +124,7 @@ export const cleanerInvitationsRelations = relations(cleanerInvitations, ({ one 
 // Jobs Table
 export const jobs = pgTable("jobs", {
   id: serial("id").primaryKey(),
-  customerId: varchar("customer_id", { length: 255 }),
+  customerId: integer("customer_id"),
   companyId: integer("company_id").notNull(),
   cleanerId: integer("cleaner_id"),
   
@@ -131,6 +144,7 @@ export const jobs = pgTable("jobs", {
   status: jobStatusEnum("status").notNull().default("pending_payment"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   assignedAt: timestamp("assigned_at"),
+  acceptedAt: timestamp("accepted_at"),
   startedAt: timestamp("started_at"),
   completedAt: timestamp("completed_at"),
   
@@ -140,6 +154,8 @@ export const jobs = pgTable("jobs", {
   // Rating and review
   rating: numeric("rating", { precision: 3, scale: 2 }),
   review: text("review"),
+  ratingRequestedAt: timestamp("rating_requested_at"),
+  ratedAt: timestamp("rated_at"),
 });
 
 export const jobsRelations = relations(jobs, ({ one }) => ({
@@ -149,6 +165,26 @@ export const jobsRelations = relations(jobs, ({ one }) => ({
   }),
   cleaner: one(cleaners, {
     fields: [jobs.cleanerId],
+    references: [cleaners.id],
+  }),
+  customer: one(customers, {
+    fields: [jobs.customerId],
+    references: [customers.id],
+  }),
+}));
+
+// Shift Sessions Table (track cleaner work sessions)
+export const shiftSessions = pgTable("shift_sessions", {
+  id: serial("id").primaryKey(),
+  cleanerId: integer("cleaner_id").notNull(),
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  endedAt: timestamp("ended_at"),
+  durationMinutes: integer("duration_minutes"),
+});
+
+export const shiftSessionsRelations = relations(shiftSessions, ({ one }) => ({
+  cleaner: one(cleaners, {
+    fields: [shiftSessions.cleanerId],
     references: [cleaners.id],
   }),
 }));
@@ -216,6 +252,29 @@ export type InsertJob = z.infer<typeof insertJobSchema>;
 
 export type CleanerInvitation = typeof cleanerInvitations.$inferSelect;
 export type InsertCleanerInvitation = z.infer<typeof insertCleanerInvitationSchema>;
+
+export const insertCustomerSchema = createInsertSchema(customers).omit({
+  id: true,
+  createdAt: true,
+  lastLoginAt: true,
+});
+
+export const selectCustomerSchema = createSelectSchema(customers);
+
+export type Customer = typeof customers.$inferSelect;
+export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
+
+export const insertShiftSessionSchema = createInsertSchema(shiftSessions).omit({
+  id: true,
+  startedAt: true,
+  endedAt: true,
+  durationMinutes: true,
+});
+
+export const selectShiftSessionSchema = createSelectSchema(shiftSessions);
+
+export type ShiftSession = typeof shiftSessions.$inferSelect;
+export type InsertShiftSession = z.infer<typeof insertShiftSessionSchema>;
 
 // Additional validation schemas
 export const createJobSchema = z.object({
