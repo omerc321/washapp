@@ -147,6 +147,16 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 - Automatic updates when job status changes (assigned, in progress, completed)
 
 ## Recent Changes
+- 2025-11-06: **Company Analytics Enhancements & Performance Optimization**
+  - Added real-time shift roster to company analytics dashboard
+  - Displays all cleaners with status, performance metrics, and active shift duration
+  - Implemented query performance optimization (eliminated N+1 pattern)
+    - Reduced from O(n) queries to O(2) queries using LEFT JOIN + batch fetch
+    - Batch fetch active shifts using `inArray` with Map for O(1) lookup
+    - Added edge case handling for companies with zero cleaners
+  - Removed type safety issues (`any` casts) in frontend components
+  - CompanyAnalytics schema updated with typed shift roster interface
+  - Backend route: `/api/company/analytics` now includes `shiftRoster` array
 - 2025-11-05: **Cleaner Invitation System**
   - Refactored cleaner onboarding to invitation-based workflow
   - Company admins now invite cleaners by phone number only
