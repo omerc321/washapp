@@ -249,6 +249,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNearbyCompanies(lat: number, lon: number, maxDistanceMeters: number): Promise<CompanyWithCleaners[]> {
+    console.log('[getNearbyCompanies] Input:', { lat, lon, maxDistanceMeters, latType: typeof lat, lonType: typeof lon });
+    
     // Get all ACTIVE companies with on-duty cleaners  
     const companiesWithCleaners = await db
       .select({
@@ -261,6 +263,8 @@ export class DatabaseStorage implements IStorage {
         eq(cleaners.status, "on_duty"),
         eq(companies.isActive, 1)
       ));
+    
+    console.log('[getNearbyCompanies] Query returned', companiesWithCleaners.length, 'rows');
 
     // Calculate distances and filter
     const companyMap = new Map<number, CompanyWithCleaners>();
