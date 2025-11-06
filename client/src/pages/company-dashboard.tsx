@@ -26,7 +26,7 @@ export default function CompanyDashboard() {
   });
 
   const { data: analytics, isLoading } = useQuery<CompanyAnalytics>({
-    queryKey: ["/api/company/analytics", currentUser?.companyId],
+    queryKey: ["/api/company/analytics"],
     enabled: !!currentUser?.companyId,
   });
 
