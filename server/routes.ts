@@ -68,8 +68,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // ===== FILE UPLOAD ROUTES =====
   
-  // Upload trade license document
-  app.post("/api/upload/trade-license", upload.single("tradeLicense"), async (req: Request, res: Response) => {
+  // Upload trade license document (requires company admin auth)
+  app.post("/api/upload/trade-license", requireRole(UserRole.COMPANY_ADMIN), upload.single("tradeLicense"), async (req: Request, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -82,8 +82,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Upload job completion proof photo
-  app.post("/api/upload/proof-photo", upload.single("proofPhoto"), async (req: Request, res: Response) => {
+  // Upload job completion proof photo (requires cleaner auth)
+  app.post("/api/upload/proof-photo", requireRole(UserRole.CLEANER), upload.single("proofPhoto"), async (req: Request, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });

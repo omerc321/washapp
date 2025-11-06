@@ -153,9 +153,31 @@ export default function CleanerDashboard() {
   const handleUploadProof = async (jobId: string) => {
     if (!selectedFile) return;
 
-    const photoURL = `https://placeholder.com/${selectedFile.name}`;
-    
-    completeJob.mutate({ jobId, photoURL });
+    try {
+      // Upload file first
+      const formData = new FormData();
+      formData.append('proofPhoto', selectedFile);
+      
+      const uploadRes = await fetch('/api/upload/proof-photo', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!uploadRes.ok) {
+        throw new Error('File upload failed');
+      }
+      
+      const { url } = await uploadRes.json();
+      
+      // Then complete the job with the uploaded photo URL
+      completeJob.mutate({ jobId, photoURL: url });
+    } catch (error) {
+      toast({
+        title: "Upload Failed",
+        description: "Failed to upload proof photo. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (loadingCleaner) {
