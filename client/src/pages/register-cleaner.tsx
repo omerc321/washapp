@@ -32,17 +32,18 @@ export default function RegisterCleanerPage() {
     setValidatingPhone(true);
     
     try {
-      const response: any = await apiRequest("POST", "/api/auth/validate-cleaner-phone", { phoneNumber });
+      const response = await apiRequest("POST", "/api/auth/validate-cleaner-phone", { phoneNumber });
+      const data = await response.json();
       
-      if (response.valid) {
+      if (data.valid) {
         setCompanyInfo({
-          companyId: response.companyId,
-          companyName: response.companyName,
+          companyId: data.companyId,
+          companyName: data.companyName,
         });
         setStep("register");
         toast({
           title: "Phone Validated",
-          description: `You can now register as a cleaner for ${response.companyName}`,
+          description: `You can now register as a cleaner for ${data.companyName}`,
         });
       }
     } catch (error: any) {

@@ -22,7 +22,7 @@ export default function CleanerDashboard() {
 
   // Get cleaner profile
   const { data: cleaner, isLoading: loadingCleaner } = useQuery<Cleaner>({
-    queryKey: ["/api/cleaner/profile", currentUser?.id],
+    queryKey: ["/api/cleaner/profile"],
     enabled: !!currentUser,
   });
 
