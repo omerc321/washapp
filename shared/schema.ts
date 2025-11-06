@@ -189,6 +189,23 @@ export const shiftSessionsRelations = relations(shiftSessions, ({ one }) => ({
   }),
 }));
 
+// Device Tokens Table (for push notifications)
+export const deviceTokens = pgTable("device_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  token: text("token").notNull().unique(),
+  platform: varchar("platform", { length: 50 }).notNull(), // 'web', 'ios', 'android'
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastUsedAt: timestamp("last_used_at").notNull().defaultNow(),
+});
+
+export const deviceTokensRelations = relations(deviceTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [deviceTokens.userId],
+    references: [users.id],
+  }),
+}));
+
 // Drizzle Zod Schemas for validation
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -275,6 +292,17 @@ export const selectShiftSessionSchema = createSelectSchema(shiftSessions);
 
 export type ShiftSession = typeof shiftSessions.$inferSelect;
 export type InsertShiftSession = z.infer<typeof insertShiftSessionSchema>;
+
+export const insertDeviceTokenSchema = createInsertSchema(deviceTokens).omit({
+  id: true,
+  createdAt: true,
+  lastUsedAt: true,
+});
+
+export const selectDeviceTokenSchema = createSelectSchema(deviceTokens);
+
+export type DeviceToken = typeof deviceTokens.$inferSelect;
+export type InsertDeviceToken = z.infer<typeof insertDeviceTokenSchema>;
 
 // Additional validation schemas
 export const createJobSchema = z.object({

@@ -106,6 +106,12 @@ export interface IStorage {
   // Analytics
   getAdminAnalytics(): Promise<any>;
   getCompanyAnalytics(companyId: number): Promise<any>;
+  
+  // Device token operations (for push notifications)
+  registerDeviceToken(userId: number, token: string, platform: string): Promise<void>;
+  unregisterDeviceToken(token: string): Promise<void>;
+  getUserDeviceTokens(userId: number): Promise<string[]>;
+  updateTokenLastUsed(token: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -784,6 +790,43 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Map database rows to TypeScript types
+  // ===== DEVICE TOKEN OPERATIONS =====
+  
+  async registerDeviceToken(userId: number, token: string, platform: string): Promise<void> {
+    // Use upsert to update lastUsedAt if token already exists
+    await db
+      .insert(deviceTokens)
+      .values({ userId, token, platform })
+      .onConflictDoUpdate({
+        target: deviceTokens.token,
+        set: { lastUsedAt: new Date() }
+      });
+  }
+
+  async unregisterDeviceToken(token: string): Promise<void> {
+    await db
+      .delete(deviceTokens)
+      .where(eq(deviceTokens.token, token));
+  }
+
+  async getUserDeviceTokens(userId: number): Promise<string[]> {
+    const tokens = await db
+      .select({ token: deviceTokens.token })
+      .from(deviceTokens)
+      .where(eq(deviceTokens.userId, userId));
+    
+    return tokens.map(t => t.token);
+  }
+
+  async updateTokenLastUsed(token: string): Promise<void> {
+    await db
+      .update(deviceTokens)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(deviceTokens.token, token));
+  }
+
+  // ===== HELPER METHODS =====
+
   private mapUserRow(row: any): User {
     return {
       id: row.id,
