@@ -131,9 +131,10 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 - Run `npm run db:push` to sync schema to database
 - Run `tsx server/seed.ts` to create test data
 
-### Stripe Webhook
-- Development: Can work without webhook secret (signature verification skipped)
-- Production: Requires STRIPE_WEBHOOK_SECRET for signature verification
+### Stripe Webhook & Payment Confirmation
+- Development: Webhooks don't fire to localhost - client-side auto-confirmation endpoint used (`/api/confirm-payment/:paymentIntentId`)
+- Production: Webhooks fire automatically, requires STRIPE_WEBHOOK_SECRET for signature verification
+- Client calls confirmation endpoint after successful payment in development mode
 - Raw body middleware configured in server/index.ts
 
 ### Distance Calculation
@@ -147,6 +148,13 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 - Automatic updates when job status changes (assigned, in progress, completed)
 
 ## Recent Changes
+- 2025-11-06: **Critical Fixes: Route Ordering & Payment Confirmation**
+  - Fixed Express route ordering bug: `/api/companies/:id` was matching `/api/companies/nearby` 
+  - Moved specific routes before parameterized routes to prevent incorrect pattern matching
+  - Added client-side payment confirmation endpoint `/api/confirm-payment/:paymentIntentId` for development
+  - Updated checkout flow to use `redirect: "if_required"` and auto-confirm payments
+  - Fixed job assignment and WebSocket notifications not firing after payment
+  - Resolved "invalid input syntax for type integer: NaN" error caused by route mismatch
 - 2025-11-06: **Periodic Location Tracking & Proximity Matching Improvements**
   - Implemented periodic location tracking for on-duty cleaners (every 5 minutes)
   - Browser Geolocation API captures cleaner's real-time coordinates

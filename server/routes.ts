@@ -520,6 +520,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Manual payment confirmation endpoint (for development when webhooks don't fire)
+  app.post("/api/confirm-payment/:paymentIntentId", async (req: Request, res: Response) => {
+    try {
+      const { paymentIntentId } = req.params;
+      
+      // Verify payment with Stripe
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      
+      if (paymentIntent.status !== 'succeeded') {
+        return res.status(400).json({ message: "Payment not successful" });
+      }
+      
+      // Find job by payment intent ID
+      const job = await storage.getJobByPaymentIntent(paymentIntentId);
+
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+      
+      if (job.status !== JobStatus.PENDING_PAYMENT) {
+        return res.json({ message: "Job already confirmed", job });
+      }
+
+      // Update job status to PAID
+      await storage.updateJob(job.id, {
+        status: JobStatus.PAID,
+      });
+      
+      // Broadcast update
+      const updatedJob = await storage.getJob(job.id);
+      if (updatedJob) broadcastJobUpdate(updatedJob);
+
+      // Assign to closest available cleaner within 50m
+      const cleaners = await storage.getCompanyCleaners(job.companyId, CleanerStatus.ON_DUTY);
+
+      if (cleaners.length > 0) {
+        // Find the closest on-duty cleaner within 50m
+        let closestCleaner: { cleaner: Cleaner; distance: number } | null = null;
+        
+        for (const cleaner of cleaners) {
+          if (cleaner.currentLatitude && cleaner.currentLongitude) {
+            const distance = calculateDistance(
+              parseFloat(job.locationLatitude as any),
+              parseFloat(job.locationLongitude as any),
+              parseFloat(cleaner.currentLatitude as any),
+              parseFloat(cleaner.currentLongitude as any)
+            );
+            
+            if (distance <= 50 && (!closestCleaner || distance < closestCleaner.distance)) {
+              closestCleaner = { cleaner, distance };
+            }
+          }
+        }
+
+        if (closestCleaner) {
+          await storage.updateJob(job.id, {
+            cleanerId: closestCleaner.cleaner.id,
+            status: JobStatus.ASSIGNED,
+            assignedAt: new Date(),
+          });
+          
+          // Broadcast assignment
+          const assignedJob = await storage.getJob(job.id);
+          if (assignedJob) broadcastJobUpdate(assignedJob);
+
+          // Update cleaner status
+          await storage.updateCleaner(closestCleaner.cleaner.id, {
+            status: CleanerStatus.BUSY,
+          });
+
+          // Send email notification to cleaner
+          const user = await storage.getUser(closestCleaner.cleaner.userId);
+          if (user?.email) {
+            await sendEmail(
+              user.email,
+              "New Job Assigned",
+              `<h2>New Car Wash Job</h2>
+              <p>Car Plate: ${job.carPlateNumber}</p>
+              <p>Location: ${job.locationAddress}</p>
+              <p>Phone: ${job.customerPhone}</p>`
+            );
+          }
+          
+          const finalJob = await storage.getJob(job.id);
+          return res.json({ message: "Payment confirmed and job assigned", job: finalJob });
+        } else {
+          return res.json({ message: "Payment confirmed but no cleaners available", job: updatedJob });
+        }
+      } else {
+        return res.json({ message: "Payment confirmed but no cleaners available", job: updatedJob });
+      }
+    } catch (error: any) {
+      console.error('Payment confirmation error:', error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Get customer's jobs
   app.get("/api/customer/jobs/:customerId?", async (req: Request, res: Response) => {
     try {

@@ -15,7 +15,7 @@ if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
 }
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
-function CheckoutForm() {
+function CheckoutForm({ paymentIntentId }: { paymentIntentId?: string }) {
   const stripe = useStripe();
   const elements = useElements();
   const { toast } = useToast();
@@ -33,9 +33,7 @@ function CheckoutForm() {
 
     const { error } = await stripe.confirmPayment({
       elements,
-      confirmParams: {
-        return_url: window.location.origin + "/customer/jobs",
-      },
+      redirect: "if_required",
     });
 
     if (error) {
@@ -46,10 +44,28 @@ function CheckoutForm() {
       });
       setProcessing(false);
     } else {
-      toast({
-        title: "Payment Successful",
-        description: "Your car wash has been booked!",
-      });
+      // Payment succeeded - manually confirm on backend for development
+      try {
+        if (paymentIntentId) {
+          await apiRequest("POST", `/api/confirm-payment/${paymentIntentId}`, {});
+        }
+        
+        toast({
+          title: "Payment Successful",
+          description: "Your car wash has been booked!",
+        });
+        
+        // Clear pending job and redirect
+        sessionStorage.removeItem("pendingJob");
+        setTimeout(() => setLocation("/customer/jobs"), 1000);
+      } catch (confirmError) {
+        console.error("Payment confirmation error:", confirmError);
+        toast({
+          title: "Payment Processed",
+          description: "Confirming your booking...",
+        });
+        setTimeout(() => setLocation("/customer/jobs"), 2000);
+      }
     }
   };
 
@@ -73,6 +89,7 @@ export default function Checkout() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [clientSecret, setClientSecret] = useState("");
+  const [paymentIntentId, setPaymentIntentId] = useState("");
   const [jobData, setJobData] = useState<any>(null);
 
   useEffect(() => {
@@ -90,6 +107,9 @@ export default function Checkout() {
       .then((res) => res.json())
       .then((data) => {
         setClientSecret(data.clientSecret);
+        // Extract payment intent ID from client secret
+        const piId = data.clientSecret.split('_secret_')[0];
+        setPaymentIntentId(piId);
       })
       .catch((error) => {
         toast({
@@ -183,7 +203,7 @@ export default function Checkout() {
           </CardHeader>
           <CardContent>
             <Elements stripe={stripePromise} options={{ clientSecret }}>
-              <CheckoutForm />
+              <CheckoutForm paymentIntentId={paymentIntentId} />
             </Elements>
           </CardContent>
         </Card>
