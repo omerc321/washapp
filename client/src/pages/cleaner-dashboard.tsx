@@ -439,7 +439,7 @@ function JobCard({ job, action }: { job: Job; action: React.ReactNode }) {
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <div>
-            <CardTitle className="text-lg">Job #{job.id.slice(0, 8)}</CardTitle>
+            <CardTitle className="text-lg">Job #{job.id}</CardTitle>
             <CardDescription>
               <Badge variant="outline" className="mt-1">
                 ${job.price}

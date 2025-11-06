@@ -55,10 +55,12 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 6. View company analytics and performance
 7. Manage company settings
 
-### Payment & Assignment
+### Payment & Job Acceptance
 - Stripe payment creates job in PENDING_PAYMENT status
-- Webhook updates job to PAID on successful payment
-- System auto-assigns closest on-duty cleaner within 50m radius
+- Webhook/confirmation endpoint updates job to PAID on successful payment
+- Job becomes available to all on-duty cleaners in the company
+- Cleaners manually accept jobs (first-come-first-served)
+- Accepting a job assigns it to the cleaner and sets status to ASSIGNED
 - Email notifications via Resend for job assignment and completion
 
 ## Data Models

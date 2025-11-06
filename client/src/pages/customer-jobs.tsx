@@ -106,7 +106,7 @@ function JobCard({ job }: { job: Job }) {
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <div>
-            <CardTitle className="text-lg">Job #{job.id.slice(0, 8)}</CardTitle>
+            <CardTitle className="text-lg">Job #{job.id}</CardTitle>
             <CardDescription className="mt-1">
               {new Date(job.createdAt).toLocaleDateString()}
             </CardDescription>
