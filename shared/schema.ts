@@ -78,8 +78,8 @@ export const cleaners = pgTable("cleaners", {
   userId: integer("user_id").notNull().unique(),
   companyId: integer("company_id").notNull(),
   status: cleanerStatusEnum("status").notNull().default("off_duty"),
-  currentLatitude: numeric("current_latitude", { precision: 10, scale: 8 }),
   currentLongitude: numeric("current_longitude", { precision: 11, scale: 8 }),
+  currentLatitude: numeric("current_latitude", { precision: 10, scale: 8 }),
   totalJobsCompleted: integer("total_jobs_completed").notNull().default(0),
   averageCompletionTime: integer("average_completion_time").notNull().default(0),
   rating: numeric("rating", { precision: 3, scale: 2 }).notNull().default("0"),
@@ -131,8 +131,8 @@ export const jobs = pgTable("jobs", {
   // Car and location details
   carPlateNumber: varchar("car_plate_number", { length: 50 }).notNull(),
   locationAddress: text("location_address").notNull(),
-  locationLatitude: numeric("location_latitude", { precision: 10, scale: 8 }).notNull(),
   locationLongitude: numeric("location_longitude", { precision: 11, scale: 8 }).notNull(),
+  locationLatitude: numeric("location_latitude", { precision: 10, scale: 8 }).notNull(),
   parkingNumber: varchar("parking_number", { length: 50 }),
   customerPhone: varchar("customer_phone", { length: 50 }).notNull(),
   
