@@ -249,7 +249,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNearbyCompanies(lat: number, lon: number, maxDistanceMeters: number): Promise<CompanyWithCleaners[]> {
-    // Get all ACTIVE companies with on-duty cleaners
+    // Get all ACTIVE companies with on-duty cleaners  
     const companiesWithCleaners = await db
       .select({
         company: companies,
