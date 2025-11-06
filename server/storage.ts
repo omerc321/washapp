@@ -26,7 +26,7 @@ import {
   type CompanyWithCleaners,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, gte } from "drizzle-orm";
+import { eq, and, desc, sql, gte, inArray, isNull } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { pool } from "./db";
 
@@ -680,6 +680,50 @@ export class DatabaseStorage implements IStorage {
         gte(jobs.createdAt, firstDayOfMonth)
       ));
     
+    // Get shift roster with optimized query (joins cleaners + users + active shifts)
+    const shiftRosterData = await db
+      .select({
+        cleanerId: cleaners.id,
+        cleanerName: users.displayName,
+        status: cleaners.status,
+        totalJobsCompleted: cleaners.totalJobsCompleted,
+        rating: cleaners.rating,
+        userId: cleaners.userId,
+      })
+      .from(cleaners)
+      .leftJoin(users, eq(cleaners.userId, users.id))
+      .where(eq(cleaners.companyId, companyId));
+    
+    // Batch fetch active shifts for all cleaners (skip if no cleaners)
+    const cleanerIds = shiftRosterData.map(c => c.cleanerId);
+    const activeShifts = cleanerIds.length > 0 
+      ? await db
+          .select()
+          .from(shiftSessions)
+          .where(and(
+            inArray(shiftSessions.cleanerId, cleanerIds),
+            isNull(shiftSessions.endedAt)
+          ))
+      : [];
+    
+    // Map active shifts by cleanerId for quick lookup
+    const shiftsMap = new Map(activeShifts.map(s => [s.cleanerId, s]));
+    
+    const shiftRoster = shiftRosterData.map(cleaner => {
+      const activeShift = shiftsMap.get(cleaner.cleanerId);
+      return {
+        cleanerId: cleaner.cleanerId,
+        cleanerName: cleaner.cleanerName || 'Unknown',
+        status: cleaner.status,
+        totalJobsCompleted: cleaner.totalJobsCompleted,
+        rating: parseFloat(cleaner.rating as any) || 0,
+        activeShift: activeShift ? {
+          startedAt: activeShift.startedAt,
+          duration: Math.floor((now.getTime() - new Date(activeShift.startedAt).getTime()) / 60000),
+        } : null,
+      };
+    });
+    
     return {
       totalJobsCompleted: company?.totalJobsCompleted || 0,
       totalRevenue: parseFloat(company?.totalRevenue as any) || 0,
@@ -687,6 +731,7 @@ export class DatabaseStorage implements IStorage {
       activeCleaners: activeCleanersResult.count,
       jobsThisMonth: jobsThisMonthResult.count,
       revenueThisMonth: revenueThisMonthResult.total || 0,
+      shiftRoster,
     };
   }
 

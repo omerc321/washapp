@@ -231,6 +231,54 @@ export default function CompanyDashboard() {
           })}
         </div>
 
+        {/* Shift Roster */}
+        {analytics.shiftRoster && analytics.shiftRoster.length > 0 && (
+          <div className="mt-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Current Shift Roster</CardTitle>
+                <CardDescription>
+                  Active cleaners and their shift status
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {analytics.shiftRoster.map((shift) => (
+                    <div
+                      key={shift.cleanerId}
+                      className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
+                      data-testid={`shift-roster-${shift.cleanerId}`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`h-3 w-3 rounded-full ${
+                          shift.status === 'on_duty' ? 'bg-green-500' :
+                          shift.status === 'busy' ? 'bg-yellow-500' : 'bg-gray-400'
+                        }`} />
+                        <div>
+                          <p className="font-medium">{shift.cleanerName}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {shift.totalJobsCompleted} jobs completed • Rating: {shift.rating.toFixed(1)} ⭐
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge variant={shift.status === 'on_duty' ? 'default' : shift.status === 'busy' ? 'secondary' : 'outline'}>
+                          {shift.status.replace('_', ' ').toUpperCase()}
+                        </Badge>
+                        {shift.activeShift && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            On shift: {shift.activeShift.duration}m
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Car Washers Management */}
         <div className="mt-8">
           <Card>

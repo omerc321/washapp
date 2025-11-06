@@ -306,6 +306,17 @@ export const companyAnalyticsSchema = z.object({
   activeCleaners: z.number(),
   jobsThisMonth: z.number(),
   revenueThisMonth: z.number(),
+  shiftRoster: z.array(z.object({
+    cleanerId: z.number(),
+    cleanerName: z.string(),
+    status: z.string(),
+    totalJobsCompleted: z.number(),
+    rating: z.number(),
+    activeShift: z.object({
+      startedAt: z.date(),
+      duration: z.number(),
+    }).nullable(),
+  })).optional(),
 });
 
 export const cleanerAnalyticsSchema = z.object({
