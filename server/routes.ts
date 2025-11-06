@@ -350,21 +350,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: error.message });
     }
   });
-
-  // Get company by ID
-  app.get("/api/companies/:id", async (req: Request, res: Response) => {
-    try {
-      const company = await storage.getCompany(parseInt(req.params.id));
-      if (!company) {
-        return res.status(404).json({ message: "Company not found" });
-      }
-      res.json(company);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
   
   // Get nearby companies with on-duty cleaners within 50m radius
+  // IMPORTANT: This must come BEFORE /api/companies/:id to avoid route matching issues
   app.get("/api/companies/nearby", async (req: Request, res: Response) => {
     try {
       const lat = parseFloat(req.query.lat as string);
@@ -378,6 +366,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const companiesWithCleaners = await storage.getNearbyCompanies(lat, lon, maxDistanceMeters);
       res.json(companiesWithCleaners);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get company by ID
+  // IMPORTANT: This parameterized route must come AFTER specific routes like /nearby
+  app.get("/api/companies/:id", async (req: Request, res: Response) => {
+    try {
+      const company = await storage.getCompany(parseInt(req.params.id));
+      if (!company) {
+        return res.status(404).json({ message: "Company not found" });
+      }
+      res.json(company);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
