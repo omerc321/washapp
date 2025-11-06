@@ -147,6 +147,16 @@ A professional car wash booking platform with Uber-style black/white design. Cus
 - Automatic updates when job status changes (assigned, in progress, completed)
 
 ## Recent Changes
+- 2025-11-06: **Periodic Location Tracking & Proximity Matching Improvements**
+  - Implemented periodic location tracking for on-duty cleaners (every 5 minutes)
+  - Browser Geolocation API captures cleaner's real-time coordinates
+  - Location updates stored in `currentLatitude` and `currentLongitude` fields
+  - Automatic tracking starts when cleaner goes on-duty, stops when off-duty or logged out
+  - Fixed interval accumulation bug to prevent multiple concurrent timers
+  - Backend endpoint: `/api/cleaner/update-location` for coordinate updates
+  - Improved proximity matching: companies with on-duty cleaners within 50m radius show as options
+  - Added frontend/backend validation to prevent NaN coordinates
+  - Better error handling for geolocation failures
 - 2025-11-06: **Company Analytics Enhancements & Performance Optimization**
   - Added real-time shift roster to company analytics dashboard
   - Displays all cleaners with status, performance metrics, and active shift duration

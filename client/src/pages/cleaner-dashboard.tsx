@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -142,6 +142,64 @@ export default function CleanerDashboard() {
       });
     },
   });
+
+  // Update location mutation
+  const updateLocation = useMutation({
+    mutationFn: async ({ latitude, longitude }: { latitude: number; longitude: number }) => {
+      const res = await apiRequest("POST", "/api/cleaner/update-location", {
+        latitude,
+        longitude,
+      });
+      return res.json();
+    },
+  });
+
+  // Periodic location tracking (every 5 minutes)
+  const locationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const updateCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      console.log("Geolocation is not supported");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        updateLocation.mutate({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+      },
+      (error) => {
+        console.error("Error getting location:", error);
+      }
+    );
+  };
+
+  useEffect(() => {
+    const isOnDuty = shiftData?.activeShift || cleaner?.status === CleanerStatus.ON_DUTY;
+
+    // Clear any existing interval first
+    if (locationIntervalRef.current) {
+      clearInterval(locationIntervalRef.current);
+      locationIntervalRef.current = null;
+    }
+
+    if (isOnDuty) {
+      updateCurrentLocation();
+      
+      locationIntervalRef.current = setInterval(() => {
+        updateCurrentLocation();
+      }, 5 * 60 * 1000);
+    }
+
+    return () => {
+      if (locationIntervalRef.current) {
+        clearInterval(locationIntervalRef.current);
+        locationIntervalRef.current = null;
+      }
+    };
+  }, [shiftData?.activeShift, cleaner?.status]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, jobId: string) => {
     if (e.target.files && e.target.files[0]) {
