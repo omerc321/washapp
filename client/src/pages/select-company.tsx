@@ -25,7 +25,11 @@ export default function SelectCompany() {
 
   const { data: companies, isLoading } = useQuery<CompanyWithCleaners[]>({
     queryKey: ["/api/companies/nearby", pendingJob?.locationLatitude, pendingJob?.locationLongitude],
-    enabled: !!pendingJob,
+    enabled: !!pendingJob && 
+             typeof pendingJob.locationLatitude === 'number' && 
+             typeof pendingJob.locationLongitude === 'number' &&
+             !isNaN(pendingJob.locationLatitude) &&
+             !isNaN(pendingJob.locationLongitude),
     queryFn: async () => {
       const params = new URLSearchParams({
         lat: pendingJob.locationLatitude.toString(),

@@ -367,8 +367,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get nearby companies with on-duty cleaners within 50m radius
   app.get("/api/companies/nearby", async (req: Request, res: Response) => {
     try {
-      const lat = parseFloat(req.query.lat as string) || 0;
-      const lon = parseFloat(req.query.lon as string) || 0;
+      const lat = parseFloat(req.query.lat as string);
+      const lon = parseFloat(req.query.lon as string);
+      
+      if (isNaN(lat) || isNaN(lon)) {
+        return res.status(400).json({ message: "Invalid latitude or longitude" });
+      }
+      
       const maxDistanceMeters = 50;
 
       const companiesWithCleaners = await storage.getNearbyCompanies(lat, lon, maxDistanceMeters);
