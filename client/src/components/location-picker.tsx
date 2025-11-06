@@ -96,7 +96,7 @@ export default function LocationPicker({ onLocationSelect, initialPosition = [1.
   };
 
   // Get user's current location
-  const handleUseCurrentLocation = () => {
+  const handleUseCurrentLocation = useCallback(() => {
     setLoading(true);
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -115,7 +115,12 @@ export default function LocationPicker({ onLocationSelect, initialPosition = [1.
       setLoading(false);
       alert("Geolocation is not supported by your browser");
     }
-  };
+  }, [reverseGeocode]);
+
+  // Automatically get current location on mount
+  useEffect(() => {
+    handleUseCurrentLocation();
+  }, [handleUseCurrentLocation]);
 
   return (
     <Card className="p-4 space-y-4">
@@ -125,7 +130,7 @@ export default function LocationPicker({ onLocationSelect, initialPosition = [1.
           Select Your Location
         </Label>
         <p className="text-sm text-muted-foreground">
-          Click on the map to pinpoint your car's location
+          {loading && !address ? "Getting your location..." : "Click on the map to change your location"}
         </p>
       </div>
 
