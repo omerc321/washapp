@@ -86,6 +86,10 @@ app.use((req, res, next) => {
   // Setup WebSocket server for real-time updates
   const { setupWebSocket } = await import("./websocket");
   setupWebSocket(server);
+  
+  // Start auto-refund service for jobs not accepted within 15 minutes
+  const { startAutoRefundService } = await import("./autoRefundService");
+  startAutoRefundService();
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

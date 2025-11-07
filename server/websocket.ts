@@ -8,7 +8,11 @@ interface WebSocketClient extends WebSocket {
   subscriptions?: Set<string>;
 }
 
-let wss: WebSocketServer;
+let wss: WebSocketServer | null = null;
+
+export function getWebSocketServer(): WebSocketServer | null {
+  return wss;
+}
 
 export function setupWebSocket(server: Server) {
   wss = new WebSocketServer({ server, path: "/ws" });
@@ -72,6 +76,7 @@ export function setupWebSocket(server: Server) {
 
   // Heartbeat to detect broken connections
   const interval = setInterval(() => {
+    if (!wss) return;
     wss.clients.forEach((ws: WebSocket) => {
       const client = ws as WebSocketClient;
       if (!client.isAlive) {
