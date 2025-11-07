@@ -9,13 +9,10 @@ export interface FeeCalculation {
 }
 
 export async function calculateJobFees(grossAmount: number): Promise<FeeCalculation> {
-  const feeSettings = await storage.getCurrentFeeSettings();
+  const platformFeeAmount = 3.00;
+  const stripePercentRate = 0.029;
+  const stripeFixedFee = 1.00;
   
-  const platformFeeRate = Number(feeSettings.platformFeeRate);
-  const stripePercentRate = Number(feeSettings.stripePercentRate);
-  const stripeFixedFee = Number(feeSettings.stripeFixedFee);
-  
-  const platformFeeAmount = Number((grossAmount * platformFeeRate).toFixed(2));
   const paymentProcessingFeeAmount = Number(
     ((grossAmount * stripePercentRate) + stripeFixedFee).toFixed(2)
   );
@@ -53,7 +50,7 @@ export async function createJobFinancialRecord(
     platformFeeAmount: fees.platformFeeAmount.toString(),
     paymentProcessingFeeAmount: fees.paymentProcessingFeeAmount.toString(),
     netPayableAmount: fees.netPayableAmount.toString(),
-    currency: "USD",
+    currency: "AED",
     paidAt,
   };
   
