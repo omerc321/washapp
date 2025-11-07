@@ -34,9 +34,12 @@ I prefer simple language and clear explanations. I want iterative development wi
 -   **Job Acceptance**: Stripe payment triggers PENDING_PAYMENT, webhook confirmation to PAID, job becomes available to on-duty cleaners, manual acceptance (first-come-first-served), and WebSocket updates.
 
 ### System Design Choices
--   **Data Models**: Comprehensive models for Users, Companies, Cleaners, Cleaner Invitations, Jobs, Job Financials, Company Withdrawals, and Fee Settings.
+-   **Data Models**: Comprehensive models for Users, Companies, Cleaners, Cleaner Invitations, Jobs, Job Financials, Company Withdrawals, Fee Settings, and Transactions.
 -   **Currency**: All transactions in AED (United Arab Emirates Dirham) with د.إ symbol displayed.
--   **Fee Structure**: 3 AED flat platform fee + 2.9% + 1 AED Stripe payment processing fees.
+-   **Fee Structure**: 5% tax + 3 AED flat platform fee + 2.9% + 1 AED Stripe payment processing fees.
+-   **Transaction Tracking**: All payments, refunds, and withdrawals tracked with unique reference numbers.
+-   **Auto-Refund**: Jobs not accepted within 15 minutes are automatically refunded with Stripe refund processing.
+-   **Payment Options**: Card, Apple Pay, and Google Pay via Stripe Payment Request Button.
 -   **API**: RESTful API built with Express.js.
 -   **Transactions**: Database transactions for multi-step operations.
 -   **Environment**: PostgreSQL database with Drizzle ORM for schema management.

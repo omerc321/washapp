@@ -41,22 +41,31 @@ export async function checkAndRefundExpiredJobs() {
           continue;
         }
 
-        // Issue refund via Stripe
-        const refund = await stripe.refunds.create({
-          payment_intent: job.stripePaymentIntentId,
-          reason: 'requested_by_customer', // Auto-refund due to no cleaner acceptance
-        });
-
-        console.log(`Issued refund ${refund.id} for job ${job.id}`);
-
-        // Update job status to cancelled
+        // IMPORTANT: Mark job as 'refunded' FIRST to prevent cleaners from accepting it
         await db.update(jobs)
           .set({
-            status: 'cancelled',
+            status: 'refunded',
+            refundReason: 'No cleaner accepted within 15 minutes',
           })
           .where(eq(jobs.id, job.id));
 
-        console.log(`Job ${job.id} marked as cancelled due to auto-refund`);
+        console.log(`Job ${job.id} marked as refunded - removed from cleaner availability`);
+
+        // Now issue refund via Stripe
+        const refund = await stripe.refunds.create({
+          payment_intent: job.stripePaymentIntentId,
+          reason: 'requested_by_customer',
+        });
+
+        console.log(`Issued Stripe refund ${refund.id} for job ${job.id}`);
+
+        // Update job with refund details
+        await db.update(jobs)
+          .set({
+            stripeRefundId: refund.id,
+            refundedAt: new Date(),
+          })
+          .where(eq(jobs.id, job.id));
 
         // Send WebSocket notification to all clients
         const wss = getWebSocketServer();

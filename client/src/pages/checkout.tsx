@@ -283,12 +283,28 @@ export default function Checkout() {
 
             <Separator />
 
-            <div className="flex items-center justify-between pt-2">
-              <div className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-muted-foreground" />
-                <span className="font-semibold">Total</span>
+            {/* Price Breakdown */}
+            <div className="space-y-2 pt-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Service Price</span>
+                <span>{jobData.basePrice} د.إ</span>
               </div>
-              <span className="text-2xl font-bold">{jobData.price} د.إ</span>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Tax (5%)</span>
+                <span>{jobData.taxAmount} د.إ</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Platform Fee</span>
+                <span>{jobData.platformFee} د.إ</span>
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-muted-foreground" />
+                  <span className="font-semibold">Total</span>
+                </div>
+                <span className="text-2xl font-bold">{jobData.price} د.إ</span>
+              </div>
             </div>
           </div>
         </div>
