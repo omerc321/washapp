@@ -169,14 +169,6 @@ export default function LocationPicker({ onLocationSelect, initialPosition = [1.
         </MapContainer>
       </div>
 
-      {address && (
-        <div className="p-2 bg-muted rounded-md">
-          <p className="text-xs text-muted-foreground" data-testid="text-selected-address">
-            {address}
-          </p>
-        </div>
-      )}
-
       <Button
         type="button"
         className="w-full h-9 text-sm"
