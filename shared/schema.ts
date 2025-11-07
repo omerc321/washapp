@@ -215,7 +215,7 @@ export const feeSettings = pgTable("fee_settings", {
   platformFeeRate: numeric("platform_fee_rate", { precision: 5, scale: 4 }).notNull().default("0.10"), // 10% default
   stripePercentRate: numeric("stripe_percent_rate", { precision: 5, scale: 4 }).notNull().default("0.029"), // 2.9%
   stripeFixedFee: numeric("stripe_fixed_fee", { precision: 10, scale: 2 }).notNull().default("0.30"), // $0.30
-  currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+  currency: varchar("currency", { length: 3 }).notNull().default("AED"),
   effectiveFrom: timestamp("effective_from").notNull().defaultNow(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -233,7 +233,7 @@ export const jobFinancials = pgTable("job_financials", {
   paymentProcessingFeeAmount: numeric("payment_processing_fee_amount", { precision: 10, scale: 2 }).notNull(),
   netPayableAmount: numeric("net_payable_amount", { precision: 10, scale: 2 }).notNull(),
   
-  currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+  currency: varchar("currency", { length: 3 }).notNull().default("AED"),
   paidAt: timestamp("paid_at").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

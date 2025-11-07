@@ -393,8 +393,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create payment intent
       const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(jobData.price * 100), // Convert to cents
-        currency: "usd",
+        amount: Math.round(jobData.price * 100), // Convert to fils (AED subunits)
+        currency: "aed",
         metadata: {
           carPlateNumber: jobData.carPlateNumber,
           locationAddress: jobData.locationAddress,
