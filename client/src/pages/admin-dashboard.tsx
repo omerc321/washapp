@@ -93,7 +93,7 @@ function FinancialsTab() {
               <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${companyDetails.summary.totalRevenue.toFixed(2)}</div>
+              <div className="text-2xl font-bold">{companyDetails.summary.totalRevenue.toFixed(2)} د.إ</div>
             </CardContent>
           </Card>
           <Card data-testid="card-platform-fees">
@@ -101,7 +101,7 @@ function FinancialsTab() {
               <CardTitle className="text-sm font-medium">Platform Fees</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${companyDetails.summary.platformFees.toFixed(2)}</div>
+              <div className="text-2xl font-bold">{companyDetails.summary.platformFees.toFixed(2)} د.إ</div>
             </CardContent>
           </Card>
           <Card data-testid="card-net-earnings">
@@ -109,7 +109,7 @@ function FinancialsTab() {
               <CardTitle className="text-sm font-medium">Net Earnings</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${companyDetails.summary.netEarnings.toFixed(2)}</div>
+              <div className="text-2xl font-bold">{companyDetails.summary.netEarnings.toFixed(2)} د.إ</div>
             </CardContent>
           </Card>
           <Card data-testid="card-available-balance">
@@ -117,7 +117,7 @@ function FinancialsTab() {
               <CardTitle className="text-sm font-medium">Available Balance</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${companyDetails.summary.availableBalance.toFixed(2)}</div>
+              <div className="text-2xl font-bold">{companyDetails.summary.availableBalance.toFixed(2)} د.إ</div>
             </CardContent>
           </Card>
         </div>
@@ -142,7 +142,7 @@ function FinancialsTab() {
                 <TableBody>
                   {companyDetails.withdrawals.map((withdrawal: CompanyWithdrawal) => (
                     <TableRow key={withdrawal.id} data-testid={`withdrawal-${withdrawal.id}`}>
-                      <TableCell className="font-medium">${Number(withdrawal.amount).toFixed(2)}</TableCell>
+                      <TableCell className="font-medium">{Number(withdrawal.amount).toFixed(2)} د.إ</TableCell>
                       <TableCell>
                         <span className={`inline-block px-2 py-1 text-xs rounded-full ${
                           withdrawal.status === 'completed' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100' :
@@ -191,7 +191,7 @@ function FinancialsTab() {
                 <Label htmlFor="amount">Amount</Label>
                 <Input
                   id="amount"
-                  value={`$${Number(selectedWithdrawal?.amount || 0).toFixed(2)}`}
+                  value={`${Number(selectedWithdrawal?.amount || 0).toFixed(2)} د.إ`}
                   disabled
                   data-testid="input-amount"
                 />
@@ -282,11 +282,11 @@ function FinancialsTab() {
               {companies.map((company) => (
                 <TableRow key={company.companyId} data-testid={`company-${company.companyId}`}>
                   <TableCell className="font-medium">{company.companyName}</TableCell>
-                  <TableCell>${company.totalRevenue.toFixed(2)}</TableCell>
-                  <TableCell>${company.platformFees.toFixed(2)}</TableCell>
-                  <TableCell>${company.netEarnings.toFixed(2)}</TableCell>
-                  <TableCell>${company.totalWithdrawals.toFixed(2)}</TableCell>
-                  <TableCell className="font-medium">${company.availableBalance.toFixed(2)}</TableCell>
+                  <TableCell>{company.totalRevenue.toFixed(2)} د.إ</TableCell>
+                  <TableCell>{company.platformFees.toFixed(2)} د.إ</TableCell>
+                  <TableCell>{company.netEarnings.toFixed(2)} د.إ</TableCell>
+                  <TableCell>{company.totalWithdrawals.toFixed(2)} د.إ</TableCell>
+                  <TableCell className="font-medium">{company.availableBalance.toFixed(2)} د.إ</TableCell>
                   <TableCell className="text-right">
                     <Button
                       size="sm"
@@ -385,8 +385,8 @@ function AnalyticsTab() {
     { title: "Total Cleaners", value: analytics.totalCleaners, icon: Users, description: "Active cleaners" },
     { title: "Active Jobs", value: analytics.activeJobs, icon: Briefcase, description: "Currently ongoing" },
     { title: "Completed Jobs", value: analytics.completedJobs, icon: CheckCircle2, description: "All time" },
-    { title: "Total Revenue", value: `$${analytics.totalRevenue.toLocaleString()}`, icon: DollarSign, description: "All time" },
-    { title: "Revenue This Month", value: `$${analytics.revenueThisMonth.toLocaleString()}`, icon: TrendingUp, description: "Current month" },
+    { title: "Total Revenue", value: `${analytics.totalRevenue.toLocaleString()} د.إ`, icon: DollarSign, description: "All time" },
+    { title: "Revenue This Month", value: `${analytics.revenueThisMonth.toLocaleString()} د.إ`, icon: TrendingUp, description: "Current month" },
   ];
 
   return (
@@ -437,7 +437,7 @@ function AnalyticsTab() {
                   <TableRow key={company.id} data-testid={`pending-company-${company.id}`}>
                     <TableCell className="font-medium">{company.name}</TableCell>
                     <TableCell className="text-muted-foreground">{company.description || "N/A"}</TableCell>
-                    <TableCell>${company.pricePerWash}</TableCell>
+                    <TableCell>{company.pricePerWash} د.إ</TableCell>
                     <TableCell className="text-sm">{company.tradeLicenseNumber || "N/A"}</TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button

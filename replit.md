@@ -19,7 +19,7 @@ I prefer simple language and clear explanations. I want iterative development wi
 -   **Backend**: Express.js, Node.js.
 -   **Database**: PostgreSQL with Drizzle ORM.
 -   **Authentication**: Passport.js with bcrypt for email/password (staff roles), `connect-pg-simple` for PostgreSQL session storage.
--   **Payments**: Stripe integration for customer payments.
+-   **Payments**: Stripe integration for customer payments in AED currency.
 -   **Email**: Resend for notifications.
 -   **Real-time**: WebSocket server for job status updates.
 -   **File Uploads**: Multer for local file storage (job photos, trade licenses).
@@ -27,7 +27,7 @@ I prefer simple language and clear explanations. I want iterative development wi
 -   **Security**: Session-based authentication, CSRF protection, role-based access control, Stripe webhook signature verification.
 
 ### Feature Specifications
--   **Customer Flow**: Anonymous booking with car plate entry, map-based location selection, nearby company viewing, Stripe payment, and job tracking (Paid → Assigned → In Progress → Completed).
+-   **Customer Flow**: Anonymous booking with car plate entry, map-based location selection, nearby company viewing, Stripe payment in AED (company price + 3 AED platform fee clearly displayed), and job tracking (Paid → Assigned → In Progress → Completed).
 -   **Cleaner Flow**: Invitation-based registration, on-duty/off-duty toggle, job acceptance, "Open in Google Maps" navigation to job location, and photo-based job completion. Periodic location tracking for on-duty cleaners.
 -   **Company Admin Flow**: Registration (requires admin approval), cleaner invitation management, detailed financial reports (revenue breakdown, withdrawals, cleaner filtering, Excel export), and company settings management.
 -   **Admin Flow**: Platform-wide analytics, company approval/rejection, financial oversight with drill-down, and manual withdrawal processing.
@@ -35,6 +35,8 @@ I prefer simple language and clear explanations. I want iterative development wi
 
 ### System Design Choices
 -   **Data Models**: Comprehensive models for Users, Companies, Cleaners, Cleaner Invitations, Jobs, Job Financials, Company Withdrawals, and Fee Settings.
+-   **Currency**: All transactions in AED (United Arab Emirates Dirham) with د.إ symbol displayed.
+-   **Fee Structure**: 3 AED flat platform fee + 2.9% + 1 AED Stripe payment processing fees.
 -   **API**: RESTful API built with Express.js.
 -   **Transactions**: Database transactions for multi-step operations.
 -   **Environment**: PostgreSQL database with Drizzle ORM for schema management.

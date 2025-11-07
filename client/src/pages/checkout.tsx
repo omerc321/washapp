@@ -203,7 +203,7 @@ export default function Checkout() {
                 <DollarSign className="h-5 w-5 text-muted-foreground" />
                 <span className="font-semibold">Total</span>
               </div>
-              <span className="text-2xl font-bold">${jobData.price}</span>
+              <span className="text-2xl font-bold">{jobData.price} د.إ</span>
             </div>
           </div>
         </div>

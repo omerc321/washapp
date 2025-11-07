@@ -137,7 +137,7 @@ export default function CompanyFinancials() {
               <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${summary.totalRevenue.toFixed(2)}</div>
+              <div className="text-2xl font-bold">{summary.totalRevenue.toFixed(2)} د.إ</div>
             </CardContent>
           </Card>
           <Card data-testid="card-platform-fees">
@@ -145,7 +145,7 @@ export default function CompanyFinancials() {
               <CardTitle className="text-sm font-medium">Platform Fees</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600 dark:text-red-400">-${summary.platformFees.toFixed(2)}</div>
+              <div className="text-2xl font-bold text-red-600 dark:text-red-400">-{summary.platformFees.toFixed(2)} د.إ</div>
             </CardContent>
           </Card>
           <Card data-testid="card-net-earnings">
@@ -153,7 +153,7 @@ export default function CompanyFinancials() {
               <CardTitle className="text-sm font-medium">Net Earnings</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">${summary.netEarnings.toFixed(2)}</div>
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{summary.netEarnings.toFixed(2)} د.إ</div>
             </CardContent>
           </Card>
           <Card data-testid="card-available-balance">
@@ -161,7 +161,7 @@ export default function CompanyFinancials() {
               <CardTitle className="text-sm font-medium">Available Balance</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${summary.availableBalance.toFixed(2)}</div>
+              <div className="text-2xl font-bold">{summary.availableBalance.toFixed(2)} د.إ</div>
               <p className="text-xs text-muted-foreground mt-1">After withdrawals</p>
             </CardContent>
           </Card>
@@ -244,10 +244,10 @@ export default function CompanyFinancials() {
                     <TableRow key={job.id} data-testid={`job-${job.id}`}>
                       <TableCell className="font-medium">#{job.jobId}</TableCell>
                       <TableCell>{job.cleanerId ? `Cleaner #${job.cleanerId}` : "Unassigned"}</TableCell>
-                      <TableCell>${Number(job.grossAmount).toFixed(2)}</TableCell>
-                      <TableCell className="text-red-600 dark:text-red-400">-${Number(job.platformFeeAmount).toFixed(2)}</TableCell>
-                      <TableCell className="text-red-600 dark:text-red-400">-${Number(job.paymentProcessingFeeAmount).toFixed(2)}</TableCell>
-                      <TableCell className="font-medium text-green-600 dark:text-green-400">${Number(job.netPayableAmount).toFixed(2)}</TableCell>
+                      <TableCell>{Number(job.grossAmount).toFixed(2)} د.إ</TableCell>
+                      <TableCell className="text-red-600 dark:text-red-400">-{Number(job.platformFeeAmount).toFixed(2)} د.إ</TableCell>
+                      <TableCell className="text-red-600 dark:text-red-400">-{Number(job.paymentProcessingFeeAmount).toFixed(2)} د.إ</TableCell>
+                      <TableCell className="font-medium text-green-600 dark:text-green-400">{Number(job.netPayableAmount).toFixed(2)} د.إ</TableCell>
                       <TableCell className="text-sm">{new Date(job.paidAt).toLocaleDateString()}</TableCell>
                     </TableRow>
                   ))}
