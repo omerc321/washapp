@@ -42,10 +42,12 @@ export default function SelectCompany() {
   });
 
   const handleSelectCompany = (company: CompanyWithCleaners) => {
+    const platformFee = 3;
+    const totalPrice = company.pricePerWash + platformFee;
     const updatedJob = {
       ...pendingJob,
       companyId: company.id,
-      price: company.pricePerWash,
+      price: totalPrice,
     };
     sessionStorage.setItem("pendingJob", JSON.stringify(updatedJob));
     setLocation("/customer/checkout");
@@ -119,9 +121,11 @@ export default function SelectCompany() {
                   </div>
                   <div className="text-right shrink-0">
                     <div className="text-2xl font-bold text-foreground">
-                      ${company.pricePerWash}
+                      {company.pricePerWash + 3} د.إ
                     </div>
-                    <div className="text-xs text-muted-foreground">per wash</div>
+                    <div className="text-xs text-muted-foreground">
+                      {company.pricePerWash} د.إ + 3 د.إ fee
+                    </div>
                   </div>
                 </div>
 
