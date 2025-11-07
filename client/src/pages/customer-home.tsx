@@ -183,23 +183,41 @@ export default function CustomerHome() {
         ) : (
           /* Booking Form - All inputs first, map last */
           <form onSubmit={handleSubmit} className="space-y-6 pb-24">
-            {/* Car Plate Number */}
-            <div>
-              <Label htmlFor="carPlateNumber" className="text-base font-medium mb-3 block">
-                Car Plate Number
-              </Label>
-              <Input
-                id="carPlateNumber"
-                data-testid="input-plate-number"
-                placeholder="Enter your car plate number"
-                value={formData.carPlateNumber}
-                onChange={(e) =>
-                  setFormData({ ...formData, carPlateNumber: e.target.value.toUpperCase() })
-                }
-                required
-                className="h-12 text-lg"
-                autoFocus
-              />
+            {/* Car Plate and Parking Number - Same line */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="carPlateNumber" className="text-base font-medium mb-3 block">
+                  Car Plate
+                </Label>
+                <Input
+                  id="carPlateNumber"
+                  data-testid="input-plate-number"
+                  placeholder="ABC-1234"
+                  value={formData.carPlateNumber}
+                  onChange={(e) =>
+                    setFormData({ ...formData, carPlateNumber: e.target.value.toUpperCase() })
+                  }
+                  required
+                  className="h-12 text-lg"
+                  autoFocus
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="parkingNumber" className="text-base font-medium mb-3 block">
+                  Parking <span className="text-muted-foreground text-xs font-normal">(Optional)</span>
+                </Label>
+                <Input
+                  id="parkingNumber"
+                  data-testid="input-parking"
+                  placeholder="P2-45"
+                  value={formData.parkingNumber}
+                  onChange={(e) =>
+                    setFormData({ ...formData, parkingNumber: e.target.value })
+                  }
+                  className="h-12 text-lg"
+                />
+              </div>
             </div>
 
             {/* Phone Number */}
@@ -210,7 +228,7 @@ export default function CustomerHome() {
               <Input
                 id="customerPhone"
                 data-testid="input-phone"
-                type="tel"
+                type="text"
                 placeholder="Your contact number"
                 value={formData.customerPhone}
                 onChange={(e) =>
@@ -222,23 +240,6 @@ export default function CustomerHome() {
               <p className="text-sm text-muted-foreground mt-2">
                 We'll share this with your cleaner
               </p>
-            </div>
-
-            {/* Parking Number (Optional) */}
-            <div>
-              <Label htmlFor="parkingNumber" className="text-base font-medium mb-3 block">
-                Parking Number <span className="text-muted-foreground text-sm font-normal">(Optional)</span>
-              </Label>
-              <Input
-                id="parkingNumber"
-                data-testid="input-parking"
-                placeholder="e.g. P2-45"
-                value={formData.parkingNumber}
-                onChange={(e) =>
-                  setFormData({ ...formData, parkingNumber: e.target.value })
-                }
-                className="h-12 text-lg"
-              />
             </div>
 
             {/* Location Picker - Now at the bottom */}
