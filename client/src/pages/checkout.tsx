@@ -72,15 +72,18 @@ function CheckoutForm({ paymentIntentId }: { paymentIntentId?: string }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <PaymentElement />
-      <Button
-        type="submit"
-        className="w-full"
-        size="lg"
-        disabled={!stripe || processing}
-        data-testid="button-pay"
-      >
-        {processing ? "Processing..." : "Pay Now"}
-      </Button>
+      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 z-20">
+        <div className="max-w-md mx-auto">
+          <Button
+            type="submit"
+            className="w-full h-12 text-base"
+            disabled={!stripe || processing}
+            data-testid="button-pay"
+          >
+            {processing ? "Processing Payment..." : "Pay Now"}
+          </Button>
+        </div>
+      </div>
     </form>
   );
 }
@@ -130,25 +133,35 @@ export default function Checkout() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 pb-20">
-      <div className="max-w-md mx-auto">
-        {/* Header */}
-        <div className="mb-6 pt-4">
-          <h1 className="text-2xl font-bold text-foreground mb-1">
-            Payment
-          </h1>
-          <p className="text-muted-foreground">
-            Review and complete your booking
-          </p>
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header - Clean and minimal */}
+      <div className="border-b bg-background sticky top-0 z-10">
+        <div className="max-w-md mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold">Payment</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Review and complete
+              </p>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setLocation("/customer/select-company")}
+              data-testid="button-back"
+            >
+              Back
+            </Button>
+          </div>
         </div>
+      </div>
 
-        {/* Job Summary */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Booking Summary</CardTitle>
-            <CardDescription>Review your car wash details</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+      {/* Content */}
+      <div className="flex-1 max-w-md mx-auto w-full px-4 py-6 pb-32">
+        {/* Job Summary - Receipt style */}
+        <div className="mb-8">
+          <h2 className="text-base font-semibold mb-4">Booking Summary</h2>
+          <div className="border rounded-lg p-4 space-y-4">
             <div className="flex items-start gap-3">
               <Car className="h-5 w-5 mt-0.5 text-muted-foreground" />
               <div>
@@ -185,28 +198,25 @@ export default function Checkout() {
 
             <Separator />
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between pt-2">
               <div className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5 text-muted-foreground" />
                 <span className="font-semibold">Total</span>
               </div>
               <span className="text-2xl font-bold">${jobData.price}</span>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Payment Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Payment Details</CardTitle>
-            <CardDescription>Enter your card information</CardDescription>
-          </CardHeader>
-          <CardContent>
+        <div>
+          <h2 className="text-base font-semibold mb-4">Payment Details</h2>
+          <div className="border rounded-lg p-4">
             <Elements stripe={stripePromise} options={{ clientSecret }}>
               <CheckoutForm paymentIntentId={paymentIntentId} />
             </Elements>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

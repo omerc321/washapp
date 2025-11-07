@@ -79,30 +79,32 @@ export default function CustomerTrack() {
   const completedJobs = jobs?.filter((job) => job.status === JobStatus.COMPLETED || job.status === JobStatus.CANCELLED);
 
   return (
-    <div className="min-h-screen bg-background p-4 pb-20">
-      <div className="max-w-md mx-auto">
-        {/* Header */}
-        <div className="mb-6 pt-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setLocation("/")}
-            className="mb-4"
-            data-testid="button-back"
-          >
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Back to Home
-          </Button>
-          <div className="flex items-center gap-2 mb-2">
-            <Car className="h-6 w-6" />
-            <h1 className="text-2xl font-bold text-foreground">
-              Tracking: {plateNumber}
-            </h1>
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header - Clean and minimal */}
+      <div className="border-b bg-background sticky top-0 z-10">
+        <div className="max-w-md mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold">{plateNumber}</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Car wash tracking
+              </p>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setLocation("/")}
+              data-testid="button-back"
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Back
+            </Button>
           </div>
-          <p className="text-muted-foreground">
-            View your car wash status and history
-          </p>
         </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 max-w-md mx-auto w-full px-4 py-6 pb-20">
 
         {isLoading ? (
           <div className="space-y-4">
@@ -263,7 +265,7 @@ function JobCard({
               {new Date(job.createdAt).toLocaleDateString()}
             </CardDescription>
           </div>
-          {getStatusBadge(job.status)}
+          {getStatusBadge(job.status as JobStatus)}
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
