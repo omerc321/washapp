@@ -5,6 +5,7 @@ import Stripe from "stripe";
 import multer from "multer";
 import path from "path";
 import { mkdir } from "fs/promises";
+import ExcelJS from "exceljs";
 import passport from "./auth";
 import { storage } from "./storage";
 import { requireAuth, requireRole, optionalAuth } from "./middleware";
@@ -949,6 +950,197 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { companyId } = req.params;
       await storage.rejectCompany(parseInt(companyId));
       res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ==== ADMIN FINANCIAL ROUTES ====
+  
+  // Get all companies financial summary
+  app.get("/api/admin/financials/companies", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
+    try {
+      const summary = await storage.getAllCompaniesFinancialSummary();
+      res.json(summary);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get detailed company financials
+  app.get("/api/admin/financials/company/:companyId", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
+    try {
+      const { companyId } = req.params;
+      const summary = await storage.getCompanyFinancialSummary(parseInt(companyId));
+      const jobs = await storage.getCompanyFinancials(parseInt(companyId));
+      const withdrawals = await storage.getCompanyWithdrawals(parseInt(companyId));
+      
+      res.json({
+        summary,
+        jobs,
+        withdrawals,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get all withdrawals (admin)
+  app.get("/api/admin/financials/withdrawals", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
+    try {
+      const withdrawals = await storage.getAllWithdrawals();
+      res.json(withdrawals);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Process withdrawal (update status)
+  app.patch("/api/admin/financials/withdrawals/:id", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { status, referenceNumber, note } = req.body;
+      
+      const updates: any = { status };
+      if (referenceNumber) updates.referenceNumber = referenceNumber;
+      if (note) updates.note = note;
+      if (status === 'completed') {
+        updates.processedAt = new Date();
+        updates.processedBy = (req.user as any).id;
+      }
+      
+      await storage.updateWithdrawal(parseInt(id), updates);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ==== COMPANY FINANCIAL ROUTES ====
+  
+  // Get company financial overview
+  app.get("/api/company/financials/overview", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const companyId = user.companyId;
+      
+      if (!companyId) {
+        return res.status(400).json({ message: "Company not found for user" });
+      }
+      
+      const summary = await storage.getCompanyFinancialSummary(companyId);
+      res.json(summary);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get company job financials with filters
+  app.get("/api/company/financials/jobs", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const companyId = user.companyId;
+      
+      if (!companyId) {
+        return res.status(400).json({ message: "Company not found for user" });
+      }
+      
+      const { cleanerId, startDate, endDate } = req.query;
+      
+      const filters: any = {};
+      if (cleanerId) filters.cleanerId = parseInt(cleanerId as string);
+      if (startDate) filters.startDate = new Date(startDate as string);
+      if (endDate) filters.endDate = new Date(endDate as string);
+      
+      const jobs = await storage.getCompanyFinancials(companyId, filters);
+      res.json(jobs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get company withdrawals
+  app.get("/api/company/financials/withdrawals", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const companyId = user.companyId;
+      
+      if (!companyId) {
+        return res.status(400).json({ message: "Company not found for user" });
+      }
+      
+      const withdrawals = await storage.getCompanyWithdrawals(companyId);
+      res.json(withdrawals);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Export financials to Excel
+  app.post("/api/company/financials/export", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const companyId = user.companyId;
+      
+      if (!companyId) {
+        return res.status(400).json({ message: "Company not found for user" });
+      }
+      
+      const { cleanerId, startDate, endDate } = req.body;
+      
+      const filters: any = {};
+      if (cleanerId) filters.cleanerId = parseInt(cleanerId);
+      if (startDate) filters.startDate = new Date(startDate);
+      if (endDate) filters.endDate = new Date(endDate);
+      
+      const jobs = await storage.getCompanyFinancials(companyId, filters);
+      const summary = await storage.getCompanyFinancialSummary(companyId);
+      const company = await storage.getCompany(companyId);
+      
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Financial Report');
+      
+      worksheet.columns = [
+        { header: 'Job ID', key: 'jobId', width: 10 },
+        { header: 'Paid At', key: 'paidAt', width: 20 },
+        { header: 'Cleaner ID', key: 'cleanerId', width: 12 },
+        { header: 'Gross Amount', key: 'grossAmount', width: 15 },
+        { header: 'Platform Fee', key: 'platformFee', width: 15 },
+        { header: 'Processing Fee', key: 'processingFee', width: 15 },
+        { header: 'Net Amount', key: 'netAmount', width: 15 },
+      ];
+      
+      jobs.forEach(job => {
+        worksheet.addRow({
+          jobId: job.jobId,
+          paidAt: new Date(job.paidAt).toLocaleString(),
+          cleanerId: job.cleanerId || 'N/A',
+          grossAmount: Number(job.grossAmount).toFixed(2),
+          platformFee: Number(job.platformFeeAmount).toFixed(2),
+          processingFee: Number(job.paymentProcessingFeeAmount).toFixed(2),
+          netAmount: Number(job.netPayableAmount).toFixed(2),
+        });
+      });
+      
+      worksheet.addRow({});
+      worksheet.addRow({
+        jobId: 'TOTAL',
+        grossAmount: summary.totalRevenue.toFixed(2),
+        platformFee: summary.platformFees.toFixed(2),
+        processingFee: summary.paymentProcessingFees.toFixed(2),
+        netAmount: summary.netEarnings.toFixed(2),
+      });
+      
+      const totalRow = worksheet.lastRow;
+      if (totalRow) {
+        totalRow.font = { bold: true };
+      }
+      
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename=financials-${company?.name || 'company'}-${Date.now()}.xlsx`);
+      
+      await workbook.xlsx.write(res);
+      res.end();
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

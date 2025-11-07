@@ -6,6 +6,10 @@ import {
   cleanerInvitations,
   customers,
   shiftSessions,
+  deviceTokens,
+  feeSettings,
+  jobFinancials,
+  companyWithdrawals,
   type User, 
   type InsertUser,
   type Company,
@@ -20,6 +24,12 @@ import {
   type InsertCustomer,
   type ShiftSession,
   type InsertShiftSession,
+  type FeeSetting,
+  type InsertFeeSetting,
+  type JobFinancials,
+  type InsertJobFinancials,
+  type CompanyWithdrawal,
+  type InsertCompanyWithdrawal,
   UserRole,
   JobStatus,
   CleanerStatus,
@@ -113,6 +123,42 @@ export interface IStorage {
   unregisterDeviceToken(token: string): Promise<void>;
   getUserDeviceTokens(userId: number): Promise<string[]>;
   updateTokenLastUsed(token: string): Promise<void>;
+  
+  // Financial operations
+  getCurrentFeeSettings(): Promise<FeeSetting>;
+  createJobFinancials(financials: InsertJobFinancials): Promise<JobFinancials>;
+  getJobFinancialsByJobId(jobId: number): Promise<JobFinancials | undefined>;
+  getCompanyFinancials(companyId: number, filters?: {
+    cleanerId?: number;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<JobFinancials[]>;
+  
+  // Company withdrawal operations
+  createWithdrawal(withdrawal: InsertCompanyWithdrawal): Promise<CompanyWithdrawal>;
+  updateWithdrawal(id: number, updates: Partial<CompanyWithdrawal>): Promise<void>;
+  getCompanyWithdrawals(companyId: number): Promise<CompanyWithdrawal[]>;
+  getAllWithdrawals(): Promise<CompanyWithdrawal[]>;
+  
+  // Financial aggregations
+  getCompanyFinancialSummary(companyId: number): Promise<{
+    totalRevenue: number;
+    platformFees: number;
+    paymentProcessingFees: number;
+    netEarnings: number;
+    totalWithdrawals: number;
+    pendingWithdrawals: number;
+    availableBalance: number;
+  }>;
+  getAllCompaniesFinancialSummary(): Promise<Array<{
+    companyId: number;
+    companyName: string;
+    totalRevenue: number;
+    platformFees: number;
+    netEarnings: number;
+    totalWithdrawals: number;
+    availableBalance: number;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -832,6 +878,196 @@ export class DatabaseStorage implements IStorage {
       .update(deviceTokens)
       .set({ lastUsedAt: new Date() })
       .where(eq(deviceTokens.token, token));
+  }
+
+  // ===== FINANCIAL OPERATIONS =====
+  
+  async getCurrentFeeSettings(): Promise<FeeSetting> {
+    const [settings] = await db
+      .select()
+      .from(feeSettings)
+      .orderBy(desc(feeSettings.effectiveFrom))
+      .limit(1);
+    
+    if (!settings) {
+      throw new Error("Fee settings not found");
+    }
+    
+    return settings;
+  }
+
+  async createJobFinancials(financials: InsertJobFinancials): Promise<JobFinancials> {
+    const [result] = await db
+      .insert(jobFinancials)
+      .values(financials)
+      .returning();
+    
+    return result;
+  }
+
+  async getJobFinancialsByJobId(jobId: number): Promise<JobFinancials | undefined> {
+    const [result] = await db
+      .select()
+      .from(jobFinancials)
+      .where(eq(jobFinancials.jobId, jobId));
+    
+    return result;
+  }
+
+  async getCompanyFinancials(
+    companyId: number,
+    filters?: {
+      cleanerId?: number;
+      startDate?: Date;
+      endDate?: Date;
+    }
+  ): Promise<JobFinancials[]> {
+    let query = db
+      .select()
+      .from(jobFinancials)
+      .where(eq(jobFinancials.companyId, companyId));
+
+    const conditions = [eq(jobFinancials.companyId, companyId)];
+
+    if (filters?.cleanerId) {
+      conditions.push(eq(jobFinancials.cleanerId, filters.cleanerId));
+    }
+
+    if (filters?.startDate) {
+      conditions.push(gte(jobFinancials.paidAt, filters.startDate));
+    }
+
+    if (filters?.endDate) {
+      conditions.push(sql`${jobFinancials.paidAt} <= ${filters.endDate}`);
+    }
+
+    const results = await db
+      .select()
+      .from(jobFinancials)
+      .where(and(...conditions))
+      .orderBy(desc(jobFinancials.paidAt));
+
+    return results;
+  }
+
+  // ===== COMPANY WITHDRAWAL OPERATIONS =====
+
+  async createWithdrawal(withdrawal: InsertCompanyWithdrawal): Promise<CompanyWithdrawal> {
+    const [result] = await db
+      .insert(companyWithdrawals)
+      .values(withdrawal)
+      .returning();
+    
+    return result;
+  }
+
+  async updateWithdrawal(id: number, updates: Partial<CompanyWithdrawal>): Promise<void> {
+    await db
+      .update(companyWithdrawals)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(companyWithdrawals.id, id));
+  }
+
+  async getCompanyWithdrawals(companyId: number): Promise<CompanyWithdrawal[]> {
+    return await db
+      .select()
+      .from(companyWithdrawals)
+      .where(eq(companyWithdrawals.companyId, companyId))
+      .orderBy(desc(companyWithdrawals.createdAt));
+  }
+
+  async getAllWithdrawals(): Promise<CompanyWithdrawal[]> {
+    return await db
+      .select()
+      .from(companyWithdrawals)
+      .orderBy(desc(companyWithdrawals.createdAt));
+  }
+
+  // ===== FINANCIAL AGGREGATIONS =====
+
+  async getCompanyFinancialSummary(companyId: number): Promise<{
+    totalRevenue: number;
+    platformFees: number;
+    paymentProcessingFees: number;
+    netEarnings: number;
+    totalWithdrawals: number;
+    pendingWithdrawals: number;
+    availableBalance: number;
+  }> {
+    const financialSummary = await db
+      .select({
+        totalRevenue: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text`,
+        platformFees: sql<string>`COALESCE(SUM(${jobFinancials.platformFeeAmount}), 0)::text`,
+        paymentProcessingFees: sql<string>`COALESCE(SUM(${jobFinancials.paymentProcessingFeeAmount}), 0)::text`,
+        netEarnings: sql<string>`COALESCE(SUM(${jobFinancials.netPayableAmount}), 0)::text`,
+      })
+      .from(jobFinancials)
+      .where(eq(jobFinancials.companyId, companyId));
+
+    const withdrawalSummary = await db
+      .select({
+        totalWithdrawals: sql<string>`COALESCE(SUM(CASE WHEN ${companyWithdrawals.status} = 'completed' THEN ${companyWithdrawals.amount} ELSE 0 END), 0)::text`,
+        pendingWithdrawals: sql<string>`COALESCE(SUM(CASE WHEN ${companyWithdrawals.status} = 'pending' THEN ${companyWithdrawals.amount} ELSE 0 END), 0)::text`,
+      })
+      .from(companyWithdrawals)
+      .where(eq(companyWithdrawals.companyId, companyId));
+
+    const totalRevenue = Number(financialSummary[0]?.totalRevenue || 0);
+    const platformFees = Number(financialSummary[0]?.platformFees || 0);
+    const paymentProcessingFees = Number(financialSummary[0]?.paymentProcessingFees || 0);
+    const netEarnings = Number(financialSummary[0]?.netEarnings || 0);
+    const totalWithdrawals = Number(withdrawalSummary[0]?.totalWithdrawals || 0);
+    const pendingWithdrawals = Number(withdrawalSummary[0]?.pendingWithdrawals || 0);
+    const availableBalance = netEarnings - totalWithdrawals - pendingWithdrawals;
+
+    return {
+      totalRevenue,
+      platformFees,
+      paymentProcessingFees,
+      netEarnings,
+      totalWithdrawals,
+      pendingWithdrawals,
+      availableBalance,
+    };
+  }
+
+  async getAllCompaniesFinancialSummary(): Promise<Array<{
+    companyId: number;
+    companyName: string;
+    totalRevenue: number;
+    platformFees: number;
+    netEarnings: number;
+    totalWithdrawals: number;
+    availableBalance: number;
+  }>> {
+    const result = await db
+      .select({
+        companyId: companies.id,
+        companyName: companies.name,
+        totalRevenue: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text`,
+        platformFees: sql<string>`COALESCE(SUM(${jobFinancials.platformFeeAmount}), 0)::text`,
+        netEarnings: sql<string>`COALESCE(SUM(${jobFinancials.netPayableAmount}), 0)::text`,
+        totalWithdrawals: sql<string>`COALESCE((
+          SELECT SUM(${companyWithdrawals.amount})
+          FROM ${companyWithdrawals}
+          WHERE ${companyWithdrawals.companyId} = ${companies.id}
+          AND ${companyWithdrawals.status} = 'completed'
+        ), 0)::text`,
+      })
+      .from(companies)
+      .leftJoin(jobFinancials, eq(jobFinancials.companyId, companies.id))
+      .where(eq(companies.isActive, true))
+      .groupBy(companies.id, companies.name);
+
+    return result.map(row => ({
+      companyId: row.companyId,
+      companyName: row.companyName,
+      totalRevenue: Number(row.totalRevenue || 0),
+      platformFees: Number(row.platformFees || 0),
+      netEarnings: Number(row.netEarnings || 0),
+      totalWithdrawals: Number(row.totalWithdrawals || 0),
+      availableBalance: Number(row.netEarnings || 0) - Number(row.totalWithdrawals || 0),
+    }));
   }
 
   // ===== HELPER METHODS =====

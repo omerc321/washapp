@@ -20,6 +20,7 @@ import CustomerTrack from "@/pages/customer-track";
 import CleanerDashboard from "@/pages/cleaner-dashboard";
 import AdminDashboard from "@/pages/admin-dashboard";
 import CompanyDashboard from "@/pages/company-dashboard";
+import CompanyFinancials from "@/pages/company-financials";
 import { UserRole } from "@shared/schema";
 
 function ProtectedRoute({ 
@@ -80,6 +81,9 @@ function Router() {
         {/* Company Routes - Auth required */}
         <Route path="/company">
           {() => <ProtectedRoute component={CompanyDashboard} allowedRoles={[UserRole.COMPANY_ADMIN]} />}
+        </Route>
+        <Route path="/company/financials">
+          {() => <ProtectedRoute component={CompanyFinancials} allowedRoles={[UserRole.COMPANY_ADMIN]} />}
         </Route>
 
         {/* Admin Routes - Auth required */}
