@@ -8,6 +8,8 @@ export const userRoleEnum = pgEnum("user_role", ["customer", "cleaner", "company
 export const jobStatusEnum = pgEnum("job_status", ["pending_payment", "paid", "assigned", "in_progress", "completed", "cancelled"]);
 export const cleanerStatusEnum = pgEnum("cleaner_status", ["on_duty", "off_duty", "busy"]);
 export const invitationStatusEnum = pgEnum("invitation_status", ["pending", "consumed", "revoked"]);
+export const paymentMethodEnum = pgEnum("payment_method", ["card", "cash", "bank_transfer"]);
+export const withdrawalStatusEnum = pgEnum("withdrawal_status", ["pending", "completed", "cancelled"]);
 
 // Users Table
 export const users = pgTable("users", {
@@ -139,6 +141,7 @@ export const jobs = pgTable("jobs", {
   // Payment and pricing
   price: numeric("price", { precision: 10, scale: 2 }).notNull(),
   stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
+  paymentMethod: paymentMethodEnum("payment_method").default("card"),
   
   // Job status and timing
   status: jobStatusEnum("status").notNull().default("pending_payment"),
@@ -202,6 +205,75 @@ export const deviceTokens = pgTable("device_tokens", {
 export const deviceTokensRelations = relations(deviceTokens, ({ one }) => ({
   user: one(users, {
     fields: [deviceTokens.userId],
+    references: [users.id],
+  }),
+}));
+
+// Fee Settings Table (platform and payment processing fees)
+export const feeSettings = pgTable("fee_settings", {
+  id: serial("id").primaryKey(),
+  platformFeeRate: numeric("platform_fee_rate", { precision: 5, scale: 4 }).notNull().default("0.10"), // 10% default
+  stripePercentRate: numeric("stripe_percent_rate", { precision: 5, scale: 4 }).notNull().default("0.029"), // 2.9%
+  stripeFixedFee: numeric("stripe_fixed_fee", { precision: 10, scale: 2 }).notNull().default("0.30"), // $0.30
+  currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+  effectiveFrom: timestamp("effective_from").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Job Financials Table (immutable financial records per job)
+export const jobFinancials = pgTable("job_financials", {
+  id: serial("id").primaryKey(),
+  jobId: integer("job_id").notNull().unique(),
+  companyId: integer("company_id").notNull(),
+  cleanerId: integer("cleaner_id"),
+  
+  // Financial breakdown
+  grossAmount: numeric("gross_amount", { precision: 10, scale: 2 }).notNull(),
+  platformFeeAmount: numeric("platform_fee_amount", { precision: 10, scale: 2 }).notNull(),
+  paymentProcessingFeeAmount: numeric("payment_processing_fee_amount", { precision: 10, scale: 2 }).notNull(),
+  netPayableAmount: numeric("net_payable_amount", { precision: 10, scale: 2 }).notNull(),
+  
+  currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+  paidAt: timestamp("paid_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const jobFinancialsRelations = relations(jobFinancials, ({ one }) => ({
+  job: one(jobs, {
+    fields: [jobFinancials.jobId],
+    references: [jobs.id],
+  }),
+  company: one(companies, {
+    fields: [jobFinancials.companyId],
+    references: [companies.id],
+  }),
+  cleaner: one(cleaners, {
+    fields: [jobFinancials.cleanerId],
+    references: [cleaners.id],
+  }),
+}));
+
+// Company Withdrawals Table (track payouts to companies)
+export const companyWithdrawals = pgTable("company_withdrawals", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull(),
+  amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+  status: withdrawalStatusEnum("status").notNull().default("pending"),
+  referenceNumber: varchar("reference_number", { length: 255 }), // Bank transfer reference
+  note: text("note"),
+  processedAt: timestamp("processed_at"),
+  processedBy: integer("processed_by"), // Admin user ID who processed
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const companyWithdrawalsRelations = relations(companyWithdrawals, ({ one }) => ({
+  company: one(companies, {
+    fields: [companyWithdrawals.companyId],
+    references: [companies.id],
+  }),
+  processor: one(users, {
+    fields: [companyWithdrawals.processedBy],
     references: [users.id],
   }),
 }));
@@ -303,6 +375,37 @@ export const selectDeviceTokenSchema = createSelectSchema(deviceTokens);
 
 export type DeviceToken = typeof deviceTokens.$inferSelect;
 export type InsertDeviceToken = z.infer<typeof insertDeviceTokenSchema>;
+
+export const insertFeeSettingsSchema = createInsertSchema(feeSettings).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const selectFeeSettingsSchema = createSelectSchema(feeSettings);
+
+export type FeeSetting = typeof feeSettings.$inferSelect;
+export type InsertFeeSetting = z.infer<typeof insertFeeSettingsSchema>;
+
+export const insertJobFinancialsSchema = createInsertSchema(jobFinancials).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const selectJobFinancialsSchema = createSelectSchema(jobFinancials);
+
+export type JobFinancials = typeof jobFinancials.$inferSelect;
+export type InsertJobFinancials = z.infer<typeof insertJobFinancialsSchema>;
+
+export const insertCompanyWithdrawalSchema = createInsertSchema(companyWithdrawals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const selectCompanyWithdrawalSchema = createSelectSchema(companyWithdrawals);
+
+export type CompanyWithdrawal = typeof companyWithdrawals.$inferSelect;
+export type InsertCompanyWithdrawal = z.infer<typeof insertCompanyWithdrawalSchema>;
 
 // Additional validation schemas
 export const createJobSchema = z.object({
