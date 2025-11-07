@@ -130,9 +130,9 @@ export default function CustomerHome() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 max-w-md mx-auto w-full px-4 py-6">
+      <div className="flex-1 max-w-md mx-auto w-full px-4 py-4">
         {/* Segmented Control - Modern toggle */}
-        <div className="flex gap-1 p-1 bg-muted rounded-lg mb-8" role="tablist">
+        <div className="flex gap-1 p-1 bg-muted rounded-lg mb-4" role="tablist">
           <button
             role="tab"
             aria-selected={mode === 'book'}
@@ -163,9 +163,9 @@ export default function CustomerHome() {
 
         {mode === 'track' ? (
           /* Tracking Form - Clean and simple */
-          <div className="space-y-8 pb-24">
+          <div className="space-y-4 pb-20">
             <div>
-              <Label htmlFor="trackingPlate" className="text-base font-medium mb-3 block">
+              <Label htmlFor="trackingPlate" className="text-base font-medium mb-2 block">
                 Car Plate Number
               </Label>
               <Input
@@ -182,11 +182,11 @@ export default function CustomerHome() {
           </div>
         ) : (
           /* Booking Form - All inputs first, map last */
-          <form onSubmit={handleSubmit} className="space-y-6 pb-24">
+          <form onSubmit={handleSubmit} className="space-y-4 pb-20">
             {/* Car Plate and Parking Number - Same line */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="carPlateNumber" className="text-base font-medium mb-3 block">
+                <Label htmlFor="carPlateNumber" className="text-base font-medium mb-2 block">
                   Car Plate
                 </Label>
                 <Input
@@ -204,7 +204,7 @@ export default function CustomerHome() {
               </div>
               
               <div>
-                <Label htmlFor="parkingNumber" className="text-base font-medium mb-3 block">
+                <Label htmlFor="parkingNumber" className="text-base font-medium mb-2 block">
                   Parking <span className="text-muted-foreground text-xs font-normal">(Optional)</span>
                 </Label>
                 <Input
@@ -222,7 +222,7 @@ export default function CustomerHome() {
 
             {/* Phone Number */}
             <div>
-              <Label htmlFor="customerPhone" className="text-base font-medium mb-3 block">
+              <Label htmlFor="customerPhone" className="text-base font-medium mb-2 block">
                 Phone Number
               </Label>
               <Input
@@ -244,7 +244,7 @@ export default function CustomerHome() {
 
             {/* Location Picker - Now at the bottom */}
             <div>
-              <Label className="text-base font-medium mb-3 block">
+              <Label className="text-base font-medium mb-2 block">
                 Car Location
               </Label>
               {!showMap && formData.locationAddress ? (

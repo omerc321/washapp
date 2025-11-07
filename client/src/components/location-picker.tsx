@@ -123,81 +123,69 @@ export default function LocationPicker({ onLocationSelect, initialPosition = [1.
   }, [handleUseCurrentLocation]);
 
   return (
-    <Card className="p-4 space-y-4">
-      <div className="space-y-2">
-        <Label className="flex items-center gap-2">
+    <div className="border rounded-lg p-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <Label className="flex items-center gap-2 text-sm">
           <MapPin className="h-4 w-4" />
-          Select Your Location
+          {loading && !address ? "Getting location..." : "Tap map to change"}
         </Label>
-        <p className="text-sm text-muted-foreground">
-          {loading && !address ? "Getting your location..." : "Click on the map to change your location"}
-        </p>
-      </div>
-
-      <div className="space-y-3">
         <Button
           type="button"
-          variant="outline"
-          className="w-full"
+          variant="ghost"
+          size="sm"
           onClick={handleUseCurrentLocation}
           disabled={loading}
           data-testid="button-use-current-location"
+          className="h-8 text-xs"
         >
           {loading ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Getting location...
-            </>
+            <Loader2 className="h-3 w-3 animate-spin" />
           ) : (
             <>
-              <MapPin className="h-4 w-4 mr-2" />
-              Use Current Location
+              <MapPin className="h-3 w-3 mr-1" />
+              Current
             </>
           )}
         </Button>
-
-        <div 
-          className="relative w-full h-[300px] rounded-md overflow-hidden border"
-          data-testid="map-container"
-        >
-          <MapContainer
-            center={position}
-            zoom={15}
-            style={{ height: "100%", width: "100%" }}
-            scrollWheelZoom={true}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            <Marker position={position} />
-            <MapClickHandler onLocationClick={handleMapClick} />
-            <MapViewController position={position} />
-          </MapContainer>
-        </div>
-
-        {address && (
-          <div className="p-3 bg-muted rounded-md">
-            <p className="text-sm font-medium">Selected Location:</p>
-            <p className="text-sm text-muted-foreground mt-1" data-testid="text-selected-address">
-              {address}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {position[0].toFixed(6)}, {position[1].toFixed(6)}
-            </p>
-          </div>
-        )}
-
-        <Button
-          type="button"
-          className="w-full"
-          onClick={handleConfirm}
-          disabled={!address || loading}
-          data-testid="button-confirm-location"
-        >
-          Confirm Location
-        </Button>
       </div>
-    </Card>
+
+      <div 
+        className="relative w-full h-[180px] rounded-md overflow-hidden border"
+        data-testid="map-container"
+      >
+        <MapContainer
+          center={position}
+          zoom={15}
+          style={{ height: "100%", width: "100%" }}
+          scrollWheelZoom={true}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <Marker position={position} />
+          <MapClickHandler onLocationClick={handleMapClick} />
+          <MapViewController position={position} />
+        </MapContainer>
+      </div>
+
+      {address && (
+        <div className="p-2 bg-muted rounded-md">
+          <p className="text-xs text-muted-foreground" data-testid="text-selected-address">
+            {address}
+          </p>
+        </div>
+      )}
+
+      <Button
+        type="button"
+        className="w-full h-9 text-sm"
+        onClick={handleConfirm}
+        disabled={!address || loading}
+        data-testid="button-confirm-location"
+      >
+        Confirm Location
+      </Button>
+    </div>
   );
 }
