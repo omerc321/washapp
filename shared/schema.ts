@@ -5,11 +5,12 @@ import { z } from "zod";
 
 // PostgreSQL Enums
 export const userRoleEnum = pgEnum("user_role", ["customer", "cleaner", "company_admin", "admin"]);
-export const jobStatusEnum = pgEnum("job_status", ["pending_payment", "paid", "assigned", "in_progress", "completed", "cancelled"]);
+export const jobStatusEnum = pgEnum("job_status", ["pending_payment", "paid", "assigned", "in_progress", "completed", "cancelled", "refunded"]);
 export const cleanerStatusEnum = pgEnum("cleaner_status", ["on_duty", "off_duty", "busy"]);
 export const invitationStatusEnum = pgEnum("invitation_status", ["pending", "consumed", "revoked"]);
 export const paymentMethodEnum = pgEnum("payment_method", ["card", "cash", "bank_transfer"]);
 export const withdrawalStatusEnum = pgEnum("withdrawal_status", ["pending", "completed", "cancelled"]);
+export const transactionTypeEnum = pgEnum("transaction_type", ["payment", "refund", "withdrawal"]);
 
 // Users Table
 export const users = pgTable("users", {
@@ -140,8 +141,13 @@ export const jobs = pgTable("jobs", {
   
   // Payment and pricing
   price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+  taxAmount: numeric("tax_amount", { precision: 10, scale: 2 }).notNull().default("0"),
+  totalAmount: numeric("total_amount", { precision: 10, scale: 2 }).notNull(),
   stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
+  stripeRefundId: varchar("stripe_refund_id", { length: 255 }),
   paymentMethod: paymentMethodEnum("payment_method").default("card"),
+  refundedAt: timestamp("refunded_at"),
+  refundReason: text("refund_reason"),
   
   // Job status and timing
   status: jobStatusEnum("status").notNull().default("pending_payment"),
@@ -229,12 +235,14 @@ export const jobFinancials = pgTable("job_financials", {
   
   // Financial breakdown
   grossAmount: numeric("gross_amount", { precision: 10, scale: 2 }).notNull(),
+  taxAmount: numeric("tax_amount", { precision: 10, scale: 2 }).notNull().default("0"),
   platformFeeAmount: numeric("platform_fee_amount", { precision: 10, scale: 2 }).notNull(),
   paymentProcessingFeeAmount: numeric("payment_processing_fee_amount", { precision: 10, scale: 2 }).notNull(),
   netPayableAmount: numeric("net_payable_amount", { precision: 10, scale: 2 }).notNull(),
   
   currency: varchar("currency", { length: 3 }).notNull().default("AED"),
   paidAt: timestamp("paid_at").notNull(),
+  refundedAt: timestamp("refunded_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -275,6 +283,45 @@ export const companyWithdrawalsRelations = relations(companyWithdrawals, ({ one 
   processor: one(users, {
     fields: [companyWithdrawals.processedBy],
     references: [users.id],
+  }),
+}));
+
+// Transactions Table (unified ledger for all financial transactions)
+export const transactions = pgTable("transactions", {
+  id: serial("id").primaryKey(),
+  referenceNumber: varchar("reference_number", { length: 100 }).notNull().unique(), // Unique transaction reference
+  type: transactionTypeEnum("type").notNull(),
+  
+  // Related entities
+  jobId: integer("job_id"),
+  companyId: integer("company_id"),
+  withdrawalId: integer("withdrawal_id"),
+  
+  // Financial details
+  amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).notNull().default("AED"),
+  
+  // External references
+  stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
+  stripeRefundId: varchar("stripe_refund_id", { length: 255 }),
+  
+  // Metadata
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const transactionsRelations = relations(transactions, ({ one }) => ({
+  job: one(jobs, {
+    fields: [transactions.jobId],
+    references: [jobs.id],
+  }),
+  company: one(companies, {
+    fields: [transactions.companyId],
+    references: [companies.id],
+  }),
+  withdrawal: one(companyWithdrawals, {
+    fields: [transactions.withdrawalId],
+    references: [companyWithdrawals.id],
   }),
 }));
 
@@ -406,6 +453,16 @@ export const selectCompanyWithdrawalSchema = createSelectSchema(companyWithdrawa
 
 export type CompanyWithdrawal = typeof companyWithdrawals.$inferSelect;
 export type InsertCompanyWithdrawal = z.infer<typeof insertCompanyWithdrawalSchema>;
+
+export const insertTransactionSchema = createInsertSchema(transactions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const selectTransactionSchema = createSelectSchema(transactions);
+
+export type Transaction = typeof transactions.$inferSelect;
+export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 
 // Additional validation schemas
 export const createJobSchema = z.object({
