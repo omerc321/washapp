@@ -1,8 +1,8 @@
 // Stripe checkout integration - from javascript_stripe blueprint
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { useStripe, Elements, PaymentElement, useElements } from '@stripe/react-stripe-js';
-import { loadStripe } from '@stripe/stripe-js';
+import { useStripe, Elements, PaymentElement, useElements, PaymentRequestButtonElement } from '@stripe/react-stripe-js';
+import { loadStripe, PaymentRequest } from '@stripe/stripe-js';
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,12 +15,77 @@ if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
 }
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
-function CheckoutForm({ paymentIntentId }: { paymentIntentId?: string }) {
+function CheckoutForm({ paymentIntentId, clientSecret, jobData }: { paymentIntentId?: string, clientSecret: string, jobData: any }) {
   const stripe = useStripe();
   const elements = useElements();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [processing, setProcessing] = useState(false);
+  const [paymentRequest, setPaymentRequest] = useState<PaymentRequest | null>(null);
+
+  // Setup Payment Request for Apple Pay / Google Pay
+  useEffect(() => {
+    if (!stripe || !jobData) {
+      return;
+    }
+
+    const pr = stripe.paymentRequest({
+      country: 'AE', // United Arab Emirates
+      currency: 'aed',
+      total: {
+        label: 'Car Wash Service',
+        amount: Math.round(jobData.price * 100), // Convert AED to fils (cents)
+      },
+      requestPayerName: true,
+      requestPayerPhone: true,
+    });
+
+    // Check if wallets are available
+    pr.canMakePayment().then(result => {
+      if (result) {
+        setPaymentRequest(pr);
+      }
+    });
+
+    // Handle payment method from wallet
+    pr.on('paymentmethod', async (e) => {
+      try {
+        // Confirm payment with the payment method from the wallet
+        const { error: confirmError } = await stripe.confirmCardPayment(
+          clientSecret,
+          { payment_method: e.paymentMethod.id },
+          { handleActions: false }
+        );
+
+        if (confirmError) {
+          e.complete('fail');
+          toast({
+            title: "Payment Failed",
+            description: confirmError.message,
+            variant: "destructive",
+          });
+        } else {
+          e.complete('success');
+          
+          // Manually confirm on backend
+          if (paymentIntentId) {
+            await apiRequest("POST", `/api/confirm-payment/${paymentIntentId}`, {});
+          }
+          
+          toast({
+            title: "Payment Successful",
+            description: "Your car wash has been booked!",
+          });
+          
+          sessionStorage.removeItem("pendingJob");
+          setTimeout(() => setLocation("/customer/jobs"), 1000);
+        }
+      } catch (error) {
+        e.complete('fail');
+        console.error("Wallet payment error:", error);
+      }
+    });
+  }, [stripe, jobData, clientSecret, paymentIntentId, toast, setLocation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,6 +136,26 @@ function CheckoutForm({ paymentIntentId }: { paymentIntentId?: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Apple Pay / Google Pay Button */}
+      {paymentRequest && (
+        <div className="space-y-4">
+          <PaymentRequestButtonElement 
+            options={{ paymentRequest }}
+            className="w-full"
+          />
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <Separator />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                Or pay with card
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <PaymentElement />
       <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 z-20">
         <div className="max-w-md mx-auto">
@@ -213,7 +298,11 @@ export default function Checkout() {
           <h2 className="text-base font-semibold mb-4">Payment Details</h2>
           <div className="border rounded-lg p-4">
             <Elements stripe={stripePromise} options={{ clientSecret }}>
-              <CheckoutForm paymentIntentId={paymentIntentId} />
+              <CheckoutForm 
+                paymentIntentId={paymentIntentId} 
+                clientSecret={clientSecret}
+                jobData={jobData}
+              />
             </Elements>
           </div>
         </div>
