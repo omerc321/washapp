@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { Car, MapPin, Phone, Building2, Clock, Star, ChevronLeft } from "lucide-react";
+import { Car, MapPin, Phone, Building2, Clock, Star, ChevronLeft, AlertCircle } from "lucide-react";
 import { Job, JobStatus } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -66,6 +66,7 @@ export default function CustomerTrack() {
       [JobStatus.IN_PROGRESS]: { label: "In Progress", variant: "default" as const },
       [JobStatus.COMPLETED]: { label: "Completed", variant: "outline" as const },
       [JobStatus.CANCELLED]: { label: "Cancelled", variant: "destructive" as const },
+      [JobStatus.REFUNDED]: { label: "Refunded", variant: "secondary" as const },
     };
 
     const config = statusConfig[status];
@@ -73,10 +74,12 @@ export default function CustomerTrack() {
   };
 
   const currentJob = jobs?.find(
-    (job) => job.status !== JobStatus.COMPLETED && job.status !== JobStatus.CANCELLED
+    (job) => job.status !== JobStatus.COMPLETED && job.status !== JobStatus.CANCELLED && job.status !== JobStatus.REFUNDED
   );
 
-  const completedJobs = jobs?.filter((job) => job.status === JobStatus.COMPLETED || job.status === JobStatus.CANCELLED);
+  const completedJobs = jobs?.filter((job) => 
+    job.status === JobStatus.COMPLETED || job.status === JobStatus.CANCELLED || job.status === JobStatus.REFUNDED
+  );
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -269,6 +272,21 @@ function JobCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        {/* Refund Message */}
+        {job.status === JobStatus.REFUNDED && (
+          <div className="bg-muted/50 border border-muted rounded-lg p-3 flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+            <div className="text-sm">
+              <p className="font-medium mb-1">Full Refund Processed</p>
+              <p className="text-muted-foreground">
+                No cleaner accepted your job within 15 minutes. 
+                Your payment of {job.price} د.إ has been fully refunded 
+                and will appear on your card within 10 business days.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-start gap-2">
           <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
           <div>

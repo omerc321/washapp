@@ -143,8 +143,10 @@ export interface IStorage {
   // Financial aggregations
   getCompanyFinancialSummary(companyId: number): Promise<{
     totalRevenue: number;
+    totalRefunds: number;
     platformFees: number;
     paymentProcessingFees: number;
+    taxAmount: number;
     netEarnings: number;
     totalWithdrawals: number;
     pendingWithdrawals: number;
@@ -987,8 +989,10 @@ export class DatabaseStorage implements IStorage {
 
   async getCompanyFinancialSummary(companyId: number): Promise<{
     totalRevenue: number;
+    totalRefunds: number;
     platformFees: number;
     paymentProcessingFees: number;
+    taxAmount: number;
     netEarnings: number;
     totalWithdrawals: number;
     pendingWithdrawals: number;
@@ -999,10 +1003,22 @@ export class DatabaseStorage implements IStorage {
         totalRevenue: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text`,
         platformFees: sql<string>`COALESCE(SUM(${jobFinancials.platformFeeAmount}), 0)::text`,
         paymentProcessingFees: sql<string>`COALESCE(SUM(${jobFinancials.paymentProcessingFeeAmount}), 0)::text`,
+        taxAmount: sql<string>`COALESCE(SUM(${jobFinancials.taxAmount}), 0)::text`,
         netEarnings: sql<string>`COALESCE(SUM(${jobFinancials.netPayableAmount}), 0)::text`,
       })
       .from(jobFinancials)
       .where(eq(jobFinancials.companyId, companyId));
+
+    // Calculate refunds from jobs with status='refunded'
+    const refundSummary = await db
+      .select({
+        totalRefunds: sql<string>`COALESCE(SUM(${jobs.price}), 0)::text`,
+      })
+      .from(jobs)
+      .where(and(
+        eq(jobs.companyId, companyId),
+        eq(jobs.status, 'refunded')
+      ));
 
     const withdrawalSummary = await db
       .select({
@@ -1015,15 +1031,19 @@ export class DatabaseStorage implements IStorage {
     const totalRevenue = Number(financialSummary[0]?.totalRevenue || 0);
     const platformFees = Number(financialSummary[0]?.platformFees || 0);
     const paymentProcessingFees = Number(financialSummary[0]?.paymentProcessingFees || 0);
+    const taxAmount = Number(financialSummary[0]?.taxAmount || 0);
     const netEarnings = Number(financialSummary[0]?.netEarnings || 0);
+    const totalRefunds = Number(refundSummary[0]?.totalRefunds || 0);
     const totalWithdrawals = Number(withdrawalSummary[0]?.totalWithdrawals || 0);
     const pendingWithdrawals = Number(withdrawalSummary[0]?.pendingWithdrawals || 0);
     const availableBalance = netEarnings - totalWithdrawals - pendingWithdrawals;
 
     return {
       totalRevenue,
+      totalRefunds,
       platformFees,
       paymentProcessingFees,
+      taxAmount,
       netEarnings,
       totalWithdrawals,
       pendingWithdrawals,
@@ -1056,7 +1076,7 @@ export class DatabaseStorage implements IStorage {
       })
       .from(companies)
       .leftJoin(jobFinancials, eq(jobFinancials.companyId, companies.id))
-      .where(eq(companies.isActive, true))
+      .where(eq(companies.isActive, 1))
       .groupBy(companies.id, companies.name);
 
     return result.map(row => ({

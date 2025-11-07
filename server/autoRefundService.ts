@@ -1,8 +1,9 @@
 import Stripe from "stripe";
 import { db } from "./db";
-import { jobs } from "@shared/schema";
+import { jobs, transactions } from "@shared/schema";
 import { eq, and, lt } from "drizzle-orm";
 import { getWebSocketServer } from "./websocket";
+import { generateTransactionReference } from "./financialUtils";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
@@ -66,6 +67,21 @@ export async function checkAndRefundExpiredJobs() {
             refundedAt: new Date(),
           })
           .where(eq(jobs.id, job.id));
+
+        // Create refund transaction record
+        await db.insert(transactions).values({
+          type: 'refund',
+          amount: job.price,
+          currency: 'AED',
+          jobId: job.id,
+          companyId: job.companyId,
+          stripePaymentIntentId: job.stripePaymentIntentId,
+          stripeRefundId: refund.id,
+          referenceNumber: generateTransactionReference('REFUND', job.id),
+          description: `Auto-refund for job ${job.id} - No cleaner accepted within 15 minutes`,
+        });
+
+        console.log(`Created refund transaction record for job ${job.id}`);
 
         // Send WebSocket notification to all clients
         const wss = getWebSocketServer();

@@ -25,8 +25,10 @@ interface JobFinancial {
 
 interface FinancialSummary {
   totalRevenue: number;
+  totalRefunds: number;
   platformFees: number;
   paymentProcessingFees: number;
+  taxAmount: number;
   netEarnings: number;
   totalWithdrawals: number;
   pendingWithdrawals: number;
@@ -134,10 +136,20 @@ export default function CompanyFinancials() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
           <Card data-testid="card-total-revenue">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+              <CardTitle className="text-sm font-medium">Gross Revenue</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{summary.totalRevenue.toFixed(2)} د.إ</div>
+              <p className="text-xs text-muted-foreground mt-1">Before refunds & fees</p>
+            </CardContent>
+          </Card>
+          <Card data-testid="card-refunds">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Refunds</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600 dark:text-red-400">-{summary.totalRefunds.toFixed(2)} د.إ</div>
+              <p className="text-xs text-muted-foreground mt-1">Auto-refunded jobs</p>
             </CardContent>
           </Card>
           <Card data-testid="card-platform-fees">
@@ -146,6 +158,7 @@ export default function CompanyFinancials() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600 dark:text-red-400">-{summary.platformFees.toFixed(2)} د.إ</div>
+              <p className="text-xs text-muted-foreground mt-1">Service fees</p>
             </CardContent>
           </Card>
           <Card data-testid="card-net-earnings">
@@ -154,6 +167,20 @@ export default function CompanyFinancials() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">{summary.netEarnings.toFixed(2)} د.إ</div>
+              <p className="text-xs text-muted-foreground mt-1">After all deductions</p>
+            </CardContent>
+          </Card>
+        </div>
+        
+        {/* Secondary Stats Row */}
+        <div className="grid gap-4 md:grid-cols-2 mb-6">
+          <Card data-testid="card-tax-collected">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Tax Collected (5%)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{summary.taxAmount.toFixed(2)} د.إ</div>
+              <p className="text-xs text-muted-foreground mt-1">Included in gross revenue</p>
             </CardContent>
           </Card>
           <Card data-testid="card-available-balance">
@@ -162,7 +189,7 @@ export default function CompanyFinancials() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{summary.availableBalance.toFixed(2)} د.إ</div>
-              <p className="text-xs text-muted-foreground mt-1">After withdrawals</p>
+              <p className="text-xs text-muted-foreground mt-1">Available for withdrawal</p>
             </CardContent>
           </Card>
         </div>
