@@ -181,8 +181,8 @@ export default function CustomerHome() {
             </div>
           </div>
         ) : (
-          /* Booking Form - Clean and minimal */
-          <form onSubmit={handleSubmit} className="space-y-8 pb-24">
+          /* Booking Form - All inputs first, map last */
+          <form onSubmit={handleSubmit} className="space-y-6 pb-24">
             {/* Car Plate Number */}
             <div>
               <Label htmlFor="carPlateNumber" className="text-base font-medium mb-3 block">
@@ -202,7 +202,46 @@ export default function CustomerHome() {
               />
             </div>
 
-            {/* Location Picker */}
+            {/* Phone Number */}
+            <div>
+              <Label htmlFor="customerPhone" className="text-base font-medium mb-3 block">
+                Phone Number
+              </Label>
+              <Input
+                id="customerPhone"
+                data-testid="input-phone"
+                type="tel"
+                placeholder="Your contact number"
+                value={formData.customerPhone}
+                onChange={(e) =>
+                  setFormData({ ...formData, customerPhone: e.target.value })
+                }
+                required
+                className="h-12 text-lg"
+              />
+              <p className="text-sm text-muted-foreground mt-2">
+                We'll share this with your cleaner
+              </p>
+            </div>
+
+            {/* Parking Number (Optional) */}
+            <div>
+              <Label htmlFor="parkingNumber" className="text-base font-medium mb-3 block">
+                Parking Number <span className="text-muted-foreground text-sm font-normal">(Optional)</span>
+              </Label>
+              <Input
+                id="parkingNumber"
+                data-testid="input-parking"
+                placeholder="e.g. P2-45"
+                value={formData.parkingNumber}
+                onChange={(e) =>
+                  setFormData({ ...formData, parkingNumber: e.target.value })
+                }
+                className="h-12 text-lg"
+              />
+            </div>
+
+            {/* Location Picker - Now at the bottom */}
             <div>
               <Label className="text-base font-medium mb-3 block">
                 Car Location
@@ -233,45 +272,6 @@ export default function CustomerHome() {
                   }
                 />
               )}
-            </div>
-
-            {/* Parking Number (Optional) */}
-            <div>
-              <Label htmlFor="parkingNumber" className="text-base font-medium mb-3 block">
-                Parking Number <span className="text-muted-foreground text-sm font-normal">(Optional)</span>
-              </Label>
-              <Input
-                id="parkingNumber"
-                data-testid="input-parking"
-                placeholder="e.g. P2-45"
-                value={formData.parkingNumber}
-                onChange={(e) =>
-                  setFormData({ ...formData, parkingNumber: e.target.value })
-                }
-                className="h-12 text-lg"
-              />
-            </div>
-
-            {/* Phone Number */}
-            <div>
-              <Label htmlFor="customerPhone" className="text-base font-medium mb-3 block">
-                Phone Number
-              </Label>
-              <Input
-                id="customerPhone"
-                data-testid="input-phone"
-                type="tel"
-                placeholder="Your contact number"
-                value={formData.customerPhone}
-                onChange={(e) =>
-                  setFormData({ ...formData, customerPhone: e.target.value })
-                }
-                required
-                className="h-12 text-lg"
-              />
-              <p className="text-sm text-muted-foreground mt-2">
-                We'll share this with your cleaner
-              </p>
             </div>
           </form>
         )}
