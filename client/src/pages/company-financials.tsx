@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DollarSign, TrendingUp, TrendingDown, Download, Filter } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Download, Filter, ArrowLeft } from "lucide-react";
 import { Cleaner } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -128,7 +129,14 @@ export default function CompanyFinancials() {
   return (
     <div className="min-h-screen bg-background p-4 pb-20">
       <div className="max-w-6xl mx-auto">
-        <div className="mb-6 pt-4">
+        <Link href="/company">
+          <Button variant="ghost" className="mb-4" data-testid="button-back-to-dashboard">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </Button>
+        </Link>
+        
+        <div className="mb-6">
           <h1 className="text-2xl font-bold text-foreground mb-1">Financial Reports</h1>
           <p className="text-muted-foreground">View revenue breakdown and export data</p>
         </div>
@@ -139,7 +147,7 @@ export default function CompanyFinancials() {
               <CardTitle className="text-sm font-medium">Gross Revenue</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{summary.totalRevenue.toFixed(2)} د.إ</div>
+              <div className="text-2xl font-bold">{Number(summary.totalRevenue).toFixed(2)} د.إ</div>
               <p className="text-xs text-muted-foreground mt-1">Before refunds & fees</p>
             </CardContent>
           </Card>
@@ -148,7 +156,7 @@ export default function CompanyFinancials() {
               <CardTitle className="text-sm font-medium">Refunds</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600 dark:text-red-400">-{summary.totalRefunds.toFixed(2)} د.إ</div>
+              <div className="text-2xl font-bold text-red-600 dark:text-red-400">-{Number(summary.totalRefunds).toFixed(2)} د.إ</div>
               <p className="text-xs text-muted-foreground mt-1">Auto-refunded jobs</p>
             </CardContent>
           </Card>
@@ -157,7 +165,7 @@ export default function CompanyFinancials() {
               <CardTitle className="text-sm font-medium">Platform Fees</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600 dark:text-red-400">-{summary.platformFees.toFixed(2)} د.إ</div>
+              <div className="text-2xl font-bold text-red-600 dark:text-red-400">-{Number(summary.platformFees).toFixed(2)} د.إ</div>
               <p className="text-xs text-muted-foreground mt-1">Service fees</p>
             </CardContent>
           </Card>
@@ -166,7 +174,7 @@ export default function CompanyFinancials() {
               <CardTitle className="text-sm font-medium">Net Earnings</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{summary.netEarnings.toFixed(2)} د.إ</div>
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{Number(summary.netEarnings).toFixed(2)} د.إ</div>
               <p className="text-xs text-muted-foreground mt-1">After all deductions</p>
             </CardContent>
           </Card>
@@ -179,7 +187,7 @@ export default function CompanyFinancials() {
               <CardTitle className="text-sm font-medium">Tax Collected (5%)</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{summary.taxAmount.toFixed(2)} د.إ</div>
+              <div className="text-2xl font-bold">{Number(summary.taxAmount).toFixed(2)} د.إ</div>
               <p className="text-xs text-muted-foreground mt-1">Included in gross revenue</p>
             </CardContent>
           </Card>
@@ -188,7 +196,7 @@ export default function CompanyFinancials() {
               <CardTitle className="text-sm font-medium">Available Balance</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{summary.availableBalance.toFixed(2)} د.إ</div>
+              <div className="text-2xl font-bold">{Number(summary.availableBalance).toFixed(2)} د.إ</div>
               <p className="text-xs text-muted-foreground mt-1">Available for withdrawal</p>
             </CardContent>
           </Card>
