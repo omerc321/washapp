@@ -1037,7 +1037,7 @@ export class DatabaseStorage implements IStorage {
     const financialSummary = await db
       .select({
         totalRevenue: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text`,
-        platformFees: sql<string>`COALESCE(SUM(${jobFinancials.platformFeeAmount}), 0)::text`,
+        platformFees: sql<string>`COALESCE(SUM(${jobFinancials.platformFeeAmount}::numeric * 1.05), 0)::text`,
         paymentProcessingFees: sql<string>`COALESCE(SUM(${jobFinancials.paymentProcessingFeeAmount}), 0)::text`,
         taxAmount: sql<string>`COALESCE(SUM(${jobFinancials.taxAmount}), 0)::text`,
         netEarnings: sql<string>`COALESCE(SUM(${jobFinancials.netPayableAmount}), 0)::text`,
@@ -1101,7 +1101,7 @@ export class DatabaseStorage implements IStorage {
         companyId: companies.id,
         companyName: companies.name,
         totalRevenue: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text`,
-        platformFees: sql<string>`COALESCE(SUM(${jobFinancials.platformFeeAmount}), 0)::text`,
+        platformFees: sql<string>`COALESCE(SUM(${jobFinancials.platformFeeAmount}::numeric * 1.05), 0)::text`,
         netEarnings: sql<string>`COALESCE(SUM(${jobFinancials.netPayableAmount}), 0)::text`,
         totalWithdrawals: sql<string>`COALESCE((
           SELECT SUM(${companyWithdrawals.amount})
