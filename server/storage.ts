@@ -1043,7 +1043,7 @@ export class DatabaseStorage implements IStorage {
         totalRevenue: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text`,
         platformFees: sql<string>`COALESCE(SUM(${jobFinancials.platformFeeAmount}::numeric * 1.05), 0)::text`,
         paymentProcessingFees: sql<string>`COALESCE(SUM(${jobFinancials.paymentProcessingFeeAmount}), 0)::text`,
-        taxAmount: sql<string>`COALESCE(SUM(${jobFinancials.taxAmount}), 0)::text`,
+        taxAmount: sql<string>`COALESCE(SUM(${jobFinancials.baseTax}) + SUM(${jobFinancials.tipTax}), 0)::text`,
         netEarnings: sql<string>`COALESCE(SUM(${jobFinancials.netPayableAmount}), 0)::text`,
       })
       .from(jobFinancials)
