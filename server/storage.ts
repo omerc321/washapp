@@ -534,12 +534,19 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(jobs.createdAt));
   }
 
-  async getJobsByPlateNumber(plateNumber: string): Promise<Job[]> {
-    return await db
+  async getJobsByPlateNumber(plateNumber: string): Promise<any[]> {
+    const result = await db
       .select()
       .from(jobs)
+      .leftJoin(jobFinancials, eq(jobs.id, jobFinancials.jobId))
       .where(eq(jobs.carPlateNumber, plateNumber.toUpperCase()))
       .orderBy(desc(jobs.createdAt));
+    
+    // Map the result to include grossAmount at the job level
+    return result.map(row => ({
+      ...row.jobs,
+      grossAmount: row.job_financials?.grossAmount || null,
+    }));
   }
 
   async getJobsByCleaner(cleanerId: number): Promise<Job[]> {
