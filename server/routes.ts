@@ -11,6 +11,7 @@ import { storage } from "./storage";
 import { requireAuth, requireRole, optionalAuth } from "./middleware";
 import { sendEmail } from "./lib/resend";
 import { broadcastJobUpdate } from "./websocket";
+import { createJobFinancialRecord } from "./financialUtils";
 import { 
   JobStatus, 
   CleanerStatus, 
@@ -455,6 +456,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: JobStatus.PAID,
           });
           
+          // Create financial record for this job
+          await createJobFinancialRecord(
+            job.id,
+            job.companyId,
+            job.cleanerId, // Pass actual cleaner if assigned
+            Number(job.price),
+            new Date()
+          );
+          
           // Broadcast update to all on-duty cleaners
           const updatedJob = await storage.getJob(job.id);
           if (updatedJob) broadcastJobUpdate(updatedJob);
@@ -495,6 +505,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateJob(job.id, {
         status: JobStatus.PAID,
       });
+      
+      // Create financial record for this job
+      await createJobFinancialRecord(
+        job.id,
+        job.companyId,
+        job.cleanerId, // Pass actual cleaner if assigned
+        Number(job.price),
+        new Date()
+      );
       
       // Broadcast update to all on-duty cleaners
       const updatedJob = await storage.getJob(job.id);

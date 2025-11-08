@@ -124,7 +124,7 @@ export default function CompanyDashboard() {
     },
     {
       title: "Total Revenue",
-      value: `$${analytics.totalRevenue.toLocaleString()}`,
+      value: `${analytics.totalRevenue.toLocaleString()} د.إ`,
       icon: DollarSign,
       description: "All time",
     },
@@ -142,7 +142,7 @@ export default function CompanyDashboard() {
     },
     {
       title: "Revenue This Month",
-      value: `$${analytics.revenueThisMonth.toLocaleString()}`,
+      value: `${analytics.revenueThisMonth.toLocaleString()} د.إ`,
       icon: DollarSign,
       description: "Current month",
     },

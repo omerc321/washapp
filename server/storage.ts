@@ -739,10 +739,12 @@ export class DatabaseStorage implements IStorage {
       .where(eq(jobs.status, "in_progress"));
     const [completedJobsResult] = await db.select({ count: sql<number>`count(*)` }).from(jobs)
       .where(eq(jobs.status, "completed"));
-    const [totalRevenueResult] = await db.select({ total: sql<number>`sum(${jobs.price})` }).from(jobs)
+    // Calculate gross revenue (base + 5% tax + 3 AED platform fee) to match financial reports
+    const [totalRevenueResult] = await db.select({ total: sql<number>`sum(${jobs.price} * 1.05 + 3)` }).from(jobs)
       .where(eq(jobs.status, "completed"));
-    const [revenueThisMonthResult] = await db.select({ total: sql<number>`sum(${jobs.price})` }).from(jobs)
+    const [revenueThisMonthResult] = await db.select({ total: sql<number>`sum(${jobs.price} * 1.05 + 3)` }).from(jobs)
       .where(and(
+        eq(jobs.companyId, companyId),
         eq(jobs.status, "completed"),
         gte(jobs.createdAt, firstDayOfMonth)
       ));
@@ -772,7 +774,13 @@ export class DatabaseStorage implements IStorage {
         eq(jobs.companyId, companyId),
         gte(jobs.createdAt, firstDayOfMonth)
       ));
-    const [revenueThisMonthResult] = await db.select({ total: sql<number>`sum(${jobs.price})` }).from(jobs)
+    // Calculate gross revenue (base + 5% tax + 3 AED platform fee) to match financial reports
+    const [totalRevenueResult] = await db.select({ total: sql<number>`sum(${jobs.price} * 1.05 + 3)` }).from(jobs)
+      .where(and(
+        eq(jobs.companyId, companyId),
+        eq(jobs.status, "completed")
+      ));
+    const [revenueThisMonthResult] = await db.select({ total: sql<number>`sum(${jobs.price} * 1.05 + 3)` }).from(jobs)
       .where(and(
         eq(jobs.companyId, companyId),
         eq(jobs.status, "completed"),
@@ -825,7 +833,7 @@ export class DatabaseStorage implements IStorage {
     
     return {
       totalJobsCompleted: company?.totalJobsCompleted || 0,
-      totalRevenue: parseFloat(company?.totalRevenue as any) || 0,
+      totalRevenue: totalRevenueResult.total || 0,
       averageRating: parseFloat(company?.rating as any) || 0,
       activeCleaners: activeCleanersResult.count,
       jobsThisMonth: jobsThisMonthResult.count,
