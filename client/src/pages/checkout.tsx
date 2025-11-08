@@ -25,12 +25,14 @@ function CheckoutForm({ paymentIntentId, clientSecret, jobData, onTipUpdate }: {
   const [tipAmount, setTipAmount] = useState(0);
   const [customTip, setCustomTip] = useState("");
   const [updatingTip, setUpdatingTip] = useState(false);
+  const [customTipError, setCustomTipError] = useState("");
 
   // Handle tip update
   const updateTip = async (newTip: number) => {
     if (!paymentIntentId) return;
     
     setUpdatingTip(true);
+    setCustomTipError("");
     try {
       const response = await apiRequest("PATCH", `/api/payment-intents/${paymentIntentId}`, {
         tipAmount: newTip,
@@ -51,6 +53,7 @@ function CheckoutForm({ paymentIntentId, clientSecret, jobData, onTipUpdate }: {
       }
       
       setTipAmount(newTip);
+      setCustomTip(""); // Clear custom input after successful update
     } catch (error) {
       console.error("Failed to update tip:", error);
       toast({
@@ -197,26 +200,41 @@ function CheckoutForm({ paymentIntentId, clientSecret, jobData, onTipUpdate }: {
           ))}
           <div className="col-span-3">
             <div className="flex gap-2">
-              <input
-                type="number"
-                placeholder="Custom amount"
-                value={customTip}
-                onChange={(e) => setCustomTip(e.target.value)}
-                className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm"
-                min="0"
-                max="1000"
-                step="1"
-                data-testid="input-custom-tip"
-              />
+              <div className="flex-1">
+                <input
+                  type="number"
+                  placeholder="Custom amount"
+                  value={customTip}
+                  onChange={(e) => {
+                    setCustomTip(e.target.value);
+                    setCustomTipError("");
+                  }}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  min="0"
+                  max="1000"
+                  step="1"
+                  data-testid="input-custom-tip"
+                />
+                {customTipError && (
+                  <p className="text-xs text-destructive mt-1">{customTipError}</p>
+                )}
+              </div>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => {
                   const amount = parseFloat(customTip) || 0;
-                  if (amount >= 0 && amount <= 1000) {
-                    updateTip(amount);
+                  if (amount < 0) {
+                    setCustomTipError("Tip cannot be negative");
+                    return;
                   }
+                  if (amount > 1000) {
+                    setCustomTipError("Maximum tip is 1000 د.إ");
+                    return;
+                  }
+                  setCustomTipError("");
+                  updateTip(amount);
                 }}
                 disabled={updatingTip || !customTip}
                 data-testid="button-apply-custom-tip"

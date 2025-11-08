@@ -42,7 +42,7 @@ export default function SelectCompany() {
   });
 
   const handleSelectCompany = (company: CompanyWithCleaners) => {
-    const basePrice = company.pricePerWash;
+    const basePrice = Number(company.pricePerWash);
     const taxAmount = Number((basePrice * 0.05).toFixed(2)); // 5% tax
     const platformFee = 3;
     const totalPrice = Number((basePrice + taxAmount + platformFee).toFixed(2));
@@ -60,7 +60,11 @@ export default function SelectCompany() {
   };
 
   if (!pendingJob) {
-    return null;
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" aria-label="Loading"/>
+      </div>
+    );
   }
 
   return (
@@ -128,14 +132,14 @@ export default function SelectCompany() {
                   <div className="text-right shrink-0">
                     <div className="text-2xl font-bold text-foreground">
                       {(() => {
-                        const base = company.pricePerWash;
+                        const base = Number(company.pricePerWash);
                         const tax = Number((base * 0.05).toFixed(2));
                         const total = Number((base + tax + 3).toFixed(2));
                         return total;
                       })()} د.إ
                     </div>
                     <div className="text-xs text-muted-foreground leading-tight">
-                      {company.pricePerWash} د.إ + 5% tax + 3 د.إ fee
+                      {Number(company.pricePerWash).toFixed(2)} د.إ + 5% tax + 3 د.إ fee
                     </div>
                   </div>
                 </div>
