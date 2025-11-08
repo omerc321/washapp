@@ -83,6 +83,7 @@ export const cleaners = pgTable("cleaners", {
   status: cleanerStatusEnum("status").notNull().default("off_duty"),
   currentLatitude: numeric("current_latitude", { precision: 10, scale: 8 }),
   currentLongitude: numeric("current_longitude", { precision: 11, scale: 8 }),
+  lastLocationUpdate: timestamp("last_location_update"),
   totalJobsCompleted: integer("total_jobs_completed").notNull().default(0),
   averageCompletionTime: integer("average_completion_time").notNull().default(0),
   rating: numeric("rating", { precision: 3, scale: 2 }).notNull().default("0"),

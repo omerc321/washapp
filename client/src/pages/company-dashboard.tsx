@@ -20,6 +20,17 @@ export default function CompanyDashboard() {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
 
+  // Helper function to check if a cleaner is truly online (active within last 10 minutes)
+  const isCleanerOnline = (cleaner: Cleaner): boolean => {
+    if (cleaner.status !== "on_duty" || !cleaner.lastLocationUpdate) {
+      return false;
+    }
+    const lastUpdate = new Date(cleaner.lastLocationUpdate);
+    const now = new Date();
+    const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
+    return lastUpdate > tenMinutesAgo;
+  };
+
   const { data: company, isLoading: isLoadingCompany } = useQuery<Company>({
     queryKey: ["/api/companies", currentUser?.companyId],
     enabled: !!currentUser?.companyId,
@@ -297,26 +308,36 @@ export default function CompanyDashboard() {
                 </div>
               ) : cleaners && cleaners.length > 0 ? (
                 <div className="space-y-4">
-                  {cleaners.map((cleaner) => (
-                    <div
-                      key={cleaner.id}
-                      className="flex items-center justify-between p-4 border rounded-lg"
-                      data-testid={`cleaner-${cleaner.id}`}
-                    >
-                      <div>
-                        <p className="font-medium">Cleaner ID: {cleaner.id}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Status: {cleaner.status.replace("_", " ")}
-                        </p>
+                  {cleaners.map((cleaner) => {
+                    const online = isCleanerOnline(cleaner);
+                    return (
+                      <div
+                        key={cleaner.id}
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                        data-testid={`cleaner-${cleaner.id}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div>
+                            <p className="font-medium">Cleaner ID: {cleaner.id}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge 
+                                variant={online ? "default" : "secondary"}
+                                data-testid={`cleaner-status-${cleaner.id}`}
+                              >
+                                {online ? "Online" : cleaner.status === "on_duty" ? "On Duty (Offline)" : cleaner.status.replace("_", " ")}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm">Jobs: {cleaner.totalJobsCompleted}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Rating: {cleaner.rating || "N/A"}
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm">Jobs: {cleaner.totalJobsCompleted}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Rating: {cleaner.rating || "N/A"}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-center text-muted-foreground py-8">

@@ -702,6 +702,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateCleaner(cleaner.id, { 
           currentLatitude: latitude.toString(),
           currentLongitude: longitude.toString(),
+          lastLocationUpdate: new Date(),
         });
         res.json({ success: true });
       } else {

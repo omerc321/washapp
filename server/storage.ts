@@ -323,6 +323,8 @@ export class DatabaseStorage implements IStorage {
         AND c.is_active = 1
         AND cl.current_latitude IS NOT NULL
         AND cl.current_longitude IS NOT NULL
+        AND cl.last_location_update IS NOT NULL
+        AND cl.last_location_update > NOW() - INTERVAL '10 minutes'
     `;
     
     const result = await pool.query(query);
@@ -671,7 +673,10 @@ export class DatabaseStorage implements IStorage {
 
     await db
       .update(cleaners)
-      .set({ status: CleanerStatus.ON_DUTY })
+      .set({ 
+        status: CleanerStatus.ON_DUTY,
+        lastLocationUpdate: new Date(),
+      })
       .where(eq(cleaners.id, cleanerId));
 
     return session;
