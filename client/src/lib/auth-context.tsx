@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { User, UserRole } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface AuthContextType {
   currentUser: User | null;
@@ -210,6 +210,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         credentials: "include",
       });
       
+      queryClient.clear();
       setCurrentUser(null);
       toast({
         title: "Signed Out",
