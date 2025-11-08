@@ -236,13 +236,19 @@ export const jobFinancials = pgTable("job_financials", {
   cleanerId: integer("cleaner_id"),
   
   // Financial breakdown
-  grossAmount: numeric("gross_amount", { precision: 10, scale: 2 }).notNull(),
-  taxAmount: numeric("tax_amount", { precision: 10, scale: 2 }).notNull().default("0"),
+  baseJobAmount: numeric("base_job_amount", { precision: 10, scale: 2 }).notNull(),
+  baseTax: numeric("base_tax", { precision: 10, scale: 2 }).notNull().default("0"),
   tipAmount: numeric("tip_amount", { precision: 10, scale: 2 }).notNull().default("0"),
+  tipTax: numeric("tip_tax", { precision: 10, scale: 2 }).notNull().default("0"),
   platformFeeAmount: numeric("platform_fee_amount", { precision: 10, scale: 2 }).notNull(),
-  platformRevenue: numeric("platform_revenue", { precision: 10, scale: 2 }).notNull().default("0"),
+  platformFeeTax: numeric("platform_fee_tax", { precision: 10, scale: 2 }).notNull().default("0"),
   paymentProcessingFeeAmount: numeric("payment_processing_fee_amount", { precision: 10, scale: 2 }).notNull(),
+  grossAmount: numeric("gross_amount", { precision: 10, scale: 2 }).notNull(),
   netPayableAmount: numeric("net_payable_amount", { precision: 10, scale: 2 }).notNull(),
+  
+  // Legacy fields (kept for backwards compatibility)
+  taxAmount: numeric("tax_amount", { precision: 10, scale: 2 }).notNull().default("0"),
+  platformRevenue: numeric("platform_revenue", { precision: 10, scale: 2 }).notNull().default("0"),
   
   currency: varchar("currency", { length: 3 }).notNull().default("AED"),
   paidAt: timestamp("paid_at").notNull(),
