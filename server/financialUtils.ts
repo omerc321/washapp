@@ -32,9 +32,10 @@ export async function calculateJobFees(baseAmount: number, tipAmount: number = 0
     ((totalAmount * stripePercentRate) + stripeFixedFee).toFixed(2)
   );
   
-  // Net payable to company = gross - platform fee - stripe fees
+  // Net payable = gross - platform fee - stripe fees + tip
+  // (Company gets net from gross, cleaner gets tip)
   const netPayableAmount = Number(
-    (grossAmount - platformFeeAmount - paymentProcessingFeeAmount).toFixed(2)
+    (grossAmount - platformFeeAmount - paymentProcessingFeeAmount + tipAmount).toFixed(2)
   );
   
   return {

@@ -50,7 +50,7 @@ export default function SelectCompany() {
     const updatedJob = {
       ...pendingJob,
       companyId: company.id,
-      price: totalPrice,
+      price: basePrice, // Send base price, backend will calculate fees
       basePrice,
       taxAmount,
       platformFee,
