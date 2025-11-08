@@ -240,6 +240,7 @@ export const jobFinancials = pgTable("job_financials", {
   taxAmount: numeric("tax_amount", { precision: 10, scale: 2 }).notNull().default("0"),
   tipAmount: numeric("tip_amount", { precision: 10, scale: 2 }).notNull().default("0"),
   platformFeeAmount: numeric("platform_fee_amount", { precision: 10, scale: 2 }).notNull(),
+  platformRevenue: numeric("platform_revenue", { precision: 10, scale: 2 }).notNull().default("0"),
   paymentProcessingFeeAmount: numeric("payment_processing_fee_amount", { precision: 10, scale: 2 }).notNull(),
   netPayableAmount: numeric("net_payable_amount", { precision: 10, scale: 2 }).notNull(),
   

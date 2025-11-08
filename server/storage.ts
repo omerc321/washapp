@@ -745,7 +745,6 @@ export class DatabaseStorage implements IStorage {
       .where(eq(jobs.status, "completed"));
     const [revenueThisMonthResult] = await db.select({ total: sql<number>`sum(${jobs.price} * 1.05 + 3)` }).from(jobs)
       .where(and(
-        eq(jobs.companyId, companyId),
         eq(jobs.status, "completed"),
         gte(jobs.createdAt, firstDayOfMonth)
       ));
@@ -962,6 +961,7 @@ export class DatabaseStorage implements IStorage {
         grossAmount: jobFinancials.grossAmount,
         taxAmount: jobFinancials.taxAmount,
         platformFeeAmount: jobFinancials.platformFeeAmount,
+        platformRevenue: jobFinancials.platformRevenue,
         paymentProcessingFeeAmount: jobFinancials.paymentProcessingFeeAmount,
         netPayableAmount: jobFinancials.netPayableAmount,
         tipAmount: jobFinancials.tipAmount,
@@ -1031,7 +1031,7 @@ export class DatabaseStorage implements IStorage {
     const financialSummary = await db
       .select({
         totalRevenue: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text`,
-        platformFees: sql<string>`COALESCE(SUM(${jobFinancials.platformFeeAmount}), 0)::text`,
+        platformFees: sql<string>`COALESCE(SUM(${jobFinancials.platformRevenue}), 0)::text`,
         paymentProcessingFees: sql<string>`COALESCE(SUM(${jobFinancials.paymentProcessingFeeAmount}), 0)::text`,
         taxAmount: sql<string>`COALESCE(SUM(${jobFinancials.taxAmount}), 0)::text`,
         netEarnings: sql<string>`COALESCE(SUM(${jobFinancials.netPayableAmount}), 0)::text`,
@@ -1095,7 +1095,7 @@ export class DatabaseStorage implements IStorage {
         companyId: companies.id,
         companyName: companies.name,
         totalRevenue: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text`,
-        platformFees: sql<string>`COALESCE(SUM(${jobFinancials.platformFeeAmount}), 0)::text`,
+        platformFees: sql<string>`COALESCE(SUM(${jobFinancials.platformRevenue}), 0)::text`,
         netEarnings: sql<string>`COALESCE(SUM(${jobFinancials.netPayableAmount}), 0)::text`,
         totalWithdrawals: sql<string>`COALESCE((
           SELECT SUM(${companyWithdrawals.amount})
@@ -1162,6 +1162,7 @@ export class DatabaseStorage implements IStorage {
       status: row.status,
       currentLatitude: row.current_latitude,
       currentLongitude: row.current_longitude,
+      lastLocationUpdate: row.last_location_update,
       totalJobsCompleted: row.total_jobs_completed,
       averageCompletionTime: row.average_completion_time,
       rating: row.rating,

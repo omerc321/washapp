@@ -43,9 +43,10 @@ export default function SelectCompany() {
 
   const handleSelectCompany = (company: CompanyWithCleaners) => {
     const basePrice = Number(company.pricePerWash);
-    const taxAmount = Number((basePrice * 0.05).toFixed(2)); // 5% tax
     const platformFee = 3;
-    const totalPrice = Number((basePrice + taxAmount + platformFee).toFixed(2));
+    const subtotal = basePrice + platformFee; // Tax calculated on base + platform fee
+    const taxAmount = Number((subtotal * 0.05).toFixed(2)); // 5% tax on subtotal
+    const totalPrice = Number((subtotal + taxAmount).toFixed(2));
     
     const updatedJob = {
       ...pendingJob,
@@ -133,13 +134,15 @@ export default function SelectCompany() {
                     <div className="text-2xl font-bold text-foreground">
                       {(() => {
                         const base = Number(company.pricePerWash);
-                        const tax = Number((base * 0.05).toFixed(2));
-                        const total = Number((base + tax + 3).toFixed(2));
+                        const platformFee = 3;
+                        const subtotal = base + platformFee;
+                        const tax = Number((subtotal * 0.05).toFixed(2));
+                        const total = Number((subtotal + tax).toFixed(2));
                         return total;
                       })()} د.إ
                     </div>
                     <div className="text-xs text-muted-foreground leading-tight">
-                      {Number(company.pricePerWash).toFixed(2)} د.إ + 5% tax + 3 د.إ fee
+                      {Number(company.pricePerWash).toFixed(2)} د.إ + 3 د.إ fee + 5% tax
                     </div>
                   </div>
                 </div>
