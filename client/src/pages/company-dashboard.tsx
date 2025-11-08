@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Users, Briefcase, DollarSign, Star, TrendingUp, UserPlus, AlertCircle, Phone, CheckCircle, Clock, XCircle } from "lucide-react";
+import { Users, Briefcase, DollarSign, Star, TrendingUp, UserPlus, AlertCircle, Phone, CheckCircle, Clock, XCircle, FileText } from "lucide-react";
 import { CompanyAnalytics, Cleaner, Company, CleanerInvitation } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -161,51 +162,64 @@ export default function CompanyDashboard() {
             </p>
           </div>
           
-          {/* Invite Cleaner Button */}
-          <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
-            <DialogTrigger asChild>
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <Link href="/company/financials">
               <Button 
-                data-testid="button-invite-cleaner"
+                variant="outline"
+                data-testid="button-view-financials"
                 disabled={company?.isActive === 0}
               >
-                <UserPlus className="mr-2 h-4 w-4" />
-                Invite Cleaner
+                <FileText className="mr-2 h-4 w-4" />
+                View Financials
               </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Invite Car Washer</DialogTitle>
-                <DialogDescription>
-                  Invite a cleaner by their phone number. They will be able to register using this number.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phoneNumber">Phone Number</Label>
-                  <Input
-                    id="phoneNumber"
-                    type="tel"
-                    placeholder="+65 1234 5678"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    data-testid="input-phone-number"
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    The cleaner will use this number to register on the platform
-                  </p>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  onClick={() => inviteCleanerMutation.mutate(phoneNumber)}
-                  disabled={inviteCleanerMutation.isPending || !phoneNumber}
-                  data-testid="button-submit-invite"
+            </Link>
+            
+            <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+              <DialogTrigger asChild>
+                <Button 
+                  data-testid="button-invite-cleaner"
+                  disabled={company?.isActive === 0}
                 >
-                  {inviteCleanerMutation.isPending ? "Inviting..." : "Send Invitation"}
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Invite Cleaner
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Invite Car Washer</DialogTitle>
+                  <DialogDescription>
+                    Invite a cleaner by their phone number. They will be able to register using this number.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="phoneNumber">Phone Number</Label>
+                    <Input
+                      id="phoneNumber"
+                      type="tel"
+                      placeholder="+65 1234 5678"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      data-testid="input-phone-number"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      The cleaner will use this number to register on the platform
+                    </p>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    onClick={() => inviteCleanerMutation.mutate(phoneNumber)}
+                    disabled={inviteCleanerMutation.isPending || !phoneNumber}
+                    data-testid="button-submit-invite"
+                  >
+                    {inviteCleanerMutation.isPending ? "Inviting..." : "Send Invitation"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Pending Approval Alert */}
