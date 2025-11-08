@@ -391,15 +391,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/create-payment-intent", async (req: Request, res: Response) => {
     try {
       const jobData = req.body;
+      const tipAmount = Number(jobData.tipAmount || 0);
+      const basePrice = Number(jobData.price);
       
-      // Create payment intent
+      // Calculate fees and total amount
+      const fees = await calculateJobFees(basePrice, tipAmount);
+      
+      // Create payment intent with total amount (including tip)
       const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(jobData.price * 100), // Convert to fils (AED subunits)
+        amount: Math.round(fees.totalAmount * 100), // Convert to fils (AED subunits)
         currency: "aed",
         metadata: {
           carPlateNumber: jobData.carPlateNumber,
           locationAddress: jobData.locationAddress,
           companyId: jobData.companyId,
+          tipAmount: tipAmount.toString(),
         },
       });
 
@@ -413,13 +419,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
         locationLongitude: jobData.locationLongitude,
         parkingNumber: jobData.parkingNumber,
         customerPhone: jobData.customerPhone,
-        price: jobData.price,
+        price: basePrice.toString(),
+        tipAmount: tipAmount.toString(),
+        totalAmount: fees.totalAmount.toString(),
         stripePaymentIntentId: paymentIntent.id,
         status: JobStatus.PENDING_PAYMENT,
       });
 
       res.json({ clientSecret: paymentIntent.client_secret, jobId: job.id });
     } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Update payment intent with new tip amount
+  app.patch("/api/payment-intents/:paymentIntentId", async (req: Request, res: Response) => {
+    try {
+      const { paymentIntentId } = req.params;
+      const { tipAmount } = req.body;
+      
+      // Find the existing job to get the stored base price (prevent tampering)
+      const job = await storage.getJobByPaymentIntent(paymentIntentId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+      
+      // Validate job is still in pending payment state
+      if (job.status !== JobStatus.PENDING_PAYMENT) {
+        return res.status(400).json({ message: "Payment already processed" });
+      }
+      
+      // Validate tip amount
+      const tip = Number(tipAmount || 0);
+      if (tip < 0) {
+        return res.status(400).json({ message: "Tip amount cannot be negative" });
+      }
+      if (tip > 1000) {
+        return res.status(400).json({ message: "Tip amount too large" });
+      }
+      
+      // Use the stored base price from the job (not from client)
+      const basePrice = Number(job.price);
+      
+      // Recalculate fees with new tip amount
+      const fees = await calculateJobFees(basePrice, tip);
+      
+      // Update the Stripe PaymentIntent with new amount
+      const paymentIntent = await stripe.paymentIntents.update(paymentIntentId, {
+        amount: Math.round(fees.totalAmount * 100), // Convert to fils
+        metadata: {
+          tipAmount: tip.toString(),
+        },
+      });
+      
+      // Update the job with new tip and total
+      await storage.updateJob(job.id, {
+        tipAmount: tip.toString(),
+        totalAmount: fees.totalAmount.toString(),
+      });
+      
+      // Return updated fees for frontend display
+      res.json({
+        ...fees,
+        clientSecret: paymentIntent.client_secret,
+      });
+    } catch (error: any) {
+      console.error('Payment intent update error:', error);
       res.status(500).json({ message: error.message });
     }
   });
