@@ -10,6 +10,7 @@ import { Car, MapPin, Phone, Building2, Clock, Star, ChevronLeft, AlertCircle } 
 import { Job, JobStatus } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import logoUrl from "@assets/IMG_2508_1762619079711.png";
 
 export default function CustomerTrack() {
   const [, params] = useRoute("/customer/track/:plateNumber");
@@ -85,11 +86,12 @@ export default function CustomerTrack() {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header - Clean and minimal */}
       <div className="border-b bg-background sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold">{plateNumber}</h1>
-              <p className="text-sm text-muted-foreground mt-0.5">
+        <div className="max-w-md mx-auto px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <img src={logoUrl} alt="Washapp.ae" className="h-10 w-auto" data-testid="img-logo" />
+            <div className="flex-1">
+              <h1 className="text-base font-semibold">{plateNumber}</h1>
+              <p className="text-xs text-muted-foreground">
                 Car wash tracking
               </p>
             </div>

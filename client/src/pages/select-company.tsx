@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MapPin, Users, Star } from "lucide-react";
 import { CompanyWithCleaners } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import logoUrl from "@assets/IMG_2508_1762619079711.png";
 
 export default function SelectCompany() {
   const [, setLocation] = useLocation();
@@ -72,11 +73,12 @@ export default function SelectCompany() {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header - Clean and minimal */}
       <div className="border-b bg-background sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold">Select Company</h1>
-              <p className="text-sm text-muted-foreground mt-0.5">
+        <div className="max-w-md mx-auto px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <img src={logoUrl} alt="Washapp.ae" className="h-10 w-auto" data-testid="img-logo" />
+            <div className="flex-1">
+              <h1 className="text-base font-semibold">Select Company</h1>
+              <p className="text-xs text-muted-foreground">
                 Available cleaners nearby
               </p>
             </div>

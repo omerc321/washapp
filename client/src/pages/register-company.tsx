@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
-import { Loader2, Car } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import logoUrl from "@assets/IMG_2508_1762619079711.png";
 
 export default function RegisterCompanyPage() {
   const [, setLocation] = useLocation();
@@ -76,10 +77,10 @@ export default function RegisterCompanyPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-2">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Car className="h-8 w-8" />
-            <CardTitle className="text-3xl font-bold">Register Company</CardTitle>
+          <div className="flex items-center justify-center mb-4">
+            <img src={logoUrl} alt="Washapp.ae" className="h-24 w-auto" data-testid="img-logo" />
           </div>
+          <CardTitle className="text-xl font-bold">Register Company</CardTitle>
           <CardDescription className="text-base">
             Create a car wash company account
           </CardDescription>

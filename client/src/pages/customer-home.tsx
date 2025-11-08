@@ -8,6 +8,7 @@ import { Car, Phone, Building2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import LocationPicker from "@/components/location-picker";
+import logoUrl from "@assets/IMG_2508_1762619079711.png";
 
 export default function CustomerHome() {
   const { currentUser } = useAuth();
@@ -113,9 +114,9 @@ export default function CustomerHome() {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header - Clean and minimal */}
       <div className="border-b bg-background sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-4">
+        <div className="max-w-md mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold tracking-tight">CarWash Pro</h1>
+            <img src={logoUrl} alt="Washapp.ae" className="h-12 w-auto" data-testid="img-logo" />
             <Button 
               variant="ghost" 
               size="sm"

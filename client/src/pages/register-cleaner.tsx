@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
-import { Loader2, Car, CheckCircle, Phone } from "lucide-react";
+import { Loader2, CheckCircle, Phone } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import logoUrl from "@assets/IMG_2508_1762619079711.png";
 
 export default function RegisterCleanerPage() {
   const { registerCleaner } = useAuth();
@@ -79,10 +80,10 @@ export default function RegisterCleanerPage() {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center space-y-2">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Car className="h-8 w-8" />
-              <CardTitle className="text-3xl font-bold">Register as Cleaner</CardTitle>
+            <div className="flex items-center justify-center mb-4">
+              <img src={logoUrl} alt="Washapp.ae" className="h-24 w-auto" data-testid="img-logo" />
             </div>
+            <CardTitle className="text-xl font-bold">Register as Cleaner</CardTitle>
             <CardDescription className="text-base">
               Enter your invited phone number
             </CardDescription>
@@ -148,10 +149,10 @@ export default function RegisterCleanerPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-2">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Car className="h-8 w-8" />
-            <CardTitle className="text-3xl font-bold">Complete Registration</CardTitle>
+          <div className="flex items-center justify-center mb-4">
+            <img src={logoUrl} alt="Washapp.ae" className="h-24 w-auto" data-testid="img-logo" />
           </div>
+          <CardTitle className="text-xl font-bold">Complete Registration</CardTitle>
           <CardDescription className="text-base">
             Register for {companyInfo?.companyName}
           </CardDescription>

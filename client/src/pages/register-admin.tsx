@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 import { UserRole } from "@shared/schema";
-import { Loader2, Shield } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import logoUrl from "@assets/IMG_2508_1762619079711.png";
 
 export default function RegisterAdminPage() {
   const { registerAdmin } = useAuth();
@@ -36,10 +37,10 @@ export default function RegisterAdminPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-2">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Shield className="h-8 w-8" />
-            <CardTitle className="text-3xl font-bold">Platform Admin</CardTitle>
+          <div className="flex items-center justify-center mb-4">
+            <img src={logoUrl} alt="Washapp.ae" className="h-24 w-auto" data-testid="img-logo" />
           </div>
+          <CardTitle className="text-xl font-bold">Platform Admin</CardTitle>
           <CardDescription className="text-base">
             Create platform administrator account
           </CardDescription>
