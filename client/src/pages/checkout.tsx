@@ -15,13 +15,53 @@ if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
 }
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
-function CheckoutForm({ paymentIntentId, clientSecret, jobData }: { paymentIntentId?: string, clientSecret: string, jobData: any }) {
+function CheckoutForm({ paymentIntentId, clientSecret, jobData, onTipUpdate }: { paymentIntentId?: string, clientSecret: string, jobData: any, onTipUpdate: (fees: any) => void }) {
   const stripe = useStripe();
   const elements = useElements();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [processing, setProcessing] = useState(false);
   const [paymentRequest, setPaymentRequest] = useState<PaymentRequest | null>(null);
+  const [tipAmount, setTipAmount] = useState(0);
+  const [customTip, setCustomTip] = useState("");
+  const [updatingTip, setUpdatingTip] = useState(false);
+
+  // Handle tip update
+  const updateTip = async (newTip: number) => {
+    if (!paymentIntentId) return;
+    
+    setUpdatingTip(true);
+    try {
+      const response = await apiRequest("PATCH", `/api/payment-intents/${paymentIntentId}`, {
+        tipAmount: newTip,
+      });
+      const fees = await response.json();
+      
+      // Update parent component with new fees
+      onTipUpdate(fees);
+      
+      // Update payment request if available
+      if (paymentRequest) {
+        paymentRequest.update({
+          total: {
+            label: 'Car Wash Service',
+            amount: Math.round(fees.totalAmount * 100),
+          },
+        });
+      }
+      
+      setTipAmount(newTip);
+    } catch (error) {
+      console.error("Failed to update tip:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update tip amount",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingTip(false);
+    }
+  };
 
   // Setup Payment Request for Apple Pay / Google Pay
   useEffect(() => {
@@ -134,8 +174,65 @@ function CheckoutForm({ paymentIntentId, clientSecret, jobData }: { paymentInten
     }
   };
 
+  const presetTips = [0, 5, 10, 15, 20];
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Tip Selector */}
+      <div className="space-y-3">
+        <label className="text-sm font-medium">Add a tip for your cleaner (optional)</label>
+        <div className="grid grid-cols-3 gap-2">
+          {presetTips.map((amount) => (
+            <Button
+              key={amount}
+              type="button"
+              variant={tipAmount === amount ? "default" : "outline"}
+              size="sm"
+              onClick={() => updateTip(amount)}
+              disabled={updatingTip}
+              data-testid={`button-tip-${amount}`}
+            >
+              {amount === 0 ? "No tip" : `${amount} د.إ`}
+            </Button>
+          ))}
+          <div className="col-span-3">
+            <div className="flex gap-2">
+              <input
+                type="number"
+                placeholder="Custom amount"
+                value={customTip}
+                onChange={(e) => setCustomTip(e.target.value)}
+                className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm"
+                min="0"
+                max="1000"
+                step="1"
+                data-testid="input-custom-tip"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const amount = parseFloat(customTip) || 0;
+                  if (amount >= 0 && amount <= 1000) {
+                    updateTip(amount);
+                  }
+                }}
+                disabled={updatingTip || !customTip}
+                data-testid="button-apply-custom-tip"
+              >
+                Apply
+              </Button>
+            </div>
+          </div>
+        </div>
+        {updatingTip && (
+          <p className="text-xs text-muted-foreground">Updating total...</p>
+        )}
+      </div>
+
+      <Separator />
+
       {/* Apple Pay / Google Pay Button */}
       {paymentRequest && (
         <div className="space-y-4">
@@ -179,6 +276,7 @@ export default function Checkout() {
   const [clientSecret, setClientSecret] = useState("");
   const [paymentIntentId, setPaymentIntentId] = useState("");
   const [jobData, setJobData] = useState<any>(null);
+  const [feeBreakdown, setFeeBreakdown] = useState<any>(null);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("pendingJob");
@@ -189,6 +287,15 @@ export default function Checkout() {
     
     const data = JSON.parse(stored);
     setJobData(data);
+    
+    // Set initial fee breakdown from jobData
+    setFeeBreakdown({
+      basePrice: data.basePrice,
+      taxAmount: data.taxAmount,
+      platformFee: data.platformFee,
+      tipAmount: 0,
+      totalAmount: data.price,
+    });
 
     // Create PaymentIntent
     apiRequest("POST", "/api/create-payment-intent", data)
@@ -208,6 +315,10 @@ export default function Checkout() {
         console.error(error);
       });
   }, [setLocation, toast]);
+
+  const handleTipUpdate = (fees: any) => {
+    setFeeBreakdown(fees);
+  };
 
   if (!clientSecret || !jobData) {
     return (
@@ -287,23 +398,29 @@ export default function Checkout() {
             <div className="space-y-2 pt-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Service Price</span>
-                <span>{jobData.basePrice} د.إ</span>
+                <span>{feeBreakdown?.basePrice?.toFixed(2) || jobData.basePrice} د.إ</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Tax (5%)</span>
-                <span>{jobData.taxAmount} د.إ</span>
+                <span>{feeBreakdown?.taxAmount?.toFixed(2) || jobData.taxAmount} د.إ</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Platform Fee</span>
-                <span>{jobData.platformFee} د.إ</span>
+                <span>{feeBreakdown?.platformFee?.toFixed(2) || jobData.platformFee} د.إ</span>
               </div>
+              {feeBreakdown?.tipAmount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Tip for Cleaner</span>
+                  <span className="text-primary font-medium">{feeBreakdown.tipAmount.toFixed(2)} د.إ</span>
+                </div>
+              )}
               <Separator />
               <div className="flex items-center justify-between pt-1">
                 <div className="flex items-center gap-2">
                   <DollarSign className="h-5 w-5 text-muted-foreground" />
                   <span className="font-semibold">Total</span>
                 </div>
-                <span className="text-2xl font-bold">{jobData.price} د.إ</span>
+                <span className="text-2xl font-bold">{feeBreakdown?.totalAmount?.toFixed(2) || jobData.price} د.إ</span>
               </div>
             </div>
           </div>
@@ -318,6 +435,7 @@ export default function Checkout() {
                 paymentIntentId={paymentIntentId} 
                 clientSecret={clientSecret}
                 jobData={jobData}
+                onTipUpdate={handleTipUpdate}
               />
             </Elements>
           </div>
