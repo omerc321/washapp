@@ -553,7 +553,8 @@ export enum JobStatus {
   ASSIGNED = "assigned",
   IN_PROGRESS = "in_progress",
   COMPLETED = "completed",
-  CANCELLED = "cancelled"
+  CANCELLED = "cancelled",
+  REFUNDED = "refunded"
 }
 
 export enum CleanerStatus {
