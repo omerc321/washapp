@@ -621,6 +621,12 @@ export class DatabaseStorage implements IStorage {
         .set({ status: CleanerStatus.BUSY })
         .where(eq(cleaners.id, cleanerId));
 
+      // Update job_financials with cleanerId
+      await tx
+        .update(jobFinancials)
+        .set({ cleanerId })
+        .where(eq(jobFinancials.jobId, jobId));
+
       return true;
     });
 
