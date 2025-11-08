@@ -11,7 +11,7 @@ import { storage } from "./storage";
 import { requireAuth, requireRole, optionalAuth } from "./middleware";
 import { sendEmail } from "./lib/resend";
 import { broadcastJobUpdate } from "./websocket";
-import { createJobFinancialRecord } from "./financialUtils";
+import { createJobFinancialRecord, calculateJobFees } from "./financialUtils";
 import { 
   JobStatus, 
   CleanerStatus, 
