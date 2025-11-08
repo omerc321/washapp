@@ -352,7 +352,7 @@ function JobCard({
 
         <div className="flex items-center justify-between pt-2 border-t">
           <span className="text-sm text-muted-foreground">Price</span>
-          <span className="text-lg font-bold">${job.price}</span>
+          <span className="text-lg font-bold">{job.price} د.إ</span>
         </div>
       </CardContent>
 

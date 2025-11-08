@@ -120,8 +120,9 @@ function CheckoutForm({ paymentIntentId, clientSecret, jobData, onTipUpdate }: {
             description: "Your car wash has been booked!",
           });
           
+          const carPlate = jobData.carPlateNumber;
           sessionStorage.removeItem("pendingJob");
-          setTimeout(() => setLocation("/customer/jobs"), 1000);
+          setTimeout(() => setLocation(`/customer/track/${carPlate}`), 1000);
         }
       } catch (error) {
         e.complete('fail');
@@ -163,16 +164,18 @@ function CheckoutForm({ paymentIntentId, clientSecret, jobData, onTipUpdate }: {
           description: "Your car wash has been booked!",
         });
         
-        // Clear pending job and redirect
+        // Clear pending job and redirect to tracking
+        const carPlate = jobData.carPlateNumber;
         sessionStorage.removeItem("pendingJob");
-        setTimeout(() => setLocation("/customer/jobs"), 1000);
+        setTimeout(() => setLocation(`/customer/track/${carPlate}`), 1000);
       } catch (confirmError) {
         console.error("Payment confirmation error:", confirmError);
         toast({
           title: "Payment Processed",
           description: "Confirming your booking...",
         });
-        setTimeout(() => setLocation("/customer/jobs"), 2000);
+        const carPlate = jobData.carPlateNumber;
+        setTimeout(() => setLocation(`/customer/track/${carPlate}`), 2000);
       }
     }
   };
