@@ -21,7 +21,12 @@ interface JobFinancial {
   platformFeeAmount: string;
   paymentProcessingFeeAmount: string;
   netPayableAmount: string;
+  tipAmount: string;
+  taxAmount: string;
   paidAt: Date;
+  cleanerName: string | null;
+  cleanerEmail: string | null;
+  cleanerPhone: string | null;
 }
 
 interface FinancialSummary {
@@ -262,32 +267,44 @@ export default function CompanyFinancials() {
                 ))}
               </div>
             ) : jobs && jobs.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Job ID</TableHead>
-                    <TableHead>Cleaner</TableHead>
-                    <TableHead>Gross</TableHead>
-                    <TableHead>Platform Fee</TableHead>
-                    <TableHead>Processing Fee</TableHead>
-                    <TableHead>Net</TableHead>
-                    <TableHead>Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {jobs.map((job) => (
-                    <TableRow key={job.id} data-testid={`job-${job.id}`}>
-                      <TableCell className="font-medium">#{job.jobId}</TableCell>
-                      <TableCell>{job.cleanerId ? `Cleaner #${job.cleanerId}` : "Unassigned"}</TableCell>
-                      <TableCell>{Number(job.grossAmount).toFixed(2)} د.إ</TableCell>
-                      <TableCell className="text-red-600 dark:text-red-400">-{Number(job.platformFeeAmount).toFixed(2)} د.إ</TableCell>
-                      <TableCell className="text-red-600 dark:text-red-400">-{Number(job.paymentProcessingFeeAmount).toFixed(2)} د.إ</TableCell>
-                      <TableCell className="font-medium text-green-600 dark:text-green-400">{Number(job.netPayableAmount).toFixed(2)} د.إ</TableCell>
-                      <TableCell className="text-sm">{new Date(job.paidAt).toLocaleDateString()}</TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Job ID</TableHead>
+                      <TableHead>Cleaner Name</TableHead>
+                      <TableHead>Cleaner Email</TableHead>
+                      <TableHead>Cleaner Phone</TableHead>
+                      <TableHead>Gross</TableHead>
+                      <TableHead>Tax</TableHead>
+                      <TableHead>Tip</TableHead>
+                      <TableHead>Platform Fee</TableHead>
+                      <TableHead>Processing Fee</TableHead>
+                      <TableHead>Net</TableHead>
+                      <TableHead>Date</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {jobs.map((job) => (
+                      <TableRow key={job.id} data-testid={`job-${job.id}`}>
+                        <TableCell className="font-medium">#{job.jobId}</TableCell>
+                        <TableCell className="min-w-[120px]">{job.cleanerName || "Unassigned"}</TableCell>
+                        <TableCell className="text-sm min-w-[180px]">{job.cleanerEmail || "N/A"}</TableCell>
+                        <TableCell className="text-sm min-w-[120px]">{job.cleanerPhone || "N/A"}</TableCell>
+                        <TableCell className="min-w-[100px]">{parseFloat(job.grossAmount || "0").toFixed(2)} د.إ</TableCell>
+                        <TableCell className="min-w-[80px]">{parseFloat(job.taxAmount || "0").toFixed(2)} د.إ</TableCell>
+                        <TableCell className="text-primary font-medium min-w-[80px]">
+                          {parseFloat(job.tipAmount || "0") > 0 ? `+${parseFloat(job.tipAmount).toFixed(2)} د.إ` : "-"}
+                        </TableCell>
+                        <TableCell className="text-red-600 dark:text-red-400 min-w-[110px]">-{parseFloat(job.platformFeeAmount || "0").toFixed(2)} د.إ</TableCell>
+                        <TableCell className="text-red-600 dark:text-red-400 min-w-[120px]">-{parseFloat(job.paymentProcessingFeeAmount || "0").toFixed(2)} د.إ</TableCell>
+                        <TableCell className="font-medium text-green-600 dark:text-green-400 min-w-[100px]">{parseFloat(job.netPayableAmount || "0").toFixed(2)} د.إ</TableCell>
+                        <TableCell className="text-sm min-w-[100px]">{new Date(job.paidAt).toLocaleDateString()}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             ) : (
               <p className="text-center text-muted-foreground py-8">No financial data available for the selected filters</p>
             )}

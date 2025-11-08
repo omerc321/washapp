@@ -530,6 +530,15 @@ export const companyWithCleanersSchema = selectCompanySchema.extend({
 
 export type CompanyWithCleaners = z.infer<typeof companyWithCleanersSchema>;
 
+// Job Financials with Cleaner Details (for company analytics)
+export const jobFinancialsWithCleanerSchema = selectJobFinancialsSchema.extend({
+  cleanerName: z.string().nullable(),
+  cleanerEmail: z.string().nullable(),
+  cleanerPhone: z.string().nullable(),
+});
+
+export type JobFinancialsWithCleaner = z.infer<typeof jobFinancialsWithCleanerSchema>;
+
 // Enums for TypeScript
 export enum UserRole {
   CUSTOMER = "customer",

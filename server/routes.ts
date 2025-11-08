@@ -1190,8 +1190,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       worksheet.columns = [
         { header: 'Job ID', key: 'jobId', width: 10 },
         { header: 'Paid At', key: 'paidAt', width: 20 },
-        { header: 'Cleaner ID', key: 'cleanerId', width: 12 },
+        { header: 'Cleaner Name', key: 'cleanerName', width: 20 },
+        { header: 'Cleaner Email', key: 'cleanerEmail', width: 25 },
+        { header: 'Cleaner Phone', key: 'cleanerPhone', width: 15 },
         { header: 'Gross Amount', key: 'grossAmount', width: 15 },
+        { header: 'Tax Amount', key: 'taxAmount', width: 12 },
+        { header: 'Tip Amount', key: 'tipAmount', width: 12 },
         { header: 'Platform Fee', key: 'platformFee', width: 15 },
         { header: 'Processing Fee', key: 'processingFee', width: 15 },
         { header: 'Net Amount', key: 'netAmount', width: 15 },
@@ -1201,11 +1205,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         worksheet.addRow({
           jobId: job.jobId,
           paidAt: new Date(job.paidAt).toLocaleString(),
-          cleanerId: job.cleanerId || 'N/A',
-          grossAmount: Number(job.grossAmount).toFixed(2),
-          platformFee: Number(job.platformFeeAmount).toFixed(2),
-          processingFee: Number(job.paymentProcessingFeeAmount).toFixed(2),
-          netAmount: Number(job.netPayableAmount).toFixed(2),
+          cleanerName: job.cleanerName || 'N/A',
+          cleanerEmail: job.cleanerEmail || 'N/A',
+          cleanerPhone: job.cleanerPhone || 'N/A',
+          grossAmount: parseFloat(job.grossAmount || "0").toFixed(2),
+          taxAmount: parseFloat(job.taxAmount || "0").toFixed(2),
+          tipAmount: parseFloat(job.tipAmount || "0").toFixed(2),
+          platformFee: parseFloat(job.platformFeeAmount || "0").toFixed(2),
+          processingFee: parseFloat(job.paymentProcessingFeeAmount || "0").toFixed(2),
+          netAmount: parseFloat(job.netPayableAmount || "0").toFixed(2),
         });
       });
       

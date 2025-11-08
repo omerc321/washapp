@@ -28,6 +28,7 @@ import {
   type InsertFeeSetting,
   type JobFinancials,
   type InsertJobFinancials,
+  type JobFinancialsWithCleaner,
   type CompanyWithdrawal,
   type InsertCompanyWithdrawal,
   UserRole,
@@ -132,7 +133,7 @@ export interface IStorage {
     cleanerId?: number;
     startDate?: Date;
     endDate?: Date;
-  }): Promise<JobFinancials[]>;
+  }): Promise<JobFinancialsWithCleaner[]>;
   
   // Company withdrawal operations
   createWithdrawal(withdrawal: InsertCompanyWithdrawal): Promise<CompanyWithdrawal>;
@@ -936,12 +937,7 @@ export class DatabaseStorage implements IStorage {
       startDate?: Date;
       endDate?: Date;
     }
-  ): Promise<JobFinancials[]> {
-    let query = db
-      .select()
-      .from(jobFinancials)
-      .where(eq(jobFinancials.companyId, companyId));
-
+  ): Promise<JobFinancialsWithCleaner[]> {
     const conditions = [eq(jobFinancials.companyId, companyId)];
 
     if (filters?.cleanerId) {
@@ -956,9 +952,30 @@ export class DatabaseStorage implements IStorage {
       conditions.push(sql`${jobFinancials.paidAt} <= ${filters.endDate}`);
     }
 
+    // Join with cleaners and users to get cleaner details
     const results = await db
-      .select()
+      .select({
+        id: jobFinancials.id,
+        jobId: jobFinancials.jobId,
+        companyId: jobFinancials.companyId,
+        cleanerId: jobFinancials.cleanerId,
+        grossAmount: jobFinancials.grossAmount,
+        taxAmount: jobFinancials.taxAmount,
+        platformFeeAmount: jobFinancials.platformFeeAmount,
+        paymentProcessingFeeAmount: jobFinancials.paymentProcessingFeeAmount,
+        netPayableAmount: jobFinancials.netPayableAmount,
+        tipAmount: jobFinancials.tipAmount,
+        currency: jobFinancials.currency,
+        paidAt: jobFinancials.paidAt,
+        refundedAt: jobFinancials.refundedAt,
+        createdAt: jobFinancials.createdAt,
+        cleanerName: users.displayName,
+        cleanerEmail: users.email,
+        cleanerPhone: users.phoneNumber,
+      })
       .from(jobFinancials)
+      .leftJoin(cleaners, eq(jobFinancials.cleanerId, cleaners.id))
+      .leftJoin(users, eq(cleaners.userId, users.id))
       .where(and(...conditions))
       .orderBy(desc(jobFinancials.paidAt));
 
