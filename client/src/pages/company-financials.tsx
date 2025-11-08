@@ -38,7 +38,7 @@ interface FinancialSummary {
 
 export default function CompanyFinancials() {
   const { toast } = useToast();
-  const [selectedCleanerId, setSelectedCleanerId] = useState<string>("");
+  const [selectedCleanerId, setSelectedCleanerId] = useState<string>("all");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
 
@@ -51,12 +51,12 @@ export default function CompanyFinancials() {
   });
 
   const filters: any = {};
-  if (selectedCleanerId) filters.cleanerId = selectedCleanerId;
+  if (selectedCleanerId && selectedCleanerId !== "all") filters.cleanerId = selectedCleanerId;
   if (startDate) filters.startDate = startDate;
   if (endDate) filters.endDate = endDate;
 
   const queryParams = new URLSearchParams();
-  if (selectedCleanerId) queryParams.append("cleanerId", selectedCleanerId);
+  if (selectedCleanerId && selectedCleanerId !== "all") queryParams.append("cleanerId", selectedCleanerId);
   if (startDate) queryParams.append("startDate", startDate);
   if (endDate) queryParams.append("endDate", endDate);
 
@@ -224,7 +224,7 @@ export default function CompanyFinancials() {
                     <SelectValue placeholder="All Cleaners" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Cleaners</SelectItem>
+                    <SelectItem value="all">All Cleaners</SelectItem>
                     {cleaners?.map((cleaner) => (
                       <SelectItem key={cleaner.id} value={String(cleaner.id)}>
                         Cleaner #{cleaner.id}
