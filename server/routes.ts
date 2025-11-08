@@ -462,6 +462,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             job.companyId,
             job.cleanerId, // Pass actual cleaner if assigned
             Number(job.price),
+            Number(job.tipAmount || 0),
             new Date()
           );
           
@@ -512,6 +513,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         job.companyId,
         job.cleanerId, // Pass actual cleaner if assigned
         Number(job.price),
+        Number(job.tipAmount || 0),
         new Date()
       );
       

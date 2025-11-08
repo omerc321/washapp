@@ -143,6 +143,7 @@ export const jobs = pgTable("jobs", {
   // Payment and pricing
   price: numeric("price", { precision: 10, scale: 2 }).notNull(),
   taxAmount: numeric("tax_amount", { precision: 10, scale: 2 }).notNull().default("0"),
+  tipAmount: numeric("tip_amount", { precision: 10, scale: 2 }).notNull().default("0"),
   totalAmount: numeric("total_amount", { precision: 10, scale: 2 }).notNull(),
   stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
   stripeRefundId: varchar("stripe_refund_id", { length: 255 }),
@@ -237,6 +238,7 @@ export const jobFinancials = pgTable("job_financials", {
   // Financial breakdown
   grossAmount: numeric("gross_amount", { precision: 10, scale: 2 }).notNull(),
   taxAmount: numeric("tax_amount", { precision: 10, scale: 2 }).notNull().default("0"),
+  tipAmount: numeric("tip_amount", { precision: 10, scale: 2 }).notNull().default("0"),
   platformFeeAmount: numeric("platform_fee_amount", { precision: 10, scale: 2 }).notNull(),
   paymentProcessingFeeAmount: numeric("payment_processing_fee_amount", { precision: 10, scale: 2 }).notNull(),
   netPayableAmount: numeric("net_payable_amount", { precision: 10, scale: 2 }).notNull(),
