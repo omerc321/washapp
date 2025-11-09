@@ -256,169 +256,131 @@ export default function CompanyDashboard() {
           })}
         </div>
 
-        {/* Shift Roster */}
-        {analytics.shiftRoster && analytics.shiftRoster.length > 0 && (
-          <div className="mt-8">
-            <Card>
-              <CardHeader>
-                <CardTitle>Current Shift Roster</CardTitle>
-                <CardDescription>
-                  Active cleaners and their shift status
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {analytics.shiftRoster.map((shift) => (
-                    <div
-                      key={shift.cleanerId}
-                      className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
-                      data-testid={`shift-roster-${shift.cleanerId}`}
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className={`h-3 w-3 rounded-full ${
-                          shift.status === 'on_duty' ? 'bg-green-500' :
-                          shift.status === 'busy' ? 'bg-yellow-500' : 'bg-gray-400'
-                        }`} />
-                        <div>
-                          <p className="font-medium">{shift.cleanerName}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {shift.totalJobsCompleted} jobs completed • Rating: {shift.rating.toFixed(1)} ⭐
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <Badge variant={shift.status === 'on_duty' ? 'default' : shift.status === 'busy' ? 'secondary' : 'outline'}>
-                          {shift.status.replace('_', ' ').toUpperCase()}
-                        </Badge>
-                        {shift.activeShift && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            On shift: {shift.activeShift.duration}m
-                          </p>
-                        )}
+        {/* Team Management - Unified View */}
+        <div className="mt-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Team Management</CardTitle>
+              <CardDescription>
+                Your car washers and pending invitations
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingCleaners || isLoadingInvitations ? (
+                <div className="space-y-4">
+                  {[1, 2, 3, 4].map((i) => (
+                    <Skeleton key={i} className="h-20 w-full" />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Active Cleaners Section */}
+                  {cleaners && cleaners.filter(c => isCleanerOnline(c)).length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-green-500" />
+                        Active Now ({cleaners.filter(c => isCleanerOnline(c)).length})
+                      </h3>
+                      <div className="space-y-2">
+                        {cleaners.filter(c => isCleanerOnline(c)).map((cleaner) => {
+                          const shiftInfo = analytics.shiftRoster?.find(s => s.cleanerId === cleaner.id);
+                          return (
+                            <div
+                              key={`active-${cleaner.id}`}
+                              className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
+                              data-testid={`team-member-active-${cleaner.id}`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="h-3 w-3 rounded-full bg-green-500" />
+                                <div>
+                                  <p className="font-medium">Car Washer #{cleaner.id}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {cleaner.totalJobsCompleted} jobs • Rating: {cleaner.rating || "N/A"}
+                                    {shiftInfo?.activeShift && ` • On shift: ${shiftInfo.activeShift.duration}m`}
+                                  </p>
+                                </div>
+                              </div>
+                              <Badge variant="default">Active</Badge>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+                  )}
 
-        {/* Car Washers Management */}
-        <div className="mt-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Car Washers</CardTitle>
-              <CardDescription>
-                Manage your team of car wash cleaners
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoadingCleaners ? (
-                <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <Skeleton key={i} className="h-16 w-full" />
-                  ))}
-                </div>
-              ) : cleaners && cleaners.length > 0 ? (
-                <div className="space-y-4">
-                  {cleaners.map((cleaner) => {
-                    const online = isCleanerOnline(cleaner);
-                    return (
-                      <div
-                        key={cleaner.id}
-                        className="flex items-center justify-between p-4 border rounded-lg"
-                        data-testid={`cleaner-${cleaner.id}`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div>
-                            <p className="font-medium">Cleaner ID: {cleaner.id}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge 
-                                variant={online ? "default" : "secondary"}
-                                data-testid={`cleaner-status-${cleaner.id}`}
-                              >
-                                {online ? "Online" : cleaner.status === "on_duty" ? "On Duty (Offline)" : cleaner.status.replace("_", " ")}
-                              </Badge>
+                  {/* Available/Off Duty Cleaners Section */}
+                  {cleaners && cleaners.filter(c => !isCleanerOnline(c)).length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-gray-400" />
+                        Off Duty ({cleaners.filter(c => !isCleanerOnline(c)).length})
+                      </h3>
+                      <div className="space-y-2">
+                        {cleaners.filter(c => !isCleanerOnline(c)).map((cleaner) => (
+                          <div
+                            key={`offline-${cleaner.id}`}
+                            className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
+                            data-testid={`team-member-offline-${cleaner.id}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="h-3 w-3 rounded-full bg-gray-400" />
+                              <div>
+                                <p className="font-medium">Car Washer #{cleaner.id}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {cleaner.totalJobsCompleted} jobs • Rating: {cleaner.rating || "N/A"}
+                                </p>
+                              </div>
                             </div>
+                            <Badge variant="secondary">Off Duty</Badge>
                           </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm">Jobs: {cleaner.totalJobsCompleted}</p>
-                          <p className="text-sm text-muted-foreground">
-                            Rating: {cleaner.rating || "N/A"}
-                          </p>
-                        </div>
+                        ))}
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-center text-muted-foreground py-8">
-                  No cleaners yet. Add your first car washer to get started!
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                    </div>
+                  )}
 
-        {/* Cleaner Invitations */}
-        <div className="mt-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Cleaner Invitations</CardTitle>
-              <CardDescription>
-                Track invited phone numbers and registration status
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoadingInvitations ? (
-                <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <Skeleton key={i} className="h-16 w-full" />
-                  ))}
-                </div>
-              ) : invitations && invitations.length > 0 ? (
-                <div className="space-y-4">
-                  {invitations.map((invitation) => {
-                    const statusIcons = {
-                      pending: { icon: Clock, color: "text-yellow-500", label: "Pending" },
-                      consumed: { icon: CheckCircle, color: "text-green-500", label: "Registered" },
-                      revoked: { icon: XCircle, color: "text-red-500", label: "Revoked" },
-                    };
-                    const status = statusIcons[invitation.status];
-                    const StatusIcon = status.icon;
-                    
-                    return (
-                      <div
-                        key={invitation.id}
-                        className="flex items-center justify-between p-4 border rounded-lg"
-                        data-testid={`invitation-${invitation.id}`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <Phone className="h-5 w-5 text-muted-foreground" />
-                          <div>
-                            <p className="font-medium">{invitation.phoneNumber}</p>
-                            <p className="text-sm text-muted-foreground">
-                              Invited {new Date(invitation.invitedAt).toLocaleDateString()}
-                            </p>
+                  {/* Pending Invitations Section */}
+                  {invitations && invitations.filter(i => i.status === "pending").length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-yellow-500" />
+                        Pending Invitations ({invitations.filter(i => i.status === "pending").length})
+                      </h3>
+                      <div className="space-y-2">
+                        {invitations.filter(i => i.status === "pending").map((invitation) => (
+                          <div
+                            key={`invitation-${invitation.id}`}
+                            className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
+                            data-testid={`team-invitation-${invitation.id}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Phone className="h-5 w-5 text-muted-foreground" />
+                              <div>
+                                <p className="font-medium">{invitation.phoneNumber}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Invited {new Date(invitation.invitedAt).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                            <Badge variant="secondary">
+                              <Clock className="h-3 w-3 mr-1" />
+                              Pending
+                            </Badge>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <StatusIcon className={`h-4 w-4 ${status.color}`} />
-                          <Badge variant={invitation.status === "pending" ? "secondary" : "default"}>
-                            {status.label}
-                          </Badge>
-                        </div>
+                        ))}
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center text-muted-foreground py-8">
-                  <Phone className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No invitations sent yet</p>
-                  <p className="text-sm mt-1">Use the "Invite Cleaner" button to get started</p>
+                    </div>
+                  )}
+
+                  {/* Empty State */}
+                  {(!cleaners || cleaners.length === 0) && (!invitations || invitations.filter(i => i.status === "pending").length === 0) && (
+                    <div className="text-center text-muted-foreground py-12">
+                      <Users className="h-16 w-16 mx-auto mb-4 opacity-30" />
+                      <p className="text-lg font-medium">No team members yet</p>
+                      <p className="text-sm mt-2">
+                        Click "Invite Cleaner" to add your first car washer
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
