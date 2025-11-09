@@ -45,3 +45,40 @@ export function optionalAuth(req: Request, res: Response, next: NextFunction) {
   // Allow through regardless of authentication status
   next();
 }
+
+// Middleware to check if cleaner is active (must run after requireRole)
+export function requireActiveCleaner(storage: any) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    const userRole = req.user?.role as UserRole;
+    
+    // Only check if user is a cleaner
+    if (userRole === UserRole.CLEANER) {
+      try {
+        const cleaner = await storage.getCleanerByUserId(req.user.id);
+        
+        if (!cleaner) {
+          return res.status(404).json({ message: "Cleaner profile not found" });
+        }
+        
+        if (cleaner.isActive === 0) {
+          // Logout the user
+          req.logout((err) => {
+            if (err) console.error('Logout error:', err);
+          });
+          return res.status(403).json({ message: "Your account has been deactivated. Please contact your company administrator." });
+        }
+        
+        return next();
+      } catch (error: any) {
+        return res.status(500).json({ message: error.message });
+      }
+    }
+    
+    // Not a cleaner, allow through
+    next();
+  };
+}

@@ -955,6 +955,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Deactivate a cleaner
+  app.post("/api/company/cleaners/:cleanerId/deactivate", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(400).json({ message: "No company associated with user" });
+      }
+
+      const cleanerId = parseInt(req.params.cleanerId);
+      if (isNaN(cleanerId)) {
+        return res.status(400).json({ message: "Invalid cleaner ID" });
+      }
+
+      // Get cleaner to verify it belongs to the company
+      const cleaner = await storage.getCleaner(cleanerId);
+      if (!cleaner) {
+        return res.status(404).json({ message: "Cleaner not found" });
+      }
+
+      if (cleaner.companyId !== req.user.companyId) {
+        return res.status(403).json({ message: "You can only deactivate cleaners from your own company" });
+      }
+
+      // Deactivate the cleaner
+      await storage.updateCleaner(cleanerId, { isActive: 0, status: "off_duty" });
+
+      // Destroy all sessions for this cleaner to force logout
+      const sessions = await new Promise<any[]>((resolve, reject) => {
+        sessionStore.all!((err, sessions) => {
+          if (err) reject(err);
+          else resolve(sessions || []);
+        });
+      });
+
+      // Find and destroy sessions for this cleaner's user
+      for (const session of sessions) {
+        if (session.passport?.user?.id === cleaner.userId) {
+          sessionStore.destroy(session.sid, (err) => {
+            if (err) console.error('Failed to destroy session:', err);
+          });
+        }
+      }
+
+      res.json({ success: true, message: "Cleaner deactivated successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Get company invitations
   app.get("/api/company/invitations", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
     try {

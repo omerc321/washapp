@@ -81,6 +81,7 @@ export const cleaners = pgTable("cleaners", {
   userId: integer("user_id").notNull().unique(),
   companyId: integer("company_id").notNull(),
   status: cleanerStatusEnum("status").notNull().default("off_duty"),
+  isActive: integer("is_active").notNull().default(1),
   currentLatitude: numeric("current_latitude", { precision: 10, scale: 8 }),
   currentLongitude: numeric("current_longitude", { precision: 11, scale: 8 }),
   lastLocationUpdate: timestamp("last_location_update"),
