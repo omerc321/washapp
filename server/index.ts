@@ -1,10 +1,9 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
-import connectPgSimple from "connect-pg-simple";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import passport from "./auth";
-import { pool } from "./db";
+import { sessionStore } from "./session-store";
 
 const app = express();
 
@@ -14,20 +13,13 @@ declare module 'http' {
   }
 }
 
-// PostgreSQL session store
-const PgSession = connectPgSimple(session);
-
 // Session configuration - MUST be before Passport
 if (!process.env.SESSION_SECRET) {
   throw new Error('SESSION_SECRET must be set');
 }
 
 app.use(session({
-  store: new PgSession({
-    pool: pool,
-    tableName: 'session',
-    createTableIfMissing: true,
-  }),
+  store: sessionStore,
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,

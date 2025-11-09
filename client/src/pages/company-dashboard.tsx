@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Users, Briefcase, DollarSign, Star, TrendingUp, UserPlus, AlertCircle, Phone, CheckCircle, Clock, XCircle, FileText } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Users, Briefcase, DollarSign, Star, TrendingUp, UserPlus, AlertCircle, Phone, CheckCircle, Clock, XCircle, FileText, ShieldOff } from "lucide-react";
 import { CompanyAnalytics, Cleaner, Company, CleanerInvitation } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -20,6 +21,8 @@ export default function CompanyDashboard() {
   const { toast } = useToast();
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [deactivatingCleanerId, setDeactivatingCleanerId] = useState<number | null>(null);
+  const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
 
   // Helper function to check if a cleaner is truly online (active within last 10 minutes)
   const isCleanerOnline = (cleaner: Cleaner): boolean => {
@@ -79,6 +82,44 @@ export default function CompanyDashboard() {
       });
     },
   });
+
+  const deactivateCleanerMutation = useMutation({
+    mutationFn: async (cleanerId: number) => {
+      return await apiRequest("POST", `/api/company/cleaners/${cleanerId}/deactivate`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/company/cleaners"] });
+      setDeactivateDialogOpen(false);
+      setDeactivatingCleanerId(null);
+      toast({
+        title: "Cleaner Deactivated",
+        description: "The cleaner has been deactivated and logged out.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeactivateClick = (cleanerId: number) => {
+    setDeactivatingCleanerId(cleanerId);
+    setDeactivateDialogOpen(true);
+  };
+
+  const handleConfirmDeactivate = () => {
+    if (deactivatingCleanerId !== null) {
+      deactivateCleanerMutation.mutate(deactivatingCleanerId);
+    }
+  };
+
+  const handleCancelDeactivate = () => {
+    setDeactivateDialogOpen(false);
+    setDeactivatingCleanerId(null);
+  };
 
   if (isLoading) {
     return (
@@ -290,10 +331,11 @@ export default function CompanyDashboard() {
                       <div className="space-y-2">
                         {cleaners.filter(c => isCleanerOnline(c)).map((cleaner) => {
                           const shiftInfo = analytics.shiftRoster?.find(s => s.cleanerId === cleaner.id);
+                          const isThisCleanerBeingDeactivated = deactivatingCleanerId === cleaner.id && deactivateCleanerMutation.isPending;
                           return (
                             <div
                               key={`active-${cleaner.id}`}
-                              className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
+                              className="flex items-center justify-between gap-4 p-4 border rounded-lg hover-elevate"
                               data-testid={`team-member-active-${cleaner.id}`}
                             >
                               <div className="flex items-center gap-3">
@@ -306,7 +348,20 @@ export default function CompanyDashboard() {
                                   </p>
                                 </div>
                               </div>
-                              <Badge variant="default">Active</Badge>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="default">Active</Badge>
+                                {cleaner.isActive !== 0 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    disabled={isThisCleanerBeingDeactivated}
+                                    onClick={() => handleDeactivateClick(cleaner.id)}
+                                    data-testid={`button-deactivate-${cleaner.id}`}
+                                  >
+                                    <ShieldOff className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           );
                         })}
@@ -322,24 +377,40 @@ export default function CompanyDashboard() {
                         Off Duty ({cleaners.filter(c => !isCleanerOnline(c)).length})
                       </h3>
                       <div className="space-y-2">
-                        {cleaners.filter(c => !isCleanerOnline(c)).map((cleaner) => (
-                          <div
-                            key={`offline-${cleaner.id}`}
-                            className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
-                            data-testid={`team-member-offline-${cleaner.id}`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="h-3 w-3 rounded-full bg-gray-400" />
-                              <div>
-                                <p className="font-medium">{cleaner.displayName || `Car Washer #${cleaner.id}`}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {cleaner.phoneNumber || 'No phone'} • {cleaner.totalJobsCompleted} jobs • Rating: {cleaner.rating || "N/A"}
-                                </p>
+                        {cleaners.filter(c => !isCleanerOnline(c)).map((cleaner) => {
+                          const isThisCleanerBeingDeactivated = deactivatingCleanerId === cleaner.id && deactivateCleanerMutation.isPending;
+                          return (
+                            <div
+                              key={`offline-${cleaner.id}`}
+                              className="flex items-center justify-between gap-4 p-4 border rounded-lg hover-elevate"
+                              data-testid={`team-member-offline-${cleaner.id}`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="h-3 w-3 rounded-full bg-gray-400" />
+                                <div>
+                                  <p className="font-medium">{cleaner.displayName || `Car Washer #${cleaner.id}`}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {cleaner.phoneNumber || 'No phone'} • {cleaner.totalJobsCompleted} jobs • Rating: {cleaner.rating || "N/A"}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary">Off Duty</Badge>
+                                {cleaner.isActive !== 0 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    disabled={isThisCleanerBeingDeactivated}
+                                    onClick={() => handleDeactivateClick(cleaner.id)}
+                                    data-testid={`button-deactivate-${cleaner.id}`}
+                                  >
+                                    <ShieldOff className="h-4 w-4" />
+                                  </Button>
+                                )}
                               </div>
                             </div>
-                            <Badge variant="secondary">Off Duty</Badge>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -392,6 +463,37 @@ export default function CompanyDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Deactivate Confirmation Dialog */}
+        <AlertDialog open={deactivateDialogOpen} onOpenChange={setDeactivateDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Deactivate {cleaners?.find(c => c.id === deactivatingCleanerId)?.displayName || `Car Washer #${deactivatingCleanerId}`}?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                They'll immediately lose access and be logged out. This action can only be reversed by contacting support.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel
+                onClick={handleCancelDeactivate}
+                disabled={deactivateCleanerMutation.isPending}
+                data-testid="button-cancel-deactivate"
+              >
+                Cancel
+              </AlertDialogCancel>
+              <Button
+                onClick={handleConfirmDeactivate}
+                disabled={deactivateCleanerMutation.isPending}
+                className="bg-destructive hover:bg-destructive/90"
+                data-testid="button-confirm-deactivate"
+              >
+                {deactivateCleanerMutation.isPending ? "Deactivating..." : "Deactivate"}
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

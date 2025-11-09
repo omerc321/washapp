@@ -977,12 +977,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "You can only deactivate cleaners from your own company" });
       }
 
-      // Deactivate the cleaner
+      // Deactivate the cleaner and set to off-duty
       await storage.updateCleaner(cleanerId, { isActive: 0, status: "off_duty" });
 
-      // Destroy all sessions for this cleaner to force logout
+      // Immediately destroy all sessions for this cleaner to force logout
+      const { sessionStore } = await import("./session-store");
       const sessions = await new Promise<any[]>((resolve, reject) => {
-        sessionStore.all!((err, sessions) => {
+        sessionStore.all!((err: any, sessions: any) => {
           if (err) reject(err);
           else resolve(sessions || []);
         });
@@ -991,12 +992,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Find and destroy sessions for this cleaner's user
       for (const session of sessions) {
         if (session.passport?.user?.id === cleaner.userId) {
-          sessionStore.destroy(session.sid, (err) => {
+          sessionStore.destroy(session.sid, (err: any) => {
             if (err) console.error('Failed to destroy session:', err);
           });
         }
       }
-
+      
       res.json({ success: true, message: "Cleaner deactivated successfully" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
