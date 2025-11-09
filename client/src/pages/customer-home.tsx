@@ -231,7 +231,6 @@ export default function CustomerHome() {
         companyId: forcedCompanyId || "", // Pre-set if cleaner was validated
         customerId: customer.id,
         forcedCompanyId: forcedCompanyId, // Flag to lock company selection
-        requestedCleanerId: cleanerInfo?.id || null, // For direct assignment
         cleanerName: cleanerInfo?.name || null, // For display
       };
       
