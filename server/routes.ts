@@ -600,48 +600,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (user && user.role === UserRole.CLEANER) {
                 const cleaner = await storage.getCleanerByUserId(user.id);
                 
-                // Check if cleaner is eligible for direct assignment
+                // Validate cleaner belongs to the job's company and is available
                 if (cleaner && 
                     cleaner.isActive === 1 && 
-                    isCleanerActive(cleaner) &&
-                    cleaner.currentLatitude && 
-                    cleaner.currentLongitude) {
+                    cleaner.companyId === job.companyId &&
+                    cleaner.status === CleanerStatus.ON_DUTY) {
                   
-                  const jobLat = Number(job.locationLatitude);
-                  const jobLon = Number(job.locationLongitude);
-                  const cleanerLat = Number(cleaner.currentLatitude);
-                  const cleanerLon = Number(cleaner.currentLongitude);
+                  // Directly assign to the cleaner immediately
+                  assignedCleanerId = cleaner.id;
+                  finalStatus = JobStatus.ASSIGNED;
+                  await storage.updateJob(job.id, {
+                    status: JobStatus.ASSIGNED,
+                    cleanerId: cleaner.id,
+                    assignedAt: new Date(),
+                    directAssignmentAt: new Date(),
+                  });
                   
-                  const distance = calculateDistance(jobLat, jobLon, cleanerLat, cleanerLon);
-                  
-                  // Auto-assign if within 50m radius
-                  if (distance <= 50) {
-                    assignedCleanerId = cleaner.id;
-                    finalStatus = JobStatus.ASSIGNED;
-                    await storage.updateJob(job.id, {
-                      status: JobStatus.ASSIGNED,
-                      cleanerId: cleaner.id,
-                      assignedAt: new Date(),
-                      directAssignmentAt: new Date(),
-                    });
-                    
-                    // Update cleaner status to busy
-                    await storage.updateCleaner(cleaner.id, {
-                      status: CleanerStatus.BUSY,
-                    });
-                  } else {
-                    // Fall back to pool if not in range
-                    console.log(`Cleaner ${cleaner.id} is ${distance.toFixed(2)}m away (>50m), falling back to pool`);
-                    finalAssignmentMode = 'pool';
-                    await storage.updateJob(job.id, {
-                      status: JobStatus.PAID,
-                      assignmentMode: 'pool',
-                      requestedCleanerEmail: null,
-                    });
-                  }
+                  // Update cleaner status to busy
+                  await storage.updateCleaner(cleaner.id, {
+                    status: CleanerStatus.BUSY,
+                  });
                 } else {
-                  // Fall back to pool if cleaner not eligible
-                  console.log('Requested cleaner not eligible, falling back to pool');
+                  // Fall back to pool if cleaner not available
+                  const reason = !cleaner ? 'not found' :
+                                cleaner.isActive !== 1 ? 'not active' :
+                                cleaner.companyId !== job.companyId ? 'wrong company' :
+                                cleaner.status === CleanerStatus.BUSY ? 'already busy' :
+                                'off duty';
+                  console.log(`Requested cleaner ${reason}, falling back to pool`);
                   finalAssignmentMode = 'pool';
                   await storage.updateJob(job.id, {
                     status: JobStatus.PAID,
