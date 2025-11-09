@@ -4,8 +4,9 @@ import express from "express";
 import Stripe from "stripe";
 import multer from "multer";
 import path from "path";
-import { mkdir } from "fs/promises";
+import { mkdir, mkdirSync } from "fs";
 import ExcelJS from "exceljs";
+import bcrypt from "bcryptjs";
 import passport from "./auth";
 import { storage } from "./storage";
 import { sessionStore } from "./session-store";
@@ -25,14 +26,11 @@ import {
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "uploads");
 
-// Ensure upload directory exists
-await mkdir(uploadDir, { recursive: true });
-
 const storageConfig = multer.diskStorage({
-  destination: async (req, file, cb) => {
+  destination: (req, file, cb) => {
     const subDir = file.fieldname === "tradeLicense" ? "licenses" : "proofs";
     const fullPath = path.join(uploadDir, subDir);
-    await mkdir(fullPath, { recursive: true });
+    mkdirSync(fullPath, { recursive: true });
     cb(null, fullPath);
   },
   filename: (req, file, cb) => {
@@ -65,6 +63,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  
+  // Ensure upload directory exists
+  mkdirSync(uploadDir, { recursive: true });
   
   // Serve uploaded files statically
   app.use("/uploads", express.static(uploadDir));
@@ -166,7 +167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Email already registered" });
       }
       
-      // Create admin user
+      // Create admin user (password hashing handled by storage layer)
       const user = await storage.createUser({
         email,
         password,
@@ -647,7 +648,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       await storage.updateJob(jobId, {
-        rating: parseFloat(rating),
+        rating: parseFloat(rating).toString(),
         review: review || null,
         ratedAt: new Date(),
       });

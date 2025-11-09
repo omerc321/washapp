@@ -45,7 +45,7 @@ export interface IStorage {
   // User operations
   getUser(id: number): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
-  createUser(user: InsertUser & { password: string }): Promise<User>;
+  createUser(user: Omit<InsertUser, 'passwordHash'> & { password: string }): Promise<User>;
   updateUser(id: number, updates: Partial<User>): Promise<void>;
   
   // Company operations
@@ -178,7 +178,7 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async createUser(userData: InsertUser & { password: string }): Promise<User> {
+  async createUser(userData: Omit<InsertUser, 'passwordHash'> & { password: string }): Promise<User> {
     const { password, ...userDataWithoutPassword } = userData;
     const passwordHash = await bcrypt.hash(password, 10);
     
