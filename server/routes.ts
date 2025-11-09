@@ -9,7 +9,7 @@ import ExcelJS from "exceljs";
 import passport from "./auth";
 import { storage } from "./storage";
 import { sessionStore } from "./session-store";
-import { requireAuth, requireRole, optionalAuth } from "./middleware";
+import { requireAuth, requireRole, optionalAuth, requireActiveCleaner } from "./middleware";
 import { sendEmail } from "./lib/resend";
 import { broadcastJobUpdate } from "./websocket";
 import { createJobFinancialRecord, calculateJobFees } from "./financialUtils";
@@ -661,7 +661,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== CLEANER ROUTES =====
 
   // Get cleaner profile
-  app.get("/api/cleaner/profile", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
+  app.get("/api/cleaner/profile", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
     try {
       const cleaner = await storage.getCleanerByUserId(req.user!.id);
       if (!cleaner) {
@@ -674,7 +674,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Start shift
-  app.post("/api/cleaner/start-shift", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
+  app.post("/api/cleaner/start-shift", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
     try {
       const cleaner = await storage.getCleanerByUserId(req.user!.id);
       if (!cleaner) {
@@ -689,7 +689,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // End shift
-  app.post("/api/cleaner/end-shift", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
+  app.post("/api/cleaner/end-shift", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
     try {
       const cleaner = await storage.getCleanerByUserId(req.user!.id);
       if (!cleaner) {
@@ -704,7 +704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get active shift
-  app.get("/api/cleaner/shift-status", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
+  app.get("/api/cleaner/shift-status", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
     try {
       const cleaner = await storage.getCleanerByUserId(req.user!.id);
       if (!cleaner) {
@@ -719,7 +719,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get shift history
-  app.get("/api/cleaner/shift-history", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
+  app.get("/api/cleaner/shift-history", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
     try {
       const cleaner = await storage.getCleanerByUserId(req.user!.id);
       if (!cleaner) {
@@ -763,7 +763,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Toggle cleaner availability
-  app.post("/api/cleaner/toggle-status", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
+  app.post("/api/cleaner/toggle-status", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
     try {
       const { status } = req.body;
       const cleaner = await storage.getCleanerByUserId(req.user!.id);
@@ -780,7 +780,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update cleaner location
-  app.post("/api/cleaner/update-location", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
+  app.post("/api/cleaner/update-location", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
     try {
       const { latitude, longitude } = req.body;
       const cleaner = await storage.getCleanerByUserId(req.user!.id);
@@ -801,7 +801,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get available jobs for cleaner
-  app.get("/api/cleaner/available-jobs", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
+  app.get("/api/cleaner/available-jobs", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
     try {
       const cleaner = await storage.getCleanerByUserId(req.user!.id);
 
@@ -818,7 +818,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get cleaner's active jobs
-  app.get("/api/cleaner/my-jobs", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
+  app.get("/api/cleaner/my-jobs", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
     try {
       const cleaner = await storage.getCleanerByUserId(req.user!.id);
 
@@ -834,7 +834,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Accept job (uses transactional locking)
-  app.post("/api/cleaner/accept-job/:jobId", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
+  app.post("/api/cleaner/accept-job/:jobId", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
     try {
       const cleaner = await storage.getCleanerByUserId(req.user!.id);
       if (!cleaner) {
@@ -862,7 +862,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Start job
-  app.post("/api/cleaner/start-job/:jobId", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
+  app.post("/api/cleaner/start-job/:jobId", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
     try {
       const { jobId } = req.params;
 
@@ -882,7 +882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Complete job with proof
-  app.post("/api/cleaner/complete-job/:jobId", requireRole(UserRole.CLEANER), async (req: Request, res: Response) => {
+  app.post("/api/cleaner/complete-job/:jobId", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
     try {
       const { jobId } = req.params;
       const { proofPhotoURL } = req.body;
@@ -1007,6 +1007,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       res.json({ success: true, message: "Cleaner deactivated successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Reactivate a cleaner
+  app.post("/api/company/cleaners/:cleanerId/reactivate", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(400).json({ message: "No company associated with user" });
+      }
+
+      const cleanerId = parseInt(req.params.cleanerId);
+      if (isNaN(cleanerId)) {
+        return res.status(400).json({ message: "Invalid cleaner ID" });
+      }
+
+      // Get cleaner to verify it belongs to the company
+      const cleaner = await storage.getCleaner(cleanerId);
+      if (!cleaner) {
+        return res.status(404).json({ message: "Cleaner not found" });
+      }
+
+      if (cleaner.companyId !== req.user.companyId) {
+        return res.status(403).json({ message: "You can only reactivate cleaners from your own company" });
+      }
+
+      // Reactivate the cleaner
+      await storage.updateCleaner(cleanerId, { isActive: 1 });
+      
+      res.json({ success: true, message: "Cleaner reactivated successfully" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

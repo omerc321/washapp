@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Users, Briefcase, DollarSign, Star, TrendingUp, UserPlus, AlertCircle, Phone, CheckCircle, Clock, XCircle, FileText, ShieldOff } from "lucide-react";
+import { Users, Briefcase, DollarSign, Star, TrendingUp, UserPlus, AlertCircle, Phone, CheckCircle, Clock, XCircle, FileText, ShieldOff, ShieldCheck } from "lucide-react";
 import { CompanyAnalytics, Cleaner, Company, CleanerInvitation } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -23,6 +23,8 @@ export default function CompanyDashboard() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [deactivatingCleanerId, setDeactivatingCleanerId] = useState<number | null>(null);
   const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
+  const [reactivatingCleanerId, setReactivatingCleanerId] = useState<number | null>(null);
+  const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
 
   // Helper function to check if a cleaner is truly online (active within last 10 minutes)
   const isCleanerOnline = (cleaner: Cleaner): boolean => {
@@ -119,6 +121,44 @@ export default function CompanyDashboard() {
   const handleCancelDeactivate = () => {
     setDeactivateDialogOpen(false);
     setDeactivatingCleanerId(null);
+  };
+
+  const reactivateCleanerMutation = useMutation({
+    mutationFn: async (cleanerId: number) => {
+      return await apiRequest("POST", `/api/company/cleaners/${cleanerId}/reactivate`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/company/cleaners"] });
+      setReactivateDialogOpen(false);
+      setReactivatingCleanerId(null);
+      toast({
+        title: "Cleaner Reactivated",
+        description: "The cleaner has been reactivated and can now login.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleReactivateClick = (cleanerId: number) => {
+    setReactivatingCleanerId(cleanerId);
+    setReactivateDialogOpen(true);
+  };
+
+  const handleConfirmReactivate = () => {
+    if (reactivatingCleanerId !== null) {
+      reactivateCleanerMutation.mutate(reactivatingCleanerId);
+    }
+  };
+
+  const handleCancelReactivate = () => {
+    setReactivateDialogOpen(false);
+    setReactivatingCleanerId(null);
   };
 
   if (isLoading) {
@@ -350,7 +390,7 @@ export default function CompanyDashboard() {
                               </div>
                               <div className="flex items-center gap-2">
                                 <Badge variant="default">Active</Badge>
-                                {cleaner.isActive !== 0 && (
+                                {cleaner.isActive !== 0 ? (
                                   <Button
                                     variant="ghost"
                                     size="icon"
@@ -359,6 +399,16 @@ export default function CompanyDashboard() {
                                     data-testid={`button-deactivate-${cleaner.id}`}
                                   >
                                     <ShieldOff className="h-4 w-4" />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    disabled={reactivatingCleanerId === cleaner.id && reactivateCleanerMutation.isPending}
+                                    onClick={() => handleReactivateClick(cleaner.id)}
+                                    data-testid={`button-reactivate-${cleaner.id}`}
+                                  >
+                                    <ShieldCheck className="h-4 w-4 text-green-500" />
                                   </Button>
                                 )}
                               </div>
@@ -396,7 +446,7 @@ export default function CompanyDashboard() {
                               </div>
                               <div className="flex items-center gap-2">
                                 <Badge variant="secondary">Off Duty</Badge>
-                                {cleaner.isActive !== 0 && (
+                                {cleaner.isActive !== 0 ? (
                                   <Button
                                     variant="ghost"
                                     size="icon"
@@ -405,6 +455,16 @@ export default function CompanyDashboard() {
                                     data-testid={`button-deactivate-${cleaner.id}`}
                                   >
                                     <ShieldOff className="h-4 w-4" />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    disabled={reactivatingCleanerId === cleaner.id && reactivateCleanerMutation.isPending}
+                                    onClick={() => handleReactivateClick(cleaner.id)}
+                                    data-testid={`button-reactivate-${cleaner.id}`}
+                                  >
+                                    <ShieldCheck className="h-4 w-4 text-green-500" />
                                   </Button>
                                 )}
                               </div>
@@ -472,7 +532,7 @@ export default function CompanyDashboard() {
                 Deactivate {cleaners?.find(c => c.id === deactivatingCleanerId)?.displayName || `Car Washer #${deactivatingCleanerId}`}?
               </AlertDialogTitle>
               <AlertDialogDescription>
-                They'll immediately lose access and be logged out. This action can only be reversed by contacting support.
+                They'll immediately lose access and be logged out. This action can be reversed by clicking the reactivate button.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -490,6 +550,36 @@ export default function CompanyDashboard() {
                 data-testid="button-confirm-deactivate"
               >
                 {deactivateCleanerMutation.isPending ? "Deactivating..." : "Deactivate"}
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Reactivate Confirmation Dialog */}
+        <AlertDialog open={reactivateDialogOpen} onOpenChange={setReactivateDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Reactivate {cleaners?.find(c => c.id === reactivatingCleanerId)?.displayName || `Car Washer #${reactivatingCleanerId}`}?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                They'll regain access and be able to login and work again.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel
+                onClick={handleCancelReactivate}
+                disabled={reactivateCleanerMutation.isPending}
+                data-testid="button-cancel-reactivate"
+              >
+                Cancel
+              </AlertDialogCancel>
+              <Button
+                onClick={handleConfirmReactivate}
+                disabled={reactivateCleanerMutation.isPending}
+                data-testid="button-confirm-reactivate"
+              >
+                {reactivateCleanerMutation.isPending ? "Reactivating..." : "Reactivate"}
               </Button>
             </AlertDialogFooter>
           </AlertDialogContent>
