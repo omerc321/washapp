@@ -1,5 +1,5 @@
 // Stripe checkout integration - from javascript_stripe blueprint
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { useStripe, Elements, PaymentElement, useElements, PaymentRequestButtonElement } from '@stripe/react-stripe-js';
 import { loadStripe, PaymentRequest } from '@stripe/stripe-js';
@@ -8,15 +8,32 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Car, MapPin, DollarSign, Building2, Phone } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Car, MapPin, DollarSign, Building2, Phone, Loader2, CheckCircle, CircleAlert, ChevronDown } from "lucide-react";
 import logoUrl from "@assets/IMG_2508_1762619079711.png";
+
+type CleanerValidationStatus = 'idle' | 'typing' | 'checking' | 'valid' | 'invalid';
 
 if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
   throw new Error('Missing required Stripe key: VITE_STRIPE_PUBLIC_KEY');
 }
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
-function CheckoutForm({ paymentIntentId, clientSecret, jobData, onTipUpdate }: { paymentIntentId?: string, clientSecret: string, jobData: any, onTipUpdate: (fees: any) => void }) {
+function CheckoutForm({ 
+  paymentIntentId, 
+  clientSecret, 
+  jobData, 
+  onTipUpdate,
+  onCleanerValidationChange 
+}: { 
+  paymentIntentId?: string;
+  clientSecret: string;
+  jobData: any;
+  onTipUpdate: (fees: any) => void;
+  onCleanerValidationChange: (email: string | null, status: CleanerValidationStatus) => void;
+}) {
   const stripe = useStripe();
   const elements = useElements();
   const { toast } = useToast();
@@ -27,6 +44,12 @@ function CheckoutForm({ paymentIntentId, clientSecret, jobData, onTipUpdate }: {
   const [customTip, setCustomTip] = useState("");
   const [updatingTip, setUpdatingTip] = useState(false);
   const [customTipError, setCustomTipError] = useState("");
+  
+  // Cleaner email validation state
+  const [cleanerEmail, setCleanerEmail] = useState("");
+  const [validationStatus, setValidationStatus] = useState<CleanerValidationStatus>('idle');
+  const [cleanerName, setCleanerName] = useState("");
+  const lastValidatedEmailRef = useRef<string>("");
 
   // Handle tip update
   const updateTip = async (newTip: number) => {
@@ -66,6 +89,61 @@ function CheckoutForm({ paymentIntentId, clientSecret, jobData, onTipUpdate }: {
       setUpdatingTip(false);
     }
   };
+
+  // Debounced cleaner email validation
+  useEffect(() => {
+    if (!cleanerEmail.trim()) {
+      // Empty email - reset to idle
+      setValidationStatus('idle');
+      setCleanerName("");
+      lastValidatedEmailRef.current = "";
+      onCleanerValidationChange(null, 'idle');
+      return;
+    }
+    
+    // Skip if this email was already validated (preserve success state using ref)
+    if (cleanerEmail === lastValidatedEmailRef.current) {
+      return;
+    }
+    
+    // Mark as typing and notify parent to pause payment intent creation
+    setValidationStatus('typing');
+    onCleanerValidationChange(null, 'typing');
+    
+    // Debounce validation with 350ms delay
+    const timeout = setTimeout(async () => {
+      setValidationStatus('checking');
+      onCleanerValidationChange(null, 'checking');
+      
+      try {
+        const response = await apiRequest(
+          "GET", 
+          `/api/cleaners/lookup?email=${encodeURIComponent(cleanerEmail)}&companyId=${jobData.companyId}`
+        );
+        const data = await response.json();
+        
+        // Success - cleaner found and valid
+        setValidationStatus('valid');
+        setCleanerName(data.name || cleanerEmail);
+        lastValidatedEmailRef.current = cleanerEmail; // Use ref to persist validated email
+        onCleanerValidationChange(cleanerEmail, 'valid');
+      } catch (error: any) {
+        // Failed validation
+        if (error?.status === 404 || error?.status === 403) {
+          setValidationStatus('invalid');
+          setCleanerName("");
+          onCleanerValidationChange(null, 'invalid');
+        } else {
+          console.error("Cleaner validation error:", error);
+          setValidationStatus('invalid');
+          setCleanerName("");
+          onCleanerValidationChange(null, 'invalid');
+        }
+      }
+    }, 350);
+    
+    return () => clearTimeout(timeout);
+  }, [cleanerEmail, jobData.companyId, onCleanerValidationChange]);
 
   // Setup Payment Request for Apple Pay / Google Pay
   useEffect(() => {
@@ -136,6 +214,25 @@ function CheckoutForm({ paymentIntentId, clientSecret, jobData, onTipUpdate }: {
     e.preventDefault();
 
     if (!stripe || !elements) {
+      return;
+    }
+    
+    // Guard against invalid or checking cleaner validation
+    if (validationStatus === 'checking') {
+      toast({
+        title: "Please wait",
+        description: "Validating cleaner email...",
+        variant: "default",
+      });
+      return;
+    }
+    
+    if (validationStatus === 'invalid') {
+      toast({
+        title: "Invalid cleaner email",
+        description: "Please correct or remove the cleaner email to continue.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -255,6 +352,71 @@ function CheckoutForm({ paymentIntentId, clientSecret, jobData, onTipUpdate }: {
 
       <Separator />
 
+      {/* Optional Cleaner Request */}
+      <Collapsible>
+        <CollapsibleTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="w-full justify-between"
+            data-testid="button-collapsible-cleaner"
+          >
+            <span className="text-sm font-medium">Request specific cleaner (optional)</span>
+            <ChevronDown className="h-4 w-4" />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-3 pt-3">
+          <div className="space-y-2">
+            <Label htmlFor="cleaner-email" className="text-sm">Cleaner Email</Label>
+            <div className="relative">
+              <Input
+                id="cleaner-email"
+                type="email"
+                placeholder="cleaner@example.com"
+                value={cleanerEmail}
+                onChange={(e) => setCleanerEmail(e.target.value)}
+                className="pr-10"
+                data-testid="input-cleaner-email"
+              />
+              {validationStatus === 'checking' && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+              )}
+              {validationStatus === 'valid' && (
+                <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-600" data-testid="icon-cleaner-valid" />
+              )}
+              {validationStatus === 'invalid' && (
+                <CircleAlert className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-destructive" data-testid="icon-cleaner-invalid" />
+              )}
+            </div>
+            
+            {/* Status helper text */}
+            {(validationStatus === 'idle' || validationStatus === 'typing') && (
+              <p className="text-xs text-muted-foreground">
+                If on-duty and within 50m, they'll be auto-assigned
+              </p>
+            )}
+            {validationStatus === 'checking' && (
+              <p className="text-xs text-muted-foreground">
+                Checking cleaner...
+              </p>
+            )}
+            {validationStatus === 'valid' && cleanerName && (
+              <p className="text-xs text-green-600" data-testid="text-cleaner-valid">
+                ✓ Valid cleaner: {cleanerName}
+              </p>
+            )}
+            {validationStatus === 'invalid' && (
+              <p className="text-xs text-destructive" data-testid="text-cleaner-invalid">
+                This cleaner is not available for this company
+              </p>
+            )}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      <Separator />
+
       {/* Apple Pay / Google Pay Button */}
       {paymentRequest && (
         <div className="space-y-4">
@@ -281,10 +443,13 @@ function CheckoutForm({ paymentIntentId, clientSecret, jobData, onTipUpdate }: {
           <Button
             type="submit"
             className="w-full h-12 text-base"
-            disabled={!stripe || processing}
+            disabled={!stripe || processing || validationStatus === 'checking' || validationStatus === 'invalid'}
             data-testid="button-pay"
           >
-            {processing ? "Processing Payment..." : "Pay Now"}
+            {processing ? "Processing Payment..." : 
+             validationStatus === 'checking' ? "Validating cleaner..." :
+             validationStatus === 'invalid' ? "Invalid cleaner email" :
+             "Pay Now"}
           </Button>
         </div>
       </div>
@@ -299,6 +464,8 @@ export default function Checkout() {
   const [paymentIntentId, setPaymentIntentId] = useState("");
   const [jobData, setJobData] = useState<any>(null);
   const [feeBreakdown, setFeeBreakdown] = useState<any>(null);
+  const [validatedCleanerEmail, setValidatedCleanerEmail] = useState<string | null>(null);
+  const [cleanerValidationStatus, setCleanerValidationStatus] = useState<CleanerValidationStatus>('idle');
 
   useEffect(() => {
     const stored = sessionStorage.getItem("pendingJob");
@@ -319,27 +486,46 @@ export default function Checkout() {
       totalAmount: data.price,
     });
 
-    // Create PaymentIntent
-    apiRequest("POST", "/api/create-payment-intent", data)
-      .then((res) => res.json())
-      .then((data) => {
-        setClientSecret(data.clientSecret);
+    // Create PaymentIntent (wait for cleaner validation to settle)
+    const createPayment = async () => {
+      // Include validated cleaner email if validation succeeded
+      const paymentData = { ...data };
+      if (cleanerValidationStatus === 'valid' && validatedCleanerEmail) {
+        paymentData.requestedCleanerEmail = validatedCleanerEmail;
+        // Update sessionStorage for webhook consistency
+        sessionStorage.setItem("pendingJob", JSON.stringify(paymentData));
+      }
+      
+      try {
+        const res = await apiRequest("POST", "/api/create-payment-intent", paymentData);
+        const responseData = await res.json();
+        setClientSecret(responseData.clientSecret);
         // Extract payment intent ID from client secret
-        const piId = data.clientSecret.split('_secret_')[0];
+        const piId = responseData.clientSecret.split('_secret_')[0];
         setPaymentIntentId(piId);
-      })
-      .catch((error) => {
+      } catch (error) {
         toast({
           title: "Error",
           description: "Failed to initialize payment",
           variant: "destructive",
         });
         console.error(error);
-      });
-  }, [setLocation, toast]);
+      }
+    };
+    
+    // Only create payment when cleaner validation is settled (idle, valid, or invalid)
+    if (cleanerValidationStatus === 'idle' || cleanerValidationStatus === 'valid' || cleanerValidationStatus === 'invalid') {
+      createPayment();
+    }
+  }, [setLocation, toast, cleanerValidationStatus, validatedCleanerEmail]);
 
   const handleTipUpdate = (fees: any) => {
     setFeeBreakdown(fees);
+  };
+  
+  const handleCleanerValidationChange = (email: string | null, status: CleanerValidationStatus) => {
+    setValidatedCleanerEmail(email);
+    setCleanerValidationStatus(status);
   };
 
   if (!clientSecret || !jobData) {
@@ -459,6 +645,7 @@ export default function Checkout() {
                 clientSecret={clientSecret}
                 jobData={jobData}
                 onTipUpdate={handleTipUpdate}
+                onCleanerValidationChange={handleCleanerValidationChange}
               />
             </Elements>
           </div>
