@@ -440,21 +440,36 @@ export class DatabaseStorage implements IStorage {
       .where(eq(cleaners.id, id));
   }
 
-  async getCompanyCleaners(companyId: number, status?: CleanerStatus): Promise<Cleaner[]> {
+  async getCompanyCleaners(companyId: number, status?: CleanerStatus): Promise<any[]> {
+    const conditions = [eq(cleaners.companyId, companyId)];
+    
     if (status) {
-      return await db
-        .select()
-        .from(cleaners)
-        .where(and(
-          eq(cleaners.companyId, companyId),
-          eq(cleaners.status, status)
-        ));
+      conditions.push(eq(cleaners.status, status));
     }
     
-    return await db
-      .select()
+    const results = await db
+      .select({
+        id: cleaners.id,
+        userId: cleaners.userId,
+        companyId: cleaners.companyId,
+        status: cleaners.status,
+        currentLatitude: cleaners.currentLatitude,
+        currentLongitude: cleaners.currentLongitude,
+        lastLocationUpdate: cleaners.lastLocationUpdate,
+        totalJobsCompleted: cleaners.totalJobsCompleted,
+        averageCompletionTime: cleaners.averageCompletionTime,
+        rating: cleaners.rating,
+        totalRatings: cleaners.totalRatings,
+        createdAt: cleaners.createdAt,
+        displayName: users.displayName,
+        phoneNumber: users.phoneNumber,
+        email: users.email,
+      })
       .from(cleaners)
-      .where(eq(cleaners.companyId, companyId));
+      .leftJoin(users, eq(cleaners.userId, users.id))
+      .where(and(...conditions));
+    
+    return results;
   }
   
   // Transactional cleaner + user creation
