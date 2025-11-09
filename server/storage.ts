@@ -768,29 +768,38 @@ export class DatabaseStorage implements IStorage {
   async getCompanyAnalytics(companyId: number): Promise<any> {
     const now = new Date();
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
     
     const [company] = await db.select().from(companies).where(eq(companies.id, companyId));
+    
+    // Count active cleaners (on_duty + location update within 10 minutes)
     const [activeCleanersResult] = await db.select({ count: sql<number>`count(*)` }).from(cleaners)
       .where(and(
         eq(cleaners.companyId, companyId),
-        eq(cleaners.status, "on_duty")
+        eq(cleaners.status, "on_duty"),
+        gte(cleaners.lastLocationUpdate, tenMinutesAgo)
       ));
+    
+    // Count only completed jobs this month (revenue-recognized)
     const [jobsThisMonthResult] = await db.select({ count: sql<number>`count(*)` }).from(jobs)
-      .where(and(
-        eq(jobs.companyId, companyId),
-        gte(jobs.createdAt, firstDayOfMonth)
-      ));
-    // Calculate gross revenue (base + 5% tax + 3 AED platform fee) to match financial reports
-    const [totalRevenueResult] = await db.select({ total: sql<number>`sum(${jobs.price} * 1.05 + 3)` }).from(jobs)
-      .where(and(
-        eq(jobs.companyId, companyId),
-        eq(jobs.status, "completed")
-      ));
-    const [revenueThisMonthResult] = await db.select({ total: sql<number>`sum(${jobs.price} * 1.05 + 3)` }).from(jobs)
       .where(and(
         eq(jobs.companyId, companyId),
         eq(jobs.status, "completed"),
         gte(jobs.createdAt, firstDayOfMonth)
+      ));
+    
+    // Use job_financials for accurate revenue tracking
+    const [totalRevenueResult] = await db.select({ 
+      total: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text` 
+    }).from(jobFinancials)
+      .where(eq(jobFinancials.companyId, companyId));
+    
+    const [revenueThisMonthResult] = await db.select({ 
+      total: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text` 
+    }).from(jobFinancials)
+      .where(and(
+        eq(jobFinancials.companyId, companyId),
+        gte(jobFinancials.paidAt, firstDayOfMonth)
       ));
     
     // Get shift roster with optimized query (joins cleaners + users + active shifts)
@@ -839,11 +848,11 @@ export class DatabaseStorage implements IStorage {
     
     return {
       totalJobsCompleted: company?.totalJobsCompleted || 0,
-      totalRevenue: totalRevenueResult.total || 0,
+      totalRevenue: parseFloat(totalRevenueResult.total || "0"),
       averageRating: parseFloat(company?.rating as any) || 0,
       activeCleaners: activeCleanersResult.count,
       jobsThisMonth: jobsThisMonthResult.count,
-      revenueThisMonth: revenueThisMonthResult.total || 0,
+      revenueThisMonth: parseFloat(revenueThisMonthResult.total || "0"),
       shiftRoster,
     };
   }
