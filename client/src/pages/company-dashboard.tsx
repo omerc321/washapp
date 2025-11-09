@@ -42,7 +42,13 @@ export default function CompanyDashboard() {
     enabled: !!currentUser?.companyId,
   });
 
-  const { data: cleaners, isLoading: isLoadingCleaners } = useQuery<Cleaner[]>({
+  type CleanerWithUser = Cleaner & {
+    displayName: string | null;
+    phoneNumber: string | null;
+    email: string | null;
+  };
+
+  const { data: cleaners, isLoading: isLoadingCleaners } = useQuery<CleanerWithUser[]>({
     queryKey: ["/api/company/cleaners"],
     enabled: !!currentUser?.companyId && company?.isActive === 1,
   });
@@ -293,9 +299,9 @@ export default function CompanyDashboard() {
                               <div className="flex items-center gap-3">
                                 <div className="h-3 w-3 rounded-full bg-green-500" />
                                 <div>
-                                  <p className="font-medium">Car Washer #{cleaner.id}</p>
+                                  <p className="font-medium">{cleaner.displayName || `Car Washer #${cleaner.id}`}</p>
                                   <p className="text-sm text-muted-foreground">
-                                    {cleaner.totalJobsCompleted} jobs • Rating: {cleaner.rating || "N/A"}
+                                    {cleaner.phoneNumber || 'No phone'} • {cleaner.totalJobsCompleted} jobs • Rating: {cleaner.rating || "N/A"}
                                     {shiftInfo?.activeShift && ` • On shift: ${shiftInfo.activeShift.duration}m`}
                                   </p>
                                 </div>
@@ -325,9 +331,9 @@ export default function CompanyDashboard() {
                             <div className="flex items-center gap-3">
                               <div className="h-3 w-3 rounded-full bg-gray-400" />
                               <div>
-                                <p className="font-medium">Car Washer #{cleaner.id}</p>
+                                <p className="font-medium">{cleaner.displayName || `Car Washer #${cleaner.id}`}</p>
                                 <p className="text-sm text-muted-foreground">
-                                  {cleaner.totalJobsCompleted} jobs • Rating: {cleaner.rating || "N/A"}
+                                  {cleaner.phoneNumber || 'No phone'} • {cleaner.totalJobsCompleted} jobs • Rating: {cleaner.rating || "N/A"}
                                 </p>
                               </div>
                             </div>
