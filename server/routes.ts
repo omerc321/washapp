@@ -8,6 +8,7 @@ import { mkdir } from "fs/promises";
 import ExcelJS from "exceljs";
 import passport from "./auth";
 import { storage } from "./storage";
+import { sessionStore } from "./session-store";
 import { requireAuth, requireRole, optionalAuth } from "./middleware";
 import { sendEmail } from "./lib/resend";
 import { broadcastJobUpdate } from "./websocket";
@@ -981,20 +982,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateCleaner(cleanerId, { isActive: 0, status: "off_duty" });
 
       // Immediately destroy all sessions for this cleaner to force logout
-      const { sessionStore } = await import("./session-store");
-      const sessions = await new Promise<any[]>((resolve, reject) => {
-        sessionStore.all!((err: any, sessions: any) => {
-          if (err) reject(err);
-          else resolve(sessions || []);
-        });
-      });
-
-      // Find and destroy sessions for this cleaner's user
-      for (const session of sessions) {
-        if (session.passport?.user?.id === cleaner.userId) {
-          sessionStore.destroy(session.sid, (err: any) => {
-            if (err) console.error('Failed to destroy session:', err);
+      // The requireActiveCleaner middleware will also catch them on next request
+      if (sessionStore.all) {
+        try {
+          const sessions = await new Promise<any[]>((resolve, reject) => {
+            sessionStore.all!((err: any, sessions: any) => {
+              if (err) reject(err);
+              else resolve(sessions || []);
+            });
           });
+
+          // Find and destroy sessions for this cleaner's user
+          for (const session of sessions) {
+            if (session.passport?.user?.id === cleaner.userId) {
+              sessionStore.destroy(session.sid, (err: any) => {
+                if (err) console.error('Failed to destroy session:', err);
+              });
+            }
+          }
+        } catch (sessionError) {
+          console.error('Failed to destroy sessions:', sessionError);
+          // Continue anyway - middleware will catch them on next request
         }
       }
       
