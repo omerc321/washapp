@@ -5,7 +5,8 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, Users, Star } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { MapPin, Users, Star, UserCheck } from "lucide-react";
 import { CompanyWithCleaners } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import logoUrl from "@assets/IMG_2508_1762619079711.png";
@@ -24,7 +25,7 @@ export default function SelectCompany() {
     setPendingJob(JSON.parse(stored));
   }, [setLocation]);
 
-  const { data: companies, isLoading } = useQuery<CompanyWithCleaners[]>({
+  const { data: allCompanies, isLoading } = useQuery<CompanyWithCleaners[]>({
     queryKey: ["/api/companies/nearby", pendingJob?.locationLatitude, pendingJob?.locationLongitude],
     enabled: !!pendingJob && 
              typeof pendingJob.locationLatitude === 'number' && 
@@ -40,6 +41,14 @@ export default function SelectCompany() {
       if (!res.ok) throw new Error("Failed to fetch companies");
       return res.json();
     },
+  });
+
+  // Filter companies based on forcedCompanyId if present
+  const companies = allCompanies?.filter(company => {
+    if (pendingJob?.forcedCompanyId) {
+      return company.id === pendingJob.forcedCompanyId;
+    }
+    return true;
   });
 
   const handleSelectCompany = (company: CompanyWithCleaners) => {
@@ -96,6 +105,20 @@ export default function SelectCompany() {
 
       {/* Content */}
       <div className="flex-1 max-w-md mx-auto w-full px-4 py-6 pb-24">
+
+        {/* Cleaner Request Banner */}
+        {pendingJob?.forcedCompanyId && pendingJob?.cleanerName && (
+          <Alert className="mb-4 bg-primary/5 border-primary/20" data-testid="alert-forced-company">
+            <UserCheck className="h-4 w-4" />
+            <AlertDescription>
+              <span className="font-medium">Cleaner requested:</span> {pendingJob.cleanerName}
+              <br />
+              <span className="text-xs text-muted-foreground">
+                Showing their company only
+              </span>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Loading State */}
         {isLoading && (
