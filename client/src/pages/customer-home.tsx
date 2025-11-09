@@ -329,6 +329,27 @@ export default function CustomerHome() {
               </p>
             </div>
 
+            {/* Cleaner Email - Optional */}
+            <div>
+              <Label htmlFor="cleanerEmail" className="text-base font-medium mb-2 block">
+                Cleaner Email <span className="text-muted-foreground text-xs font-normal">(Optional)</span>
+              </Label>
+              <Input
+                id="cleanerEmail"
+                data-testid="input-cleaner-email"
+                type="email"
+                placeholder="Request specific cleaner"
+                value={formData.requestedCleanerEmail || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, requestedCleanerEmail: e.target.value })
+                }
+                className="h-12 text-lg"
+              />
+              <p className="text-sm text-muted-foreground mt-2">
+                If on-duty and within 50m, they'll be auto-assigned
+              </p>
+            </div>
+
             {/* Location Picker - Now at the bottom */}
             <div>
               <Label className="text-base font-medium mb-2 block">
