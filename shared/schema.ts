@@ -11,6 +11,7 @@ export const invitationStatusEnum = pgEnum("invitation_status", ["pending", "con
 export const paymentMethodEnum = pgEnum("payment_method", ["card", "cash", "bank_transfer"]);
 export const withdrawalStatusEnum = pgEnum("withdrawal_status", ["pending", "completed", "cancelled"]);
 export const transactionTypeEnum = pgEnum("transaction_type", ["payment", "refund", "withdrawal"]);
+export const assignmentModeEnum = pgEnum("assignment_mode", ["pool", "direct"]);
 
 // Users Table
 export const users = pgTable("users", {
@@ -168,6 +169,11 @@ export const jobs = pgTable("jobs", {
   review: text("review"),
   ratingRequestedAt: timestamp("rating_requested_at"),
   ratedAt: timestamp("rated_at"),
+  
+  // Direct assignment
+  requestedCleanerEmail: varchar("requested_cleaner_email", { length: 255 }),
+  assignmentMode: assignmentModeEnum("assignment_mode").notNull().default("pool"),
+  directAssignmentAt: timestamp("direct_assignment_at"),
 });
 
 export const jobsRelations = relations(jobs, ({ one }) => ({
