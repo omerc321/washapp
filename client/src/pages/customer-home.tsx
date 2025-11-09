@@ -36,11 +36,13 @@ export default function CustomerHome() {
     locationLongitude: 0,
     parkingNumber: "",
     customerPhone: "",
+    requestedCleanerEmail: "",
   });
   
   const [showMap, setShowMap] = useState(false);
   const [geolocationStatus, setGeolocationStatus] = useState<GeolocationStatus>('idle');
   const [showLocationConsent, setShowLocationConsent] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Progressive geolocation: Show consent modal when needed
   useEffect(() => {
@@ -132,6 +134,9 @@ export default function CustomerHome() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Prevent duplicate submits
+    if (isSubmitting) return;
+    
     // Validation
     if (!formData.locationAddress || formData.locationLatitude === 0) {
       toast({
@@ -152,7 +157,62 @@ export default function CustomerHome() {
       return;
     }
     
+    setIsSubmitting(true);
+    
     try {
+      // Validate cleaner email if provided
+      let forcedCompanyId = null;
+      let cleanerInfo = null;
+      
+      if (formData.requestedCleanerEmail && formData.requestedCleanerEmail.trim()) {
+        try {
+          const cleanerResponse = await fetch(
+            `/api/cleaners/lookup?email=${encodeURIComponent(formData.requestedCleanerEmail.trim())}`
+          );
+          
+          if (!cleanerResponse.ok) {
+            if (cleanerResponse.status === 404) {
+              toast({
+                title: "Cleaner Not Found",
+                description: "No cleaner found with this email address",
+                variant: "destructive",
+              });
+            } else if (cleanerResponse.status === 403) {
+              toast({
+                title: "Cleaner Unavailable",
+                description: "This cleaner is not currently available",
+                variant: "destructive",
+              });
+            } else {
+              toast({
+                title: "Validation Error",
+                description: "Unable to validate cleaner email",
+                variant: "destructive",
+              });
+            }
+            setIsSubmitting(false);
+            return;
+          }
+          
+          cleanerInfo = await cleanerResponse.json();
+          forcedCompanyId = cleanerInfo.companyId;
+          
+          toast({
+            title: "Cleaner Found",
+            description: `Request will be sent to ${cleanerInfo.name}`,
+          });
+        } catch (error) {
+          console.error("Cleaner lookup error:", error);
+          toast({
+            title: "Validation Error",
+            description: "Unable to validate cleaner email. Please try again.",
+            variant: "destructive",
+          });
+          setIsSubmitting(false);
+          return;
+        }
+      }
+      
       // Create or get customer profile
       const customerResponse = await fetch("/api/customer/login", {
         method: "POST",
@@ -168,8 +228,10 @@ export default function CustomerHome() {
       
       const jobData = {
         ...formData,
-        companyId: "", // Will be selected in next step
+        companyId: forcedCompanyId || "", // Pre-set if cleaner was validated
         customerId: customer.id,
+        forcedCompanyId: forcedCompanyId, // Flag to lock company selection
+        cleanerName: cleanerInfo?.name || null, // For display
       };
       
       // Store in session for next step
@@ -181,6 +243,8 @@ export default function CustomerHome() {
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -431,12 +495,17 @@ export default function CustomerHome() {
               className="w-full h-12 text-base"
               onClick={handleSubmit}
               data-testid="button-continue"
-              disabled={geolocationStatus === 'requesting'}
+              disabled={geolocationStatus === 'requesting' || isSubmitting}
             >
               {geolocationStatus === 'requesting' ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Getting Location...
+                </>
+              ) : isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Validating...
                 </>
               ) : (
                 'Continue'
