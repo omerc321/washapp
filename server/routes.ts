@@ -389,12 +389,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Lookup cleaner by email (public endpoint for checkout validation)
+  app.get("/api/cleaners/lookup", async (req: Request, res: Response) => {
+    try {
+      const email = req.query.email as string;
+      
+      if (!email || typeof email !== 'string') {
+        return res.status(400).json({ message: "Email parameter is required" });
+      }
+      
+      // Find user by email
+      const user = await storage.getUserByEmail(email);
+      if (!user || user.role !== UserRole.CLEANER) {
+        return res.status(404).json({ message: "Cleaner not found" });
+      }
+      
+      // Get cleaner profile
+      const cleaner = await storage.getCleanerByUserId(user.id);
+      if (!cleaner) {
+        return res.status(404).json({ message: "Cleaner profile not found" });
+      }
+      
+      // Check if cleaner is active
+      if (cleaner.isActive !== 1) {
+        return res.status(403).json({ message: "This cleaner is not active" });
+      }
+      
+      // Get company info
+      const company = await storage.getCompany(cleaner.companyId);
+      if (!company) {
+        return res.status(404).json({ message: "Company not found" });
+      }
+      
+      if (company.isActive !== 1) {
+        return res.status(403).json({ message: "This cleaner's company is not active" });
+      }
+      
+      res.json({
+        cleanerId: cleaner.id,
+        email: user.email,
+        displayName: user.displayName,
+        companyId: company.id,
+        companyName: company.name,
+        isActive: true,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Create payment intent and job
   app.post("/api/create-payment-intent", async (req: Request, res: Response) => {
     try {
       const jobData = req.body;
       const tipAmount = Number(jobData.tipAmount || 0);
       const basePrice = Number(jobData.price);
+      const requestedCleanerEmail = jobData.requestedCleanerEmail;
+      
+      // Security: Validate requested cleaner belongs to selected company
+      if (requestedCleanerEmail) {
+        const user = await storage.getUserByEmail(requestedCleanerEmail);
+        if (!user || user.role !== UserRole.CLEANER) {
+          return res.status(400).json({ message: "Invalid cleaner email" });
+        }
+        
+        const cleaner = await storage.getCleanerByUserId(user.id);
+        if (!cleaner || cleaner.companyId !== parseInt(jobData.companyId)) {
+          return res.status(403).json({ message: "Requested cleaner does not belong to selected company" });
+        }
+        
+        if (cleaner.isActive !== 1) {
+          return res.status(403).json({ message: "Requested cleaner is not active" });
+        }
+      }
       
       // Calculate fees and total amount
       const fees = await calculateJobFees(basePrice, tipAmount);
@@ -408,6 +475,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           locationAddress: jobData.locationAddress,
           companyId: jobData.companyId,
           tipAmount: tipAmount.toString(),
+          requestedCleanerEmail: requestedCleanerEmail || '',
         },
       });
 
@@ -426,6 +494,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalAmount: fees.totalAmount.toString(),
         stripePaymentIntentId: paymentIntent.id,
         status: JobStatus.PENDING_PAYMENT,
+        requestedCleanerEmail: requestedCleanerEmail || null,
+        assignmentMode: requestedCleanerEmail ? 'direct' : 'pool',
       });
 
       res.json({ clientSecret: paymentIntent.client_secret, jobId: job.id });
@@ -518,24 +588,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const job = await storage.getJobByPaymentIntent(paymentIntent.id);
 
         if (job) {
-          // Update job status to PAID (cleaners will accept it themselves)
-          await storage.updateJob(job.id, {
-            status: JobStatus.PAID,
-          });
+          let assignedCleanerId: number | null = null;
+          let finalStatus = JobStatus.PAID;
+          let finalAssignmentMode = job.assignmentMode;
+          
+          // Handle direct assignment if requested
+          if (job.assignmentMode === 'direct' && job.requestedCleanerEmail) {
+            try {
+              // Find the requested cleaner
+              const user = await storage.getUserByEmail(job.requestedCleanerEmail);
+              if (user && user.role === UserRole.CLEANER) {
+                const cleaner = await storage.getCleanerByUserId(user.id);
+                
+                // Check if cleaner is eligible for direct assignment
+                if (cleaner && 
+                    cleaner.isActive === 1 && 
+                    isCleanerActive(cleaner) &&
+                    cleaner.currentLatitude && 
+                    cleaner.currentLongitude) {
+                  
+                  const jobLat = Number(job.locationLatitude);
+                  const jobLon = Number(job.locationLongitude);
+                  const cleanerLat = Number(cleaner.currentLatitude);
+                  const cleanerLon = Number(cleaner.currentLongitude);
+                  
+                  const distance = calculateDistance(jobLat, jobLon, cleanerLat, cleanerLon);
+                  
+                  // Auto-assign if within 50m radius
+                  if (distance <= 50) {
+                    assignedCleanerId = cleaner.id;
+                    finalStatus = JobStatus.ASSIGNED;
+                    await storage.updateJob(job.id, {
+                      status: JobStatus.ASSIGNED,
+                      cleanerId: cleaner.id,
+                      assignedAt: new Date(),
+                      directAssignmentAt: new Date(),
+                    });
+                    
+                    // Update cleaner status to busy
+                    await storage.updateCleaner(cleaner.id, {
+                      status: CleanerStatus.BUSY,
+                    });
+                  } else {
+                    // Fall back to pool if not in range
+                    console.log(`Cleaner ${cleaner.id} is ${distance.toFixed(2)}m away (>50m), falling back to pool`);
+                    finalAssignmentMode = 'pool';
+                    await storage.updateJob(job.id, {
+                      status: JobStatus.PAID,
+                      assignmentMode: 'pool',
+                      requestedCleanerEmail: null,
+                    });
+                  }
+                } else {
+                  // Fall back to pool if cleaner not eligible
+                  console.log('Requested cleaner not eligible, falling back to pool');
+                  finalAssignmentMode = 'pool';
+                  await storage.updateJob(job.id, {
+                    status: JobStatus.PAID,
+                    assignmentMode: 'pool',
+                    requestedCleanerEmail: null,
+                  });
+                }
+              } else {
+                // Fall back to pool if cleaner not found
+                console.log('Requested cleaner not found, falling back to pool');
+                finalAssignmentMode = 'pool';
+                await storage.updateJob(job.id, {
+                  status: JobStatus.PAID,
+                  assignmentMode: 'pool',
+                  requestedCleanerEmail: null,
+                });
+              }
+            } catch (directAssignError) {
+              console.error('Direct assignment error, falling back to pool:', directAssignError);
+              finalAssignmentMode = 'pool';
+              await storage.updateJob(job.id, {
+                status: JobStatus.PAID,
+                assignmentMode: 'pool',
+                requestedCleanerEmail: null,
+              });
+            }
+          } else {
+            // Pool mode - just mark as PAID
+            await storage.updateJob(job.id, {
+              status: JobStatus.PAID,
+            });
+          }
           
           // Create financial record for this job
           await createJobFinancialRecord(
             job.id,
             job.companyId,
-            job.cleanerId, // Pass actual cleaner if assigned
+            assignedCleanerId, // Pass cleaner ID if directly assigned
             Number(job.price),
             Number(job.tipAmount || 0),
             new Date()
           );
           
-          // Broadcast update to all on-duty cleaners
+          // Broadcast update to relevant parties
           const updatedJob = await storage.getJob(job.id);
-          if (updatedJob) broadcastJobUpdate(updatedJob);
+          if (updatedJob) {
+            if (finalStatus === JobStatus.ASSIGNED && assignedCleanerId) {
+              // Only broadcast to the assigned cleaner
+              broadcastJobUpdate(updatedJob);
+            } else {
+              // Broadcast to all on-duty cleaners (pool mode)
+              broadcastJobUpdate(updatedJob);
+            }
+          }
         }
       }
 
@@ -1349,4 +1509,14 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   return R * c; // Distance in meters
+}
+
+// Utility function to check if cleaner is active (on-duty and location updated within last 10 minutes)
+function isCleanerActive(cleaner: Cleaner): boolean {
+  if (cleaner.status !== CleanerStatus.ON_DUTY) return false;
+  if (!cleaner.lastLocationUpdate) return false;
+  
+  const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+  const lastUpdate = new Date(cleaner.lastLocationUpdate);
+  return lastUpdate >= tenMinutesAgo;
 }

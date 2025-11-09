@@ -1,19 +1,33 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Car, Phone, Building2 } from "lucide-react";
+import { Car, Phone, Building2, MapPin, AlertCircle, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import LocationPicker from "@/components/location-picker";
 import logoUrl from "@assets/IMG_2508_1762619079711.png";
+
+type GeolocationStatus = 'idle' | 'requesting' | 'success' | 'denied' | 'error';
 
 export default function CustomerHome() {
   const { currentUser } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  
+  const [mode, setMode] = useState<'book' | 'track'>('book');
+  const [trackingPlate, setTrackingPlate] = useState("");
   
   const [formData, setFormData] = useState({
     carPlateNumber: "",
@@ -25,6 +39,80 @@ export default function CustomerHome() {
   });
   
   const [showMap, setShowMap] = useState(false);
+  const [geolocationStatus, setGeolocationStatus] = useState<GeolocationStatus>('idle');
+  const [showLocationConsent, setShowLocationConsent] = useState(false);
+
+  // Progressive geolocation: Show consent modal when needed
+  useEffect(() => {
+    if (mode === 'book' && geolocationStatus === 'idle' && !formData.locationAddress) {
+      setShowLocationConsent(true);
+    }
+  }, [mode, geolocationStatus, formData.locationAddress]);
+
+  // Request geolocation with consent
+  const requestGeolocation = async () => {
+    setShowLocationConsent(false);
+    setGeolocationStatus('requesting');
+    
+    if (!navigator.geolocation) {
+      setGeolocationStatus('error');
+      toast({
+        title: "Location Not Supported",
+        description: "Your browser doesn't support geolocation. Please select your location manually.",
+        variant: "destructive",
+      });
+      setShowMap(true);
+      return;
+    }
+    
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        
+        // Reverse geocode to get address
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+          );
+          const data = await response.json();
+          const address = data.display_name || `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+          
+          // Use functional updater to prevent losing concurrent form edits
+          setFormData(prev => ({
+            ...prev,
+            locationAddress: address,
+            locationLatitude: latitude,
+            locationLongitude: longitude,
+          }));
+          setGeolocationStatus('success');
+        } catch (error) {
+          console.error('Reverse geocoding failed:', error);
+          // Still use coordinates even if reverse geocoding fails
+          setFormData(prev => ({
+            ...prev,
+            locationAddress: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
+            locationLatitude: latitude,
+            locationLongitude: longitude,
+          }));
+          setGeolocationStatus('success');
+        }
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        if (error.code === error.PERMISSION_DENIED) {
+          setGeolocationStatus('denied');
+        } else {
+          setGeolocationStatus('error');
+        }
+        // Don't auto-show map on error, let user click "Change Location"
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  };
 
   const handleLocationSelect = (location: {
     address: string;
@@ -38,6 +126,7 @@ export default function CustomerHome() {
       locationLongitude: location.longitude,
     });
     setShowMap(false);
+    setGeolocationStatus('success'); // Manual selection also counts as success
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -94,9 +183,6 @@ export default function CustomerHome() {
       });
     }
   };
-
-  const [mode, setMode] = useState<'book' | 'track'>('book');
-  const [trackingPlate, setTrackingPlate] = useState("");
 
   const handleTrack = () => {
     if (!trackingPlate.trim()) {
@@ -279,6 +365,33 @@ export default function CustomerHome() {
         )}
       </div>
 
+      {/* Geolocation Status Banner */}
+      {mode === 'book' && (geolocationStatus === 'denied' || geolocationStatus === 'error') && (
+        <div className="max-w-md mx-auto w-full px-4 mb-4">
+          <Alert variant="destructive" data-testid="alert-location-error">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="flex items-center justify-between">
+              <span>
+                {geolocationStatus === 'denied'
+                  ? "Location access was denied. Please enable location or select manually."
+                  : "Unable to get your location. Please select manually."}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setGeolocationStatus('idle');
+                  setShowLocationConsent(true);
+                }}
+                data-testid="button-retry-location"
+              >
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+
       {/* Sticky Bottom CTA */}
       <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 z-20">
         <div className="max-w-md mx-auto">
@@ -297,12 +410,54 @@ export default function CustomerHome() {
               className="w-full h-12 text-base"
               onClick={handleSubmit}
               data-testid="button-continue"
+              disabled={geolocationStatus === 'requesting'}
             >
-              Continue
+              {geolocationStatus === 'requesting' ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Getting Location...
+                </>
+              ) : (
+                'Continue'
+              )}
             </Button>
           )}
         </div>
       </div>
+
+      {/* Location Consent Modal */}
+      <Dialog open={showLocationConsent} onOpenChange={setShowLocationConsent}>
+        <DialogContent data-testid="dialog-location-consent">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5" />
+              We'll use your location
+            </DialogTitle>
+            <DialogDescription>
+              To find car wash cleaners nearby, we need to know where your car is parked. 
+              You can change this location anytime.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowLocationConsent(false);
+                setShowMap(true); // Open manual map picker instead
+              }}
+              data-testid="button-select-manually"
+            >
+              Select Manually
+            </Button>
+            <Button
+              onClick={requestGeolocation}
+              data-testid="button-allow-location"
+            >
+              Allow Location Access
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
