@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Users, Briefcase, DollarSign, Star, TrendingUp, UserPlus, AlertCircle, Phone, CheckCircle, Clock, XCircle, FileText, ShieldOff, ShieldCheck, Map } from "lucide-react";
+import { Users, Briefcase, DollarSign, Star, TrendingUp, UserPlus, AlertCircle, Phone, CheckCircle, Clock, XCircle, FileText, ShieldOff, ShieldCheck, Map, Settings } from "lucide-react";
 import { CompanyAnalytics, Cleaner, Company, CleanerInvitation } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -26,6 +26,10 @@ export default function CompanyDashboard() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [selectedGeofenceIds, setSelectedGeofenceIds] = useState<number[]>([]);
   const [assignAllGeofences, setAssignAllGeofences] = useState(true);
+  const [editingCleanerId, setEditingCleanerId] = useState<number | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editSelectedGeofenceIds, setEditSelectedGeofenceIds] = useState<number[]>([]);
+  const [editAssignAllGeofences, setEditAssignAllGeofences] = useState(false);
   const [deactivatingCleanerId, setDeactivatingCleanerId] = useState<number | null>(null);
   const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
   const [reactivatingCleanerId, setReactivatingCleanerId] = useState<number | null>(null);
@@ -105,6 +109,71 @@ export default function CompanyDashboard() {
       });
     },
   });
+
+  type CleanerGeofenceAssignment = {
+    id: number;
+    cleanerId: number | null;
+    invitationId: number | null;
+    geofenceId: number | null;
+    assignAll: number;
+  };
+
+  const { data: cleanerAssignments = [] } = useQuery<CleanerGeofenceAssignment[]>({
+    queryKey: ["/api/company/cleaners", editingCleanerId, "geofences"],
+    enabled: !!editingCleanerId,
+  });
+
+  const updateCleanerGeofencesMutation = useMutation({
+    mutationFn: async (data: { cleanerId: number; geofenceIds?: number[]; assignAll?: boolean }) => {
+      return await apiRequest("PUT", `/api/company/cleaners/${data.cleanerId}/geofences`, {
+        geofenceIds: data.geofenceIds,
+        assignAll: data.assignAll,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/company/cleaners", editingCleanerId, "geofences"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/company/cleaners"] });
+      setEditDialogOpen(false);
+      setEditingCleanerId(null);
+      setEditSelectedGeofenceIds([]);
+      setEditAssignAllGeofences(false);
+      toast({
+        title: "Service Areas Updated",
+        description: "The cleaner's service area assignments have been updated.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEditGeofences = (cleanerId: number) => {
+    setEditingCleanerId(cleanerId);
+    setEditDialogOpen(true);
+  };
+
+  useEffect(() => {
+    if (cleanerAssignments.length > 0) {
+      const hasAssignAll = cleanerAssignments.some(a => a.assignAll === 1);
+      if (hasAssignAll) {
+        setEditAssignAllGeofences(true);
+        setEditSelectedGeofenceIds([]);
+      } else {
+        setEditAssignAllGeofences(false);
+        const geofenceIds = cleanerAssignments
+          .filter(a => a.geofenceId !== null)
+          .map(a => a.geofenceId as number);
+        setEditSelectedGeofenceIds(geofenceIds);
+      }
+    } else if (editingCleanerId) {
+      setEditAssignAllGeofences(false);
+      setEditSelectedGeofenceIds([]);
+    }
+  }, [cleanerAssignments, editingCleanerId]);
 
   const deactivateCleanerMutation = useMutation({
     mutationFn: async (cleanerId: number) => {
@@ -398,6 +467,108 @@ export default function CompanyDashboard() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+
+            {/* Edit Cleaner Geofences Dialog */}
+            <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Manage Service Areas</DialogTitle>
+                  <DialogDescription>
+                    Configure which service areas this cleaner can work in.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  {geofences.length > 0 ? (
+                    <div className="space-y-3">
+                      <Label>Assign to Service Areas</Label>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="edit-assign-all"
+                          checked={editAssignAllGeofences}
+                          onCheckedChange={(checked) => {
+                            setEditAssignAllGeofences(!!checked);
+                            if (checked) {
+                              setEditSelectedGeofenceIds([]);
+                            }
+                          }}
+                          data-testid="checkbox-edit-assign-all-geofences"
+                        />
+                        <label
+                          htmlFor="edit-assign-all"
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          All service areas
+                        </label>
+                      </div>
+
+                      {!editAssignAllGeofences && (
+                        <div className="space-y-2 pl-6">
+                          <p className="text-sm text-muted-foreground">
+                            Select specific service areas:
+                          </p>
+                          {geofences.map((geofence) => (
+                            <div key={geofence.id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`edit-geofence-${geofence.id}`}
+                                checked={editSelectedGeofenceIds.includes(geofence.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setEditSelectedGeofenceIds([...editSelectedGeofenceIds, geofence.id]);
+                                  } else {
+                                    setEditSelectedGeofenceIds(editSelectedGeofenceIds.filter(id => id !== geofence.id));
+                                  }
+                                }}
+                                data-testid={`checkbox-edit-geofence-${geofence.id}`}
+                              />
+                              <label
+                                htmlFor={`edit-geofence-${geofence.id}`}
+                                className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                              >
+                                {geofence.name}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No service areas defined. Please create service areas first.
+                    </p>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setEditDialogOpen(false);
+                      setEditingCleanerId(null);
+                      setEditSelectedGeofenceIds([]);
+                      setEditAssignAllGeofences(false);
+                    }}
+                    data-testid="button-cancel-edit"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (editingCleanerId) {
+                        updateCleanerGeofencesMutation.mutate({
+                          cleanerId: editingCleanerId,
+                          geofenceIds: editAssignAllGeofences ? [] : editSelectedGeofenceIds,
+                          assignAll: editAssignAllGeofences,
+                        });
+                      }
+                    }}
+                    disabled={updateCleanerGeofencesMutation.isPending || (!editAssignAllGeofences && editSelectedGeofenceIds.length === 0 && geofences.length > 0)}
+                    data-testid="button-submit-edit"
+                  >
+                    {updateCleanerGeofencesMutation.isPending ? "Updating..." : "Update"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
@@ -489,6 +660,14 @@ export default function CompanyDashboard() {
                               </div>
                               <div className="flex items-center gap-2">
                                 <Badge variant="default">Active</Badge>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleEditGeofences(cleaner.id)}
+                                  data-testid={`button-edit-geofences-${cleaner.id}`}
+                                >
+                                  <Settings className="h-4 w-4" />
+                                </Button>
                                 {cleaner.isActive !== 0 ? (
                                   <Button
                                     variant="ghost"
@@ -545,6 +724,14 @@ export default function CompanyDashboard() {
                               </div>
                               <div className="flex items-center gap-2">
                                 <Badge variant="secondary">Off Duty</Badge>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleEditGeofences(cleaner.id)}
+                                  data-testid={`button-edit-geofences-${cleaner.id}`}
+                                >
+                                  <Settings className="h-4 w-4" />
+                                </Button>
                                 {cleaner.isActive !== 0 ? (
                                   <Button
                                     variant="ghost"
