@@ -412,7 +412,7 @@ export default function CompanyDashboard() {
                         />
                         <label
                           htmlFor="assign-all"
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                         >
                           All service areas
                         </label>
@@ -439,7 +439,7 @@ export default function CompanyDashboard() {
                               />
                               <label
                                 htmlFor={`geofence-${geofence.id}`}
-                                className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                               >
                                 {geofence.name}
                               </label>
@@ -496,7 +496,7 @@ export default function CompanyDashboard() {
                         />
                         <label
                           htmlFor="edit-assign-all"
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                         >
                           All service areas
                         </label>
@@ -523,7 +523,7 @@ export default function CompanyDashboard() {
                               />
                               <label
                                 htmlFor={`edit-geofence-${geofence.id}`}
-                                className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                               >
                                 {geofence.name}
                               </label>
