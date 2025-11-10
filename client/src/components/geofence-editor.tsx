@@ -4,7 +4,8 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Trash2, Save } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { MapPin, Trash2, Save, Navigation, Search, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -47,6 +48,13 @@ function MapViewController({ position }: { position: [number, number] }) {
   return null;
 }
 
+interface SearchResult {
+  display_name: string;
+  lat: string;
+  lon: string;
+  type: string;
+}
+
 export default function GeofenceEditor({ 
   initialGeofence, 
   onSave,
@@ -55,8 +63,14 @@ export default function GeofenceEditor({
   const [points, setPoints] = useState<Array<[number, number]>>(initialGeofence || []);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [mapCenter, setMapCenter] = useState<[number, number]>(centerPosition);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
   const { toast } = useToast();
   const lastSavedGeofenceRef = useRef<string>();
+  const searchTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     const currentGeofence = JSON.stringify(initialGeofence);
@@ -129,6 +143,90 @@ export default function GeofenceEditor({
     }
   };
 
+  const handleSearch = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await fetch(`/api/location/search?q=${encodeURIComponent(query)}`);
+      if (!response.ok) {
+        throw new Error("Search failed");
+      }
+      const data = await response.json();
+      setSearchResults(data.slice(0, 5));
+    } catch (error) {
+      toast({
+        title: "Search Error",
+        description: "Failed to search for location",
+        variant: "destructive",
+      });
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [toast]);
+
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      handleSearch(query);
+    }, 500);
+  };
+
+  const handleSelectSearchResult = (result: SearchResult) => {
+    const lat = parseFloat(result.lat);
+    const lon = parseFloat(result.lon);
+    setMapCenter([lat, lon]);
+    setSearchQuery("");
+    setSearchResults([]);
+    toast({
+      title: "Location Found",
+      description: `Centered on ${result.display_name}`,
+    });
+  };
+
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast({
+        title: "Not Supported",
+        description: "Geolocation is not supported by your browser",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGettingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setMapCenter([latitude, longitude]);
+        setIsGettingLocation(false);
+        toast({
+          title: "Location Found",
+          description: "Map centered on your current location",
+        });
+      },
+      (error) => {
+        setIsGettingLocation(false);
+        toast({
+          title: "Location Error",
+          description: error.message || "Failed to get your location",
+          variant: "destructive",
+        });
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   return (
     <Card data-testid="card-geofence-editor">
       <CardHeader>
@@ -138,6 +236,53 @@ export default function GeofenceEditor({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search for a location..."
+                value={searchQuery}
+                onChange={handleSearchInputChange}
+                className="pl-10"
+                data-testid="input-location-search"
+              />
+              {isSearching && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleGetCurrentLocation}
+              disabled={isGettingLocation}
+              data-testid="button-current-location"
+            >
+              {isGettingLocation ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Navigation className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          
+          {searchResults.length > 0 && (
+            <div className="border rounded-md overflow-hidden bg-background shadow-lg">
+              {searchResults.map((result, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleSelectSearchResult(result)}
+                  className="w-full text-left px-3 py-2 hover-elevate border-b last:border-b-0"
+                  data-testid={`search-result-${index}`}
+                >
+                  <p className="font-medium text-sm">{result.display_name}</p>
+                  <p className="text-xs text-muted-foreground">{result.type}</p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="flex flex-wrap gap-2">
           {!isDrawing ? (
             <Button
@@ -202,7 +347,7 @@ export default function GeofenceEditor({
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
-            <MapViewController position={centerPosition} />
+            <MapViewController position={mapCenter} />
             <MapClickHandler onLocationClick={handleMapClick} disabled={!isDrawing} />
             
             {points.length > 0 && (
