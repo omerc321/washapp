@@ -75,6 +75,23 @@ export const companiesRelations = relations(companies, ({ one, many }) => ({
   }),
   cleaners: many(cleaners),
   jobs: many(jobs),
+  geofences: many(companyGeofences),
+}));
+
+// Company Geofences Table
+export const companyGeofences = pgTable("company_geofences", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  polygon: jsonb("polygon").$type<Array<[number, number]>>().notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const companyGeofencesRelations = relations(companyGeofences, ({ one }) => ({
+  company: one(companies, {
+    fields: [companyGeofences.companyId],
+    references: [companies.id],
+  }),
 }));
 
 // Cleaners Table  
@@ -391,6 +408,13 @@ export const insertCleanerInvitationSchema = createInsertSchema(cleanerInvitatio
 
 export const selectCleanerInvitationSchema = createSelectSchema(cleanerInvitations);
 
+export const insertCompanyGeofenceSchema = createInsertSchema(companyGeofences).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const selectCompanyGeofenceSchema = createSelectSchema(companyGeofences);
+
 // TypeScript Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -406,6 +430,9 @@ export type InsertJob = z.infer<typeof insertJobSchema>;
 
 export type CleanerInvitation = typeof cleanerInvitations.$inferSelect;
 export type InsertCleanerInvitation = z.infer<typeof insertCleanerInvitationSchema>;
+
+export type CompanyGeofence = typeof companyGeofences.$inferSelect;
+export type InsertCompanyGeofence = z.infer<typeof insertCompanyGeofenceSchema>;
 
 export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
