@@ -23,15 +23,15 @@ I prefer simple language and clear explanations. I want iterative development wi
 -   **Email**: Resend for notifications.
 -   **Real-time**: WebSocket server for job status updates.
 -   **File Uploads**: Multer for local file storage (job photos, trade licenses).
--   **Location**: Haversine formula for distance calculations (50m radius matching).
+-   **Location**: Geofence polygon matching using ray-casting algorithm for point-in-polygon checks. Companies can define multiple named service areas.
 -   **Security**: Session-based authentication, CSRF protection, role-based access control, Stripe webhook signature verification.
 
 ### Feature Specifications
--   **Customer Flow**: Anonymous booking with car plate entry, map-based location selection, nearby company viewing, Stripe payment in AED (company price + 3 AED platform fee clearly displayed), and job tracking (Paid → Assigned → In Progress → Completed).
+-   **Customer Flow**: Anonymous booking with car plate entry, map-based location selection, geofence-based company matching (only companies with geofences containing the customer location are shown), Stripe payment in AED (company price + 3 AED platform fee clearly displayed), and job tracking (Paid → Assigned → In Progress → Completed).
 -   **Cleaner Flow**: Invitation-based registration, on-duty/off-duty toggle, job acceptance, "Open in Google Maps" navigation to job location, and photo-based job completion. Periodic location tracking for on-duty cleaners.
--   **Company Admin Flow**: Registration (requires admin approval), cleaner invitation management, detailed financial reports (revenue breakdown, withdrawals, cleaner filtering, Excel export), and company settings management.
+-   **Company Admin Flow**: Registration (requires admin approval), multiple named geofence management with location search and GPS positioning, cleaner invitation management, detailed financial reports (revenue breakdown, withdrawals, cleaner filtering, Excel export), and company settings management.
 -   **Admin Flow**: Platform-wide analytics, company approval/rejection, financial oversight with drill-down, and manual withdrawal processing.
--   **Job Acceptance**: Stripe payment triggers PENDING_PAYMENT, webhook confirmation to PAID, job becomes available to on-duty cleaners, manual acceptance (first-come-first-served), and WebSocket updates.
+-   **Job Acceptance**: Stripe payment triggers PENDING_PAYMENT, webhook confirmation to PAID, job becomes available to on-duty cleaners within the company's geofence area, manual acceptance (first-come-first-served), and WebSocket updates.
 
 ### System Design Choices
 -   **Data Models**: Comprehensive models for Users, Companies, Cleaners, Cleaner Invitations, Jobs, Job Financials, Company Withdrawals, Fee Settings, and Transactions.

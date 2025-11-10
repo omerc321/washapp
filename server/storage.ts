@@ -315,8 +315,8 @@ export class DatabaseStorage implements IStorage {
       .where(eq(companies.id, id));
   }
 
-  async getNearbyCompanies(lat: number, lon: number, maxDistanceMeters: number): Promise<CompanyWithCleaners[]> {
-    // Use raw SQL query to avoid Drizzle ORM issues
+  async getNearbyCompanies(lat: number, lon: number): Promise<CompanyWithCleaners[]> {
+    // Get companies with geofences and their on-duty cleaners
     const query = `
       SELECT 
         c.id as company_id,
@@ -326,32 +326,42 @@ export class DatabaseStorage implements IStorage {
         c.total_jobs_completed,
         c.total_revenue,
         c.rating,
-        cl.id as cleaner_id,
-        cl.current_latitude,
-        cl.current_longitude
+        cg.id as geofence_id,
+        cg.polygon,
+        COUNT(DISTINCT cl.id) as cleaner_count
       FROM companies c
-      INNER JOIN cleaners cl ON cl.company_id = c.id
-      WHERE cl.status = 'on_duty' 
-        AND c.is_active = 1
-        AND cl.current_latitude IS NOT NULL
-        AND cl.current_longitude IS NOT NULL
-        AND cl.last_location_update IS NOT NULL
+      INNER JOIN company_geofences cg ON cg.company_id = c.id
+      LEFT JOIN cleaners cl ON cl.company_id = c.id 
+        AND cl.status = 'on_duty'
         AND cl.last_location_update > NOW() - INTERVAL '10 minutes'
+      WHERE c.is_active = 1
+      GROUP BY c.id, c.name, c.description, c.price_per_wash, c.total_jobs_completed, 
+               c.total_revenue, c.rating, cg.id, cg.polygon
     `;
     
     const result = await pool.query(query);
     const rows = result.rows;
 
-    // Calculate distances and filter
+    // Filter companies whose geofences contain the customer location
     const companyMap = new Map<number, CompanyWithCleaners>();
     
     for (const row of rows) {
-      const cleanerLat = parseFloat(row.current_latitude);
-      const cleanerLon = parseFloat(row.current_longitude);
+      const polygon = row.polygon as Array<[number, number]>;
+      const cleanerCount = parseInt(row.cleaner_count || '0');
       
-      const distance = this.calculateDistance(lat, lon, cleanerLat, cleanerLon);
+      // Skip if no on-duty cleaners
+      if (cleanerCount === 0) {
+        continue;
+      }
       
-      if (distance <= maxDistanceMeters) {
+      // Validate polygon before checking (minimum 3 vertices)
+      if (!polygon || !Array.isArray(polygon) || polygon.length < 3) {
+        console.warn(`Company ${row.company_id}: Invalid geofence polygon (needs at least 3 points)`);
+        continue;
+      }
+      
+      // Check if point is inside polygon using ray casting algorithm
+      if (this.isPointInPolygon(lat, lon, polygon)) {
         const companyId = row.company_id;
         const existing = companyMap.get(companyId);
         
@@ -361,7 +371,7 @@ export class DatabaseStorage implements IStorage {
             name: row.name,
             description: row.description,
             pricePerWash: row.price_per_wash,
-            adminId: 0, // Not needed for nearby companies
+            adminId: 0,
             tradeLicenseNumber: null,
             tradeLicenseDocumentURL: null,
             isActive: 1,
@@ -371,19 +381,43 @@ export class DatabaseStorage implements IStorage {
             totalRatings: 0,
             geofenceArea: null,
             createdAt: new Date(),
-            onDutyCleanersCount: 1,
-            distanceInMeters: distance,
+            onDutyCleanersCount: cleanerCount,
           });
-        } else {
-          existing.onDutyCleanersCount++;
-          existing.distanceInMeters = Math.min(existing.distanceInMeters || Infinity, distance);
         }
       }
     }
     
-    return Array.from(companyMap.values()).sort((a, b) => 
-      (a.distanceInMeters || 0) - (b.distanceInMeters || 0)
-    );
+    // Sort by rating and total jobs completed
+    return Array.from(companyMap.values()).sort((a, b) => {
+      // Companies with higher ratings first
+      const ratingA = parseFloat(a.rating || '0');
+      const ratingB = parseFloat(b.rating || '0');
+      if (ratingB !== ratingA) {
+        return ratingB - ratingA;
+      }
+      // Then by total jobs completed
+      return (b.totalJobsCompleted || 0) - (a.totalJobsCompleted || 0);
+    });
+  }
+
+  // Point in polygon algorithm (ray casting)
+  private isPointInPolygon(lat: number, lon: number, polygon: Array<[number, number]>): boolean {
+    let inside = false;
+    const n = polygon.length;
+    
+    for (let i = 0, j = n - 1; i < n; j = i++) {
+      const [lat1, lon1] = polygon[i];
+      const [lat2, lon2] = polygon[j];
+      
+      const intersect = ((lon1 > lon) !== (lon2 > lon)) &&
+        (lat < (lat2 - lat1) * (lon - lon1) / (lon2 - lon1) + lat1);
+      
+      if (intersect) {
+        inside = !inside;
+      }
+    }
+    
+    return inside;
   }
 
   // ===== CLEANER INVITATION OPERATIONS =====

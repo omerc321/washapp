@@ -392,7 +392,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get nearby companies with on-duty cleaners within 50m radius
+  // Get companies whose geofences contain the customer location
   // IMPORTANT: This must come BEFORE /api/companies/:id to avoid route matching issues
   app.get("/api/companies/nearby", async (req: Request, res: Response) => {
     try {
@@ -402,10 +402,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(lat) || isNaN(lon)) {
         return res.status(400).json({ message: "Invalid latitude or longitude" });
       }
-      
-      const maxDistanceMeters = 50;
 
-      const companiesWithCleaners = await storage.getNearbyCompanies(lat, lon, maxDistanceMeters);
+      const companiesWithCleaners = await storage.getNearbyCompanies(lat, lon);
       res.json(companiesWithCleaners);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
