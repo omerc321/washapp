@@ -1233,6 +1233,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get company geofence
+  app.get("/api/company/geofence", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(400).json({ message: "No company associated with user" });
+      }
+
+      const company = await storage.getCompany(req.user.companyId);
+      if (!company) {
+        return res.status(404).json({ message: "Company not found" });
+      }
+
+      res.json({ geofenceArea: company.geofenceArea || null });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Update company geofence
+  app.put("/api/company/geofence", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(400).json({ message: "No company associated with user" });
+      }
+
+      const { geofenceArea } = req.body;
+
+      // Validate geofenceArea is an array of coordinate pairs
+      if (geofenceArea && (!Array.isArray(geofenceArea) || !geofenceArea.every(coord => 
+        Array.isArray(coord) && coord.length === 2 && 
+        typeof coord[0] === 'number' && typeof coord[1] === 'number'
+      ))) {
+        return res.status(400).json({ message: "Invalid geofence format. Expected array of [lat, lng] pairs" });
+      }
+
+      await storage.updateCompany(req.user.companyId, { geofenceArea });
+      
+      res.json({ success: true, geofenceArea });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ===== ADMIN ROUTES =====
 
   // Get platform analytics
