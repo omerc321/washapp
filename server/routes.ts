@@ -100,6 +100,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // ===== LOCATION SEARCH ROUTES =====
+  
+  // Search locations using Nominatim API (public endpoint)
+  app.get("/api/location/search", async (req: Request, res: Response) => {
+    try {
+      const { q } = req.query;
+      
+      if (!q || typeof q !== 'string' || q.trim().length === 0) {
+        return res.status(400).json({ message: "Search query 'q' is required" });
+      }
+
+      // Make request to Nominatim API
+      const nominatimUrl = `https://nominatim.openstreetmap.org/search?` + 
+        `format=json&` +
+        `q=${encodeURIComponent(q.trim())}&` +
+        `limit=10&` +
+        `addressdetails=1`;
+
+      const response = await fetch(nominatimUrl, {
+        headers: {
+          'User-Agent': 'CarWash Pro/1.0',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Nominatim API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
   // ===== AUTHENTICATION ROUTES =====
   
   // Login
