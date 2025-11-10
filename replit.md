@@ -28,14 +28,15 @@ I prefer simple language and clear explanations. I want iterative development wi
 
 ### Feature Specifications
 -   **Customer Flow**: Anonymous booking with car plate entry, map-based location selection, geofence-based company matching (only companies with geofences containing the customer location are shown), optional cleaner email request (validated against company geofences), Stripe payment in AED (company price + 3 AED platform fee clearly displayed), and job tracking (Paid → Assigned → In Progress → Completed).
--   **Cleaner Flow**: Invitation-based registration, on-duty/off-duty toggle, job acceptance, "Open in Google Maps" navigation to job location, and photo-based job completion. Periodic location tracking for on-duty cleaners.
--   **Company Admin Flow**: Registration (requires admin approval), multiple named geofence management with location search and GPS positioning, cleaner invitation management, detailed financial reports (revenue breakdown, withdrawals, cleaner filtering, Excel export), and company settings management.
+-   **Cleaner Flow**: Invitation-based registration, on-duty/off-duty toggle, job acceptance, "Open in Google Maps" navigation to job location, and photo-based job completion. Periodic location tracking for on-duty cleaners. Cleaners can only see and accept jobs within their assigned service areas.
+-   **Company Admin Flow**: Registration (requires admin approval), multiple named geofence management with location search and GPS positioning, cleaner invitation management with service area assignment (all areas or specific areas), detailed financial reports (revenue breakdown, withdrawals, cleaner filtering, Excel export), cleaner service area management post-registration, and company settings management.
 -   **Admin Flow**: Platform-wide analytics, company approval/rejection, financial oversight with drill-down, and manual withdrawal processing.
--   **Job Acceptance**: Stripe payment triggers PENDING_PAYMENT, webhook confirmation to PAID, job becomes available to on-duty cleaners within the company's geofence area, manual acceptance (first-come-first-served), and WebSocket updates.
+-   **Job Acceptance**: Stripe payment triggers PENDING_PAYMENT, webhook confirmation to PAID, job becomes available to on-duty cleaners within both the company's geofence area AND the cleaner's assigned service areas, manual acceptance (first-come-first-served), and WebSocket updates.
 -   **Geofence Validation**: All customer interactions (company browsing, cleaner email lookup) validate that the customer's location is within the company's service areas. Requests outside all geofences are rejected with clear error messages.
+-   **Cleaner Geofence Assignment**: Companies can assign cleaners to specific service areas during invitation or post-registration. Each cleaner can be assigned to "all service areas" or specific named service areas. Jobs are filtered by cleaner's assigned areas using point-in-polygon validation. Assignments automatically transfer from invitation to cleaner record during registration.
 
 ### System Design Choices
--   **Data Models**: Comprehensive models for Users, Companies, Cleaners, Cleaner Invitations, Jobs, Job Financials, Company Withdrawals, Fee Settings, and Transactions.
+-   **Data Models**: Comprehensive models for Users, Companies, Cleaners, Cleaner Invitations, Cleaner Geofence Assignments, Jobs, Job Financials, Company Withdrawals, Fee Settings, and Transactions.
 -   **Currency**: All transactions in AED (United Arab Emirates Dirham) with د.إ symbol displayed.
 -   **Fee Structure**: 5% tax + 3 AED flat platform fee + 2.9% + 1 AED Stripe payment processing fees.
 -   **Transaction Tracking**: All payments, refunds, and withdrawals tracked with unique reference numbers.
