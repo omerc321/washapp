@@ -111,16 +111,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Search query 'q' is required" });
       }
 
-      // Make request to Nominatim API
+      // Make request to Nominatim API with English language
       const nominatimUrl = `https://nominatim.openstreetmap.org/search?` + 
         `format=json&` +
         `q=${encodeURIComponent(q.trim())}&` +
         `limit=10&` +
-        `addressdetails=1`;
+        `addressdetails=1&` +
+        `accept-language=en`;
 
       const response = await fetch(nominatimUrl, {
         headers: {
           'User-Agent': 'CarWash Pro/1.0',
+          'Accept-Language': 'en',
         },
       });
 
