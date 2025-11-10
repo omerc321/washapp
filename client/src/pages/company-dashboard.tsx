@@ -110,15 +110,12 @@ export default function CompanyDashboard() {
     },
   });
 
-  type CleanerGeofenceAssignment = {
-    id: number;
-    cleanerId: number | null;
-    invitationId: number | null;
-    geofenceId: number | null;
-    assignAll: number;
+  type CleanerGeofenceResponse = {
+    geofences: CompanyGeofence[];
+    assignAll: boolean;
   };
 
-  const { data: cleanerAssignments = [] } = useQuery<CleanerGeofenceAssignment[]>({
+  const { data: cleanerAssignmentData } = useQuery<CleanerGeofenceResponse>({
     queryKey: ["/api/company/cleaners", editingCleanerId, "geofences"],
     enabled: !!editingCleanerId,
   });
@@ -157,23 +154,20 @@ export default function CompanyDashboard() {
   };
 
   useEffect(() => {
-    if (cleanerAssignments.length > 0) {
-      const hasAssignAll = cleanerAssignments.some(a => a.assignAll === 1);
-      if (hasAssignAll) {
+    if (cleanerAssignmentData) {
+      if (cleanerAssignmentData.assignAll) {
         setEditAssignAllGeofences(true);
         setEditSelectedGeofenceIds([]);
       } else {
         setEditAssignAllGeofences(false);
-        const geofenceIds = cleanerAssignments
-          .filter(a => a.geofenceId !== null)
-          .map(a => a.geofenceId as number);
+        const geofenceIds = cleanerAssignmentData.geofences.map(g => g.id);
         setEditSelectedGeofenceIds(geofenceIds);
       }
     } else if (editingCleanerId) {
       setEditAssignAllGeofences(false);
       setEditSelectedGeofenceIds([]);
     }
-  }, [cleanerAssignments, editingCleanerId]);
+  }, [cleanerAssignmentData, editingCleanerId]);
 
   const deactivateCleanerMutation = useMutation({
     mutationFn: async (cleanerId: number) => {
