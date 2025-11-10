@@ -10,6 +10,7 @@ import {
   feeSettings,
   jobFinancials,
   companyWithdrawals,
+  companyGeofences,
   type User, 
   type InsertUser,
   type Company,
@@ -31,6 +32,8 @@ import {
   type JobFinancialsWithCleaner,
   type CompanyWithdrawal,
   type InsertCompanyWithdrawal,
+  type CompanyGeofence,
+  type InsertCompanyGeofence,
   UserRole,
   JobStatus,
   CleanerStatus,
@@ -162,6 +165,14 @@ export interface IStorage {
     totalWithdrawals: number;
     availableBalance: number;
   }>>;
+  
+  // Company geofence operations
+  getCompanyGeofences(companyId: number): Promise<CompanyGeofence[]>;
+  getGeofence(id: number): Promise<CompanyGeofence | undefined>;
+  createGeofence(geofence: InsertCompanyGeofence): Promise<CompanyGeofence>;
+  updateGeofence(id: number, updates: Partial<Pick<CompanyGeofence, 'name' | 'polygon'>>): Promise<void>;
+  deleteGeofence(id: number): Promise<void>;
+  getGeofenceByCompanyAndName(companyId: number, name: string): Promise<CompanyGeofence | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -291,7 +302,7 @@ export class DatabaseStorage implements IStorage {
   async createCompany(companyData: InsertCompany): Promise<Company> {
     const [company] = await db
       .insert(companies)
-      .values(companyData)
+      .values([companyData as any])
       .returning();
     
     return company;
@@ -358,6 +369,7 @@ export class DatabaseStorage implements IStorage {
             totalRevenue: row.total_revenue,
             rating: row.rating,
             totalRatings: 0,
+            geofenceArea: null,
             createdAt: new Date(),
             onDutyCleanersCount: 1,
             distanceInMeters: distance,
@@ -1155,6 +1167,59 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
+  // ===== COMPANY GEOFENCE OPERATIONS =====
+
+  async getCompanyGeofences(companyId: number): Promise<CompanyGeofence[]> {
+    const geofences = await db
+      .select()
+      .from(companyGeofences)
+      .where(eq(companyGeofences.companyId, companyId))
+      .orderBy(desc(companyGeofences.createdAt));
+    return geofences;
+  }
+
+  async getGeofence(id: number): Promise<CompanyGeofence | undefined> {
+    const [geofence] = await db
+      .select()
+      .from(companyGeofences)
+      .where(eq(companyGeofences.id, id));
+    return geofence;
+  }
+
+  async createGeofence(geofence: InsertCompanyGeofence): Promise<CompanyGeofence> {
+    const [newGeofence] = await db
+      .insert(companyGeofences)
+      .values([geofence as any])
+      .returning();
+    return newGeofence;
+  }
+
+  async updateGeofence(id: number, updates: Partial<Pick<CompanyGeofence, 'name' | 'polygon'>>): Promise<void> {
+    await db
+      .update(companyGeofences)
+      .set(updates)
+      .where(eq(companyGeofences.id, id));
+  }
+
+  async deleteGeofence(id: number): Promise<void> {
+    await db
+      .delete(companyGeofences)
+      .where(eq(companyGeofences.id, id));
+  }
+
+  async getGeofenceByCompanyAndName(companyId: number, name: string): Promise<CompanyGeofence | undefined> {
+    const [geofence] = await db
+      .select()
+      .from(companyGeofences)
+      .where(
+        and(
+          eq(companyGeofences.companyId, companyId),
+          eq(companyGeofences.name, name)
+        )
+      );
+    return geofence;
+  }
+
   // ===== HELPER METHODS =====
 
   private mapUserRow(row: any): User {
@@ -1185,6 +1250,7 @@ export class DatabaseStorage implements IStorage {
       totalRevenue: row.total_revenue,
       rating: row.rating,
       totalRatings: row.total_ratings,
+      geofenceArea: row.geofence_area || null,
       createdAt: row.created_at,
     };
   }
