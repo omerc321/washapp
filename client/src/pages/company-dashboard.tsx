@@ -15,6 +15,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import GeofenceEditor from "@/components/geofence-editor";
 import GeofenceManager from "@/components/geofence-manager";
 
@@ -23,6 +24,8 @@ export default function CompanyDashboard() {
   const { toast } = useToast();
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [selectedGeofenceIds, setSelectedGeofenceIds] = useState<number[]>([]);
+  const [assignAllGeofences, setAssignAllGeofences] = useState(true);
   const [deactivatingCleanerId, setDeactivatingCleanerId] = useState<number | null>(null);
   const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
   const [reactivatingCleanerId, setReactivatingCleanerId] = useState<number | null>(null);
@@ -66,14 +69,29 @@ export default function CompanyDashboard() {
     enabled: !!currentUser?.companyId && company?.isActive === 1,
   });
 
+  type CompanyGeofence = {
+    id: number;
+    companyId: number;
+    name: string;
+    polygon: Array<[number, number]>;
+    createdAt: Date;
+  };
+
+  const { data: geofences = [], isLoading: isLoadingGeofences } = useQuery<CompanyGeofence[]>({
+    queryKey: ["/api/company/geofences"],
+    enabled: !!currentUser?.companyId && company?.isActive === 1,
+  });
+
   const inviteCleanerMutation = useMutation({
-    mutationFn: async (phone: string) => {
-      return await apiRequest("POST", "/api/company/invite-cleaner", { phoneNumber: phone });
+    mutationFn: async (data: { phoneNumber: string; geofenceIds?: number[]; assignAll?: boolean }) => {
+      return await apiRequest("POST", "/api/company/invite-cleaner", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/company/invitations"] });
       setIsInviteDialogOpen(false);
       setPhoneNumber("");
+      setSelectedGeofenceIds([]);
+      setAssignAllGeofences(true);
       toast({
         title: "Invitation Sent",
         description: "The cleaner invitation has been created. They can now register using this phone number.",
@@ -306,11 +324,73 @@ export default function CompanyDashboard() {
                       The cleaner will use this number to register on the platform
                     </p>
                   </div>
+
+                  {geofences.length > 0 && (
+                    <div className="space-y-3 pt-2 border-t">
+                      <Label>Assign to Service Areas</Label>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="assign-all"
+                          checked={assignAllGeofences}
+                          onCheckedChange={(checked) => {
+                            setAssignAllGeofences(!!checked);
+                            if (checked) {
+                              setSelectedGeofenceIds([]);
+                            }
+                          }}
+                          data-testid="checkbox-assign-all-geofences"
+                        />
+                        <label
+                          htmlFor="assign-all"
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          All service areas
+                        </label>
+                      </div>
+
+                      {!assignAllGeofences && (
+                        <div className="space-y-2 pl-6">
+                          <p className="text-sm text-muted-foreground">
+                            Select specific service areas:
+                          </p>
+                          {geofences.map((geofence) => (
+                            <div key={geofence.id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`geofence-${geofence.id}`}
+                                checked={selectedGeofenceIds.includes(geofence.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedGeofenceIds([...selectedGeofenceIds, geofence.id]);
+                                  } else {
+                                    setSelectedGeofenceIds(selectedGeofenceIds.filter(id => id !== geofence.id));
+                                  }
+                                }}
+                                data-testid={`checkbox-geofence-${geofence.id}`}
+                              />
+                              <label
+                                htmlFor={`geofence-${geofence.id}`}
+                                className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                              >
+                                {geofence.name}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <DialogFooter>
                   <Button
-                    onClick={() => inviteCleanerMutation.mutate(phoneNumber)}
-                    disabled={inviteCleanerMutation.isPending || !phoneNumber}
+                    onClick={() => {
+                      inviteCleanerMutation.mutate({
+                        phoneNumber,
+                        geofenceIds: assignAllGeofences ? [] : selectedGeofenceIds,
+                        assignAll: assignAllGeofences,
+                      });
+                    }}
+                    disabled={inviteCleanerMutation.isPending || !phoneNumber || (!assignAllGeofences && selectedGeofenceIds.length === 0 && geofences.length > 0)}
                     data-testid="button-submit-invite"
                   >
                     {inviteCleanerMutation.isPending ? "Inviting..." : "Send Invitation"}

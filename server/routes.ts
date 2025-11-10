@@ -62,6 +62,26 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2025-10-29.clover",
 });
 
+// Helper function: Point in polygon algorithm (ray casting)
+function isPointInPolygon(lat: number, lon: number, polygon: Array<[number, number]>): boolean {
+  let inside = false;
+  const n = polygon.length;
+  
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const [lat1, lon1] = polygon[i];
+    const [lat2, lon2] = polygon[j];
+    
+    const intersect = ((lon1 > lon) !== (lon2 > lon)) &&
+      (lat < (lat2 - lat1) * (lon - lon1) / (lon2 - lon1) + lat1);
+    
+    if (intersect) {
+      inside = !inside;
+    }
+  }
+  
+  return inside;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   
   // Ensure upload directory exists
@@ -334,6 +354,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phoneNumber,
         companyId: invitation.companyId,
       });
+      
+      // Transfer geofence assignments from invitation to cleaner
+      await storage.transferInvitationGeofencesToCleaner(invitation.id, result.cleaner.id);
       
       // Consume the invitation
       await storage.consumeInvitation(phoneNumber);
@@ -1006,8 +1029,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get paid jobs for this company without a cleaner assigned
-      const jobs = await storage.getJobsByCompany(cleaner.companyId, JobStatus.PAID);
-      res.json(jobs);
+      const allJobs = await storage.getJobsByCompany(cleaner.companyId, JobStatus.PAID);
+      
+      // Check if cleaner is assigned to all geofences
+      const assignedToAll = await storage.isCleanerAssignedToAllGeofences(cleaner.id);
+      
+      if (assignedToAll) {
+        return res.json(allJobs);
+      }
+      
+      // Get cleaner's assigned geofences
+      const assignedGeofences = await storage.getCleanerGeofenceAssignments(cleaner.id);
+      
+      // If no geofences assigned, show no jobs
+      if (assignedGeofences.length === 0) {
+        return res.json([]);
+      }
+      
+      // Filter jobs by geofence assignment
+      const filteredJobs = allJobs.filter(job => {
+        const lat = Number(job.locationLatitude);
+        const lon = Number(job.locationLongitude);
+        
+        // Check if job location is within any assigned geofence
+        return assignedGeofences.some(geofence => {
+          const polygon = geofence.polygon as Array<[number, number]>;
+          if (!polygon || !Array.isArray(polygon) || polygon.length < 3) {
+            return false;
+          }
+          return isPointInPolygon(lat, lon, polygon);
+        });
+      });
+      
+      res.json(filteredJobs);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -1260,12 +1314,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No company associated with user" });
       }
 
-      const { phoneNumber } = req.body;
+      const { phoneNumber, geofenceIds, assignAll } = req.body;
 
       // Check if phone number already has an invitation
       const existing = await storage.getInvitationByPhone(phoneNumber);
       if (existing) {
         return res.status(400).json({ message: "Phone number already invited" });
+      }
+
+      // Validate geofence IDs if provided
+      if (geofenceIds && Array.isArray(geofenceIds) && geofenceIds.length > 0) {
+        const companyGeofences = await storage.getCompanyGeofences(req.user.companyId);
+        const validGeofenceIds = companyGeofences.map(g => g.id);
+        const invalidIds = geofenceIds.filter(id => !validGeofenceIds.includes(id));
+        
+        if (invalidIds.length > 0) {
+          return res.status(400).json({ message: "Invalid geofence IDs provided" });
+        }
       }
 
       // Create invitation
@@ -1276,7 +1341,156 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "pending",
       });
 
+      // Assign geofences to invitation
+      if (assignAll || (geofenceIds && geofenceIds.length > 0)) {
+        await storage.assignGeofencesToInvitation(
+          invitation.id,
+          req.user.companyId,
+          geofenceIds || [],
+          assignAll || false
+        );
+      }
+
       res.json(invitation);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get cleaner geofence assignments
+  app.get("/api/company/cleaners/:cleanerId/geofences", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(400).json({ message: "No company associated with user" });
+      }
+
+      const cleanerId = parseInt(req.params.cleanerId);
+      if (isNaN(cleanerId)) {
+        return res.status(400).json({ message: "Invalid cleaner ID" });
+      }
+
+      const cleaner = await storage.getCleaner(cleanerId);
+      if (!cleaner || cleaner.companyId !== req.user.companyId) {
+        return res.status(404).json({ message: "Cleaner not found" });
+      }
+
+      const geofences = await storage.getCleanerGeofenceAssignments(cleanerId);
+      const assignAll = await storage.isCleanerAssignedToAllGeofences(cleanerId);
+      
+      res.json({ geofences, assignAll });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Update cleaner geofence assignments
+  app.put("/api/company/cleaners/:cleanerId/geofences", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(400).json({ message: "No company associated with user" });
+      }
+
+      const cleanerId = parseInt(req.params.cleanerId);
+      if (isNaN(cleanerId)) {
+        return res.status(400).json({ message: "Invalid cleaner ID" });
+      }
+
+      const { geofenceIds, assignAll } = req.body;
+
+      const cleaner = await storage.getCleaner(cleanerId);
+      if (!cleaner || cleaner.companyId !== req.user.companyId) {
+        return res.status(404).json({ message: "Cleaner not found" });
+      }
+
+      if (geofenceIds && Array.isArray(geofenceIds) && geofenceIds.length > 0) {
+        const companyGeofences = await storage.getCompanyGeofences(req.user.companyId);
+        const validGeofenceIds = companyGeofences.map(g => g.id);
+        const invalidIds = geofenceIds.filter(id => !validGeofenceIds.includes(id));
+        
+        if (invalidIds.length > 0) {
+          return res.status(400).json({ message: "Invalid geofence IDs provided" });
+        }
+      }
+
+      await storage.assignGeofencesToCleaner(
+        cleanerId,
+        req.user.companyId,
+        geofenceIds || [],
+        assignAll || false
+      );
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get invitation geofence assignments
+  app.get("/api/company/invitations/:invitationId/geofences", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(400).json({ message: "No company associated with user" });
+      }
+
+      const invitationId = parseInt(req.params.invitationId);
+      if (isNaN(invitationId)) {
+        return res.status(400).json({ message: "Invalid invitation ID" });
+      }
+
+      const invitations = await storage.getCompanyInvitations(req.user.companyId);
+      const invitation = invitations.find(inv => inv.id === invitationId);
+      
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+
+      const geofences = await storage.getInvitationGeofenceAssignments(invitationId);
+      
+      res.json({ geofences });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Update invitation geofence assignments
+  app.put("/api/company/invitations/:invitationId/geofences", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(400).json({ message: "No company associated with user" });
+      }
+
+      const invitationId = parseInt(req.params.invitationId);
+      if (isNaN(invitationId)) {
+        return res.status(400).json({ message: "Invalid invitation ID" });
+      }
+
+      const { geofenceIds, assignAll } = req.body;
+
+      const invitations = await storage.getCompanyInvitations(req.user.companyId);
+      const invitation = invitations.find(inv => inv.id === invitationId);
+      
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+
+      if (geofenceIds && Array.isArray(geofenceIds) && geofenceIds.length > 0) {
+        const companyGeofences = await storage.getCompanyGeofences(req.user.companyId);
+        const validGeofenceIds = companyGeofences.map(g => g.id);
+        const invalidIds = geofenceIds.filter(id => !validGeofenceIds.includes(id));
+        
+        if (invalidIds.length > 0) {
+          return res.status(400).json({ message: "Invalid geofence IDs provided" });
+        }
+      }
+
+      await storage.assignGeofencesToInvitation(
+        invitationId,
+        req.user.companyId,
+        geofenceIds || [],
+        assignAll || false
+      );
+
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

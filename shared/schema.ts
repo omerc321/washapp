@@ -145,6 +145,36 @@ export const cleanerInvitationsRelations = relations(cleanerInvitations, ({ one 
   }),
 }));
 
+// Cleaner Geofence Assignments Table
+export const cleanerGeofenceAssignments = pgTable("cleaner_geofence_assignments", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull(),
+  geofenceId: integer("geofence_id"),
+  cleanerId: integer("cleaner_id"),
+  invitationId: integer("invitation_id"),
+  assignAll: integer("assign_all").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const cleanerGeofenceAssignmentsRelations = relations(cleanerGeofenceAssignments, ({ one }) => ({
+  company: one(companies, {
+    fields: [cleanerGeofenceAssignments.companyId],
+    references: [companies.id],
+  }),
+  geofence: one(companyGeofences, {
+    fields: [cleanerGeofenceAssignments.geofenceId],
+    references: [companyGeofences.id],
+  }),
+  cleaner: one(cleaners, {
+    fields: [cleanerGeofenceAssignments.cleanerId],
+    references: [cleaners.id],
+  }),
+  invitation: one(cleanerInvitations, {
+    fields: [cleanerGeofenceAssignments.invitationId],
+    references: [cleanerInvitations.id],
+  }),
+}));
+
 // Jobs Table
 export const jobs = pgTable("jobs", {
   id: serial("id").primaryKey(),
@@ -415,6 +445,13 @@ export const insertCompanyGeofenceSchema = createInsertSchema(companyGeofences).
 
 export const selectCompanyGeofenceSchema = createSelectSchema(companyGeofences);
 
+export const insertCleanerGeofenceAssignmentSchema = createInsertSchema(cleanerGeofenceAssignments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const selectCleanerGeofenceAssignmentSchema = createSelectSchema(cleanerGeofenceAssignments);
+
 // TypeScript Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -433,6 +470,9 @@ export type InsertCleanerInvitation = z.infer<typeof insertCleanerInvitationSche
 
 export type CompanyGeofence = typeof companyGeofences.$inferSelect;
 export type InsertCompanyGeofence = z.infer<typeof insertCompanyGeofenceSchema>;
+
+export type CleanerGeofenceAssignment = typeof cleanerGeofenceAssignments.$inferSelect;
+export type InsertCleanerGeofenceAssignment = z.infer<typeof insertCleanerGeofenceAssignmentSchema>;
 
 export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,

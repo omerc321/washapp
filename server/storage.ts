@@ -11,6 +11,7 @@ import {
   jobFinancials,
   companyWithdrawals,
   companyGeofences,
+  cleanerGeofenceAssignments,
   type User, 
   type InsertUser,
   type Company,
@@ -34,6 +35,8 @@ import {
   type InsertCompanyWithdrawal,
   type CompanyGeofence,
   type InsertCompanyGeofence,
+  type CleanerGeofenceAssignment,
+  type InsertCleanerGeofenceAssignment,
   UserRole,
   JobStatus,
   CleanerStatus,
@@ -173,6 +176,15 @@ export interface IStorage {
   updateGeofence(id: number, updates: Partial<Pick<CompanyGeofence, 'name' | 'polygon'>>): Promise<void>;
   deleteGeofence(id: number): Promise<void>;
   getGeofenceByCompanyAndName(companyId: number, name: string): Promise<CompanyGeofence | undefined>;
+  
+  // Cleaner geofence assignment operations
+  assignGeofencesToInvitation(invitationId: number, companyId: number, geofenceIds: number[], assignAll: boolean): Promise<void>;
+  assignGeofencesToCleaner(cleanerId: number, companyId: number, geofenceIds: number[], assignAll: boolean): Promise<void>;
+  transferInvitationGeofencesToCleaner(invitationId: number, cleanerId: number): Promise<void>;
+  getCleanerGeofenceAssignments(cleanerId: number): Promise<CompanyGeofence[]>;
+  getInvitationGeofenceAssignments(invitationId: number): Promise<CompanyGeofence[]>;
+  isCleanerAssignedToGeofence(cleanerId: number, geofenceId: number): Promise<boolean>;
+  isCleanerAssignedToAllGeofences(cleanerId: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1273,6 +1285,171 @@ export class DatabaseStorage implements IStorage {
         )
       );
     return geofence;
+  }
+
+  // ===== CLEANER GEOFENCE ASSIGNMENT OPERATIONS =====
+
+  async assignGeofencesToInvitation(invitationId: number, companyId: number, geofenceIds: number[], assignAll: boolean): Promise<void> {
+    await db
+      .delete(cleanerGeofenceAssignments)
+      .where(eq(cleanerGeofenceAssignments.invitationId, invitationId));
+
+    if (assignAll) {
+      await db
+        .insert(cleanerGeofenceAssignments)
+        .values({
+          invitationId,
+          companyId,
+          geofenceId: null,
+          cleanerId: null,
+          assignAll: 1,
+        });
+    } else if (geofenceIds.length > 0) {
+      const values = geofenceIds.map(geofenceId => ({
+        invitationId,
+        companyId,
+        geofenceId,
+        cleanerId: null,
+        assignAll: 0,
+      }));
+      await db
+        .insert(cleanerGeofenceAssignments)
+        .values(values);
+    }
+  }
+
+  async assignGeofencesToCleaner(cleanerId: number, companyId: number, geofenceIds: number[], assignAll: boolean): Promise<void> {
+    await db
+      .delete(cleanerGeofenceAssignments)
+      .where(eq(cleanerGeofenceAssignments.cleanerId, cleanerId));
+
+    if (assignAll) {
+      await db
+        .insert(cleanerGeofenceAssignments)
+        .values({
+          cleanerId,
+          companyId,
+          geofenceId: null,
+          invitationId: null,
+          assignAll: 1,
+        });
+    } else if (geofenceIds.length > 0) {
+      const values = geofenceIds.map(geofenceId => ({
+        cleanerId,
+        companyId,
+        geofenceId,
+        invitationId: null,
+        assignAll: 0,
+      }));
+      await db
+        .insert(cleanerGeofenceAssignments)
+        .values(values);
+    }
+  }
+
+  async transferInvitationGeofencesToCleaner(invitationId: number, cleanerId: number): Promise<void> {
+    const invitationAssignments = await db
+      .select()
+      .from(cleanerGeofenceAssignments)
+      .where(eq(cleanerGeofenceAssignments.invitationId, invitationId));
+
+    if (invitationAssignments.length > 0) {
+      const cleaner = await this.getCleaner(cleanerId);
+      if (!cleaner) return;
+
+      const values = invitationAssignments.map(assignment => ({
+        cleanerId,
+        companyId: assignment.companyId,
+        geofenceId: assignment.geofenceId,
+        invitationId: null,
+        assignAll: assignment.assignAll,
+      }));
+
+      await db
+        .insert(cleanerGeofenceAssignments)
+        .values(values);
+
+      await db
+        .delete(cleanerGeofenceAssignments)
+        .where(eq(cleanerGeofenceAssignments.invitationId, invitationId));
+    }
+  }
+
+  async getCleanerGeofenceAssignments(cleanerId: number): Promise<CompanyGeofence[]> {
+    const isAssignedAll = await this.isCleanerAssignedToAllGeofences(cleanerId);
+    
+    if (isAssignedAll) {
+      const cleaner = await this.getCleaner(cleanerId);
+      if (!cleaner) return [];
+      return await this.getCompanyGeofences(cleaner.companyId);
+    }
+
+    const assignments = await db
+      .select({
+        geofence: companyGeofences,
+      })
+      .from(cleanerGeofenceAssignments)
+      .innerJoin(companyGeofences, eq(cleanerGeofenceAssignments.geofenceId, companyGeofences.id))
+      .where(eq(cleanerGeofenceAssignments.cleanerId, cleanerId));
+
+    return assignments.map(a => a.geofence);
+  }
+
+  async getInvitationGeofenceAssignments(invitationId: number): Promise<CompanyGeofence[]> {
+    const [assignment] = await db
+      .select()
+      .from(cleanerGeofenceAssignments)
+      .where(
+        and(
+          eq(cleanerGeofenceAssignments.invitationId, invitationId),
+          eq(cleanerGeofenceAssignments.assignAll, 1)
+        )
+      );
+
+    if (assignment) {
+      return await this.getCompanyGeofences(assignment.companyId);
+    }
+
+    const assignments = await db
+      .select({
+        geofence: companyGeofences,
+      })
+      .from(cleanerGeofenceAssignments)
+      .innerJoin(companyGeofences, eq(cleanerGeofenceAssignments.geofenceId, companyGeofences.id))
+      .where(eq(cleanerGeofenceAssignments.invitationId, invitationId));
+
+    return assignments.map(a => a.geofence);
+  }
+
+  async isCleanerAssignedToGeofence(cleanerId: number, geofenceId: number): Promise<boolean> {
+    const isAssignedAll = await this.isCleanerAssignedToAllGeofences(cleanerId);
+    if (isAssignedAll) return true;
+
+    const [assignment] = await db
+      .select()
+      .from(cleanerGeofenceAssignments)
+      .where(
+        and(
+          eq(cleanerGeofenceAssignments.cleanerId, cleanerId),
+          eq(cleanerGeofenceAssignments.geofenceId, geofenceId)
+        )
+      );
+
+    return !!assignment;
+  }
+
+  async isCleanerAssignedToAllGeofences(cleanerId: number): Promise<boolean> {
+    const [assignment] = await db
+      .select()
+      .from(cleanerGeofenceAssignments)
+      .where(
+        and(
+          eq(cleanerGeofenceAssignments.cleanerId, cleanerId),
+          eq(cleanerGeofenceAssignments.assignAll, 1)
+        )
+      );
+
+    return !!assignment;
   }
 
   // ===== HELPER METHODS =====
