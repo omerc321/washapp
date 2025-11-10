@@ -167,10 +167,11 @@ export default function CustomerHome() {
       if (formData.requestedCleanerEmail && formData.requestedCleanerEmail.trim()) {
         try {
           const cleanerResponse = await fetch(
-            `/api/cleaners/lookup?email=${encodeURIComponent(formData.requestedCleanerEmail.trim())}`
+            `/api/cleaners/lookup?email=${encodeURIComponent(formData.requestedCleanerEmail.trim())}&lat=${formData.locationLatitude}&lon=${formData.locationLongitude}`
           );
           
           if (!cleanerResponse.ok) {
+            const errorData = await cleanerResponse.json();
             if (cleanerResponse.status === 404) {
               toast({
                 title: "Cleaner Not Found",
@@ -180,7 +181,7 @@ export default function CustomerHome() {
             } else if (cleanerResponse.status === 403) {
               toast({
                 title: "Cleaner Unavailable",
-                description: "This cleaner is not currently available",
+                description: errorData.message || "This cleaner is not currently available",
                 variant: "destructive",
               });
             } else {

@@ -424,13 +424,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Lookup cleaner by email (public endpoint for checkout validation)
+  // Lookup cleaner by email with geofence validation (public endpoint for checkout validation)
   app.get("/api/cleaners/lookup", async (req: Request, res: Response) => {
     try {
       const email = req.query.email as string;
+      const lat = parseFloat(req.query.lat as string);
+      const lon = parseFloat(req.query.lon as string);
       
       if (!email || typeof email !== 'string') {
         return res.status(400).json({ message: "Email parameter is required" });
+      }
+      
+      if (isNaN(lat) || isNaN(lon)) {
+        return res.status(400).json({ message: "Valid latitude and longitude are required" });
       }
       
       // Find user by email
@@ -458,6 +464,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (company.isActive !== 1) {
         return res.status(403).json({ message: "This cleaner's company is not active" });
+      }
+      
+      // Validate that customer location is within company's service area (geofence)
+      const isInServiceArea = await storage.isLocationInCompanyGeofence(cleaner.companyId, lat, lon);
+      if (!isInServiceArea) {
+        return res.status(403).json({ 
+          message: "This cleaner's company does not service your location. Please select your location on the map and choose from available companies." 
+        });
       }
       
       res.json({

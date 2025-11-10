@@ -420,6 +420,27 @@ export class DatabaseStorage implements IStorage {
     return inside;
   }
 
+  // Check if location is within any of company's geofences
+  async isLocationInCompanyGeofence(companyId: number, lat: number, lon: number): Promise<boolean> {
+    const geofences = await this.getCompanyGeofences(companyId);
+    
+    // Check if location is inside any of the company's geofences
+    for (const geofence of geofences) {
+      const polygon = geofence.polygon as Array<[number, number]>;
+      
+      // Validate polygon
+      if (!polygon || !Array.isArray(polygon) || polygon.length < 3) {
+        continue;
+      }
+      
+      if (this.isPointInPolygon(lat, lon, polygon)) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
   // ===== CLEANER INVITATION OPERATIONS =====
   
   async createInvitation(invitationData: InsertCleanerInvitation): Promise<CleanerInvitation> {
