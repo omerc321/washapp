@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { MapContainer, TileLayer, Polygon, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -54,17 +54,29 @@ export default function GeofenceEditor({
 }: GeofenceEditorProps) {
   const [points, setPoints] = useState<Array<[number, number]>>(initialGeofence || []);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const { toast } = useToast();
+  const lastSavedGeofenceRef = useRef<string>();
+
+  useEffect(() => {
+    const currentGeofence = JSON.stringify(initialGeofence);
+    if (!isDirty && currentGeofence !== lastSavedGeofenceRef.current) {
+      lastSavedGeofenceRef.current = currentGeofence;
+      setPoints(initialGeofence || []);
+    }
+  }, [initialGeofence, isDirty]);
 
   const handleMapClick = useCallback((lat: number, lng: number) => {
     if (isDrawing) {
       setPoints(prev => [...prev, [lat, lng]]);
+      setIsDirty(true);
     }
   }, [isDrawing]);
 
   const handleStartDrawing = () => {
     setPoints([]);
     setIsDrawing(true);
+    setIsDirty(true);
     toast({
       title: "Drawing Mode Active",
       description: "Click on the map to add points to your geofence area",
@@ -90,11 +102,13 @@ export default function GeofenceEditor({
   const handleClear = () => {
     setPoints([]);
     setIsDrawing(false);
+    setIsDirty(true);
   };
 
   const handleSave = () => {
     if (points.length === 0) {
       onSave(null);
+      setIsDirty(false);
     } else if (points.length < 3) {
       toast({
         title: "Invalid Geofence",
@@ -104,12 +118,14 @@ export default function GeofenceEditor({
       return;
     } else {
       onSave(points);
+      setIsDirty(false);
     }
   };
 
   const handleUndo = () => {
     if (points.length > 0) {
       setPoints(prev => prev.slice(0, -1));
+      setIsDirty(true);
     }
   };
 

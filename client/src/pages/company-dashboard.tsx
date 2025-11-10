@@ -8,13 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Users, Briefcase, DollarSign, Star, TrendingUp, UserPlus, AlertCircle, Phone, CheckCircle, Clock, XCircle, FileText, ShieldOff, ShieldCheck } from "lucide-react";
+import { Users, Briefcase, DollarSign, Star, TrendingUp, UserPlus, AlertCircle, Phone, CheckCircle, Clock, XCircle, FileText, ShieldOff, ShieldCheck, Map } from "lucide-react";
 import { CompanyAnalytics, Cleaner, Company, CleanerInvitation } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import GeofenceEditor from "@/components/geofence-editor";
 
 export default function CompanyDashboard() {
   const { currentUser } = useAuth();
@@ -25,6 +26,7 @@ export default function CompanyDashboard() {
   const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
   const [reactivatingCleanerId, setReactivatingCleanerId] = useState<number | null>(null);
   const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
+  const [showGeofence, setShowGeofence] = useState(false);
 
   // Helper function to check if a cleaner is truly online (active within last 10 minutes)
   const isCleanerOnline = (cleaner: Cleaner): boolean => {
@@ -61,6 +63,31 @@ export default function CompanyDashboard() {
   const { data: invitations, isLoading: isLoadingInvitations } = useQuery<CleanerInvitation[]>({
     queryKey: ["/api/company/invitations"],
     enabled: !!currentUser?.companyId && company?.isActive === 1,
+  });
+
+  const { data: geofenceData, isLoading: isLoadingGeofence } = useQuery<{ geofenceArea: Array<[number, number]> | null }>({
+    queryKey: ["/api/company/geofence"],
+    enabled: !!currentUser?.companyId,
+  });
+
+  const updateGeofenceMutation = useMutation({
+    mutationFn: async (geofenceArea: Array<[number, number]> | null) => {
+      return await apiRequest("PUT", "/api/company/geofence", { geofenceArea });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/company/geofence"] });
+      toast({
+        title: "Geofence Updated",
+        description: "Your working area geofence has been updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const inviteCleanerMutation = useMutation({
@@ -250,7 +277,7 @@ export default function CompanyDashboard() {
           </div>
           
           {/* Action Buttons */}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Link href="/company/financials">
               <Button 
                 variant="outline"
@@ -261,6 +288,15 @@ export default function CompanyDashboard() {
                 View Financials
               </Button>
             </Link>
+            
+            <Button
+              variant="outline"
+              onClick={() => setShowGeofence(!showGeofence)}
+              data-testid="button-manage-geofence"
+            >
+              <Map className="mr-2 h-4 w-4" />
+              {showGeofence ? "Hide" : "Manage"} Working Area
+            </Button>
             
             <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
               <DialogTrigger asChild>
@@ -342,6 +378,29 @@ export default function CompanyDashboard() {
             );
           })}
         </div>
+
+        {/* Geofence Management */}
+        {showGeofence && (
+          <div className="mt-8">
+            {isLoadingGeofence ? (
+              <Card>
+                <CardHeader>
+                  <Skeleton className="h-6 w-48" />
+                  <Skeleton className="h-4 w-64 mt-2" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-[500px] w-full" />
+                </CardContent>
+              </Card>
+            ) : (
+              <GeofenceEditor
+                initialGeofence={geofenceData?.geofenceArea || undefined}
+                onSave={(geofence) => updateGeofenceMutation.mutate(geofence)}
+                centerPosition={[25.2048, 55.2708]}
+              />
+            )}
+          </div>
+        )}
 
         {/* Team Management - Unified View */}
         <div className="mt-8">
