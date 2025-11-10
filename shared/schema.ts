@@ -81,7 +81,7 @@ export const companiesRelations = relations(companies, ({ one, many }) => ({
 // Company Geofences Table
 export const companyGeofences = pgTable("company_geofences", {
   id: serial("id").primaryKey(),
-  companyId: integer("company_id").notNull(),
+  companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull(),
   polygon: jsonb("polygon").$type<Array<[number, number]>>().notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
