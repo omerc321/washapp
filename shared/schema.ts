@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, text, numeric, timestamp, pgEnum, integer } from "drizzle-orm/pg-core";
+import { pgTable, serial, varchar, text, numeric, timestamp, pgEnum, integer, jsonb } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -64,6 +64,7 @@ export const companies = pgTable("companies", {
   totalRevenue: numeric("total_revenue", { precision: 10, scale: 2 }).notNull().default("0"),
   rating: numeric("rating", { precision: 3, scale: 2 }).notNull().default("0"),
   totalRatings: integer("total_ratings").notNull().default(0),
+  geofenceArea: jsonb("geofence_area").$type<Array<[number, number]>>(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
