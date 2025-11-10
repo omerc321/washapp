@@ -1276,6 +1276,165 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== COMPANY GEOFENCES ROUTES (Multiple Geofences) =====
+
+  // Get all company geofences
+  app.get("/api/company/geofences", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(400).json({ message: "No company associated with user" });
+      }
+
+      const geofences = await storage.getCompanyGeofences(req.user.companyId);
+      res.json(geofences);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Create a new geofence
+  app.post("/api/company/geofences", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(400).json({ message: "No company associated with user" });
+      }
+
+      const { name, polygon } = req.body;
+
+      // Validate name
+      if (!name || typeof name !== 'string' || name.trim().length === 0) {
+        return res.status(400).json({ message: "Name is required" });
+      }
+
+      // Validate polygon is an array of coordinate pairs with at least 3 points
+      if (!polygon || !Array.isArray(polygon) || polygon.length < 3) {
+        return res.status(400).json({ message: "Polygon must have at least 3 points" });
+      }
+
+      if (!polygon.every((coord: any) => 
+        Array.isArray(coord) && coord.length === 2 && 
+        typeof coord[0] === 'number' && typeof coord[1] === 'number'
+      )) {
+        return res.status(400).json({ message: "Invalid polygon format. Expected array of [lat, lng] pairs" });
+      }
+
+      // Check for duplicate name
+      const existing = await storage.getGeofenceByCompanyAndName(req.user.companyId, name.trim());
+      if (existing) {
+        return res.status(409).json({ message: "A geofence with this name already exists" });
+      }
+
+      const geofence = await storage.createGeofence({
+        companyId: req.user.companyId,
+        name: name.trim(),
+        polygon,
+      });
+
+      res.status(201).json(geofence);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Update a geofence (name or polygon)
+  app.patch("/api/company/geofences/:geofenceId", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(400).json({ message: "No company associated with user" });
+      }
+
+      const geofenceId = parseInt(req.params.geofenceId);
+      if (isNaN(geofenceId)) {
+        return res.status(400).json({ message: "Invalid geofence ID" });
+      }
+
+      // Verify geofence exists and belongs to the company
+      const geofence = await storage.getGeofence(geofenceId);
+      if (!geofence) {
+        return res.status(404).json({ message: "Geofence not found" });
+      }
+
+      if (geofence.companyId !== req.user.companyId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { name, polygon } = req.body;
+      const updates: Partial<Pick<typeof geofence, 'name' | 'polygon'>> = {};
+
+      // Validate and add name if provided
+      if (name !== undefined) {
+        if (typeof name !== 'string' || name.trim().length === 0) {
+          return res.status(400).json({ message: "Name must be a non-empty string" });
+        }
+
+        // Check for duplicate name (excluding current geofence)
+        const existing = await storage.getGeofenceByCompanyAndName(req.user.companyId, name.trim());
+        if (existing && existing.id !== geofenceId) {
+          return res.status(409).json({ message: "A geofence with this name already exists" });
+        }
+
+        updates.name = name.trim();
+      }
+
+      // Validate and add polygon if provided
+      if (polygon !== undefined) {
+        if (!Array.isArray(polygon) || polygon.length < 3) {
+          return res.status(400).json({ message: "Polygon must have at least 3 points" });
+        }
+
+        if (!polygon.every((coord: any) => 
+          Array.isArray(coord) && coord.length === 2 && 
+          typeof coord[0] === 'number' && typeof coord[1] === 'number'
+        )) {
+          return res.status(400).json({ message: "Invalid polygon format. Expected array of [lat, lng] pairs" });
+        }
+
+        updates.polygon = polygon;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "No updates provided" });
+      }
+
+      await storage.updateGeofence(geofenceId, updates);
+
+      // Fetch and return updated geofence
+      const updatedGeofence = await storage.getGeofence(geofenceId);
+      res.json(updatedGeofence);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Delete a geofence
+  app.delete("/api/company/geofences/:geofenceId", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(400).json({ message: "No company associated with user" });
+      }
+
+      const geofenceId = parseInt(req.params.geofenceId);
+      if (isNaN(geofenceId)) {
+        return res.status(400).json({ message: "Invalid geofence ID" });
+      }
+
+      // Verify geofence exists and belongs to the company
+      const geofence = await storage.getGeofence(geofenceId);
+      if (!geofence) {
+        return res.status(404).json({ message: "Geofence not found" });
+      }
+
+      if (geofence.companyId !== req.user.companyId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      await storage.deleteGeofence(geofenceId);
+      res.json({ success: true, message: "Geofence deleted successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ===== ADMIN ROUTES =====
 
   // Get platform analytics
