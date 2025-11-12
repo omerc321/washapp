@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BottomNav } from "@/components/bottom-nav";
+import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
 import RegisterCleanerPage from "@/pages/register-cleaner";
@@ -110,6 +111,7 @@ function App() {
         <AuthProvider>
           <TooltipProvider>
             <Toaster />
+            <PWAInstallPrompt />
             <Router />
           </TooltipProvider>
         </AuthProvider>
