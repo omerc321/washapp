@@ -12,6 +12,7 @@ import { Job, Cleaner, CleanerStatus, JobStatus } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useWebSocket } from "@/hooks/use-websocket";
 import { Input } from "@/components/ui/input";
 
 export default function CleanerDashboard() {
@@ -42,6 +43,23 @@ export default function CleanerDashboard() {
   const { data: shiftData } = useQuery<{ activeShift: any; cleaner: Cleaner }>({
     queryKey: ["/api/cleaner/shift-status"],
     enabled: !!cleaner,
+  });
+
+  // WebSocket for real-time job updates
+  useWebSocket({
+    onMessage: (data) => {
+      if (data.type === 'job_update' && cleaner) {
+        queryClient.invalidateQueries({ queryKey: ["/api/cleaner/available-jobs"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/cleaner/my-jobs"] });
+        
+        if (data.job && data.job.status === JobStatus.PAID) {
+          toast({
+            title: "New Job Available",
+            description: `New car wash for ${data.job.carPlateNumber}`,
+          });
+        }
+      }
+    },
   });
 
   // Start shift mutation

@@ -10,6 +10,7 @@ import { Car, MapPin, Phone, Building2, Clock, Star, ChevronLeft, AlertCircle } 
 import { Job, JobStatus } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useWebSocket } from "@/hooks/use-websocket";
 import logoUrl from "@assets/IMG_2508_1762619079711.png";
 
 export default function CustomerTrack() {
@@ -30,6 +31,31 @@ export default function CustomerTrack() {
       return res.json();
     },
     enabled: !!plateNumber,
+  });
+
+  useWebSocket({
+    onMessage: (data) => {
+      if (data.type === 'job_update' && data.job) {
+        queryClient.invalidateQueries({ queryKey: ["/api/jobs/track", plateNumber] });
+        
+        const statusMessages: Record<JobStatus, string> = {
+          [JobStatus.ASSIGNED]: "A cleaner has been assigned to your job!",
+          [JobStatus.IN_PROGRESS]: "Your car wash is now in progress!",
+          [JobStatus.COMPLETED]: "Your car wash is complete!",
+          [JobStatus.CANCELLED]: "Your job has been cancelled",
+          [JobStatus.REFUNDED]: "Your payment has been refunded",
+          [JobStatus.PAID]: "Payment confirmed",
+          [JobStatus.PENDING_PAYMENT]: "Waiting for payment",
+        };
+
+        if (data.job.carPlateNumber === plateNumber && statusMessages[data.job.status as JobStatus]) {
+          toast({
+            title: "Job Update",
+            description: statusMessages[data.job.status as JobStatus],
+          });
+        }
+      }
+    },
   });
 
   const submitRating = useMutation({
