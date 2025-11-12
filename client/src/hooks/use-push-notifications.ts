@@ -23,6 +23,30 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
 
   useEffect(() => {
     checkSubscription();
+    fetchSoundPreference();
+  }, []);
+
+  const fetchSoundPreference = useCallback(async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      return;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      
+      if (subscription) {
+        const subscriptionData = subscription.toJSON();
+        const response = await fetch(`/api/push/settings?endpoint=${encodeURIComponent(subscriptionData.endpoint!)}`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          setSoundEnabled(data.soundEnabled === 1);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching sound preference:', error);
+    }
   }, []);
 
   const checkSubscription = useCallback(async () => {
@@ -102,7 +126,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
       setIsLoading(false);
       return false;
     }
-  }, [options.plateNumber, toast]);
+  }, [options.plateNumber, soundEnabled, toast]);
 
   const unsubscribe = useCallback(async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {

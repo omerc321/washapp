@@ -135,6 +135,7 @@ export interface IStorage {
   createPushSubscription(data: { userId?: number; customerId?: number; endpoint: string; keys: { p256dh: string; auth: string }; soundEnabled?: number }): Promise<void>;
   deletePushSubscription(endpoint: string): Promise<void>;
   updatePushSubscriptionSound(endpoint: string, soundEnabled: number): Promise<void>;
+  getPushSubscriptionByEndpoint(endpoint: string): Promise<{ soundEnabled: number } | undefined>;
   getUserPushSubscriptions(userId: number): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string }; soundEnabled: number }>>;
   getCustomerPushSubscriptions(customerId: number): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string }; soundEnabled: number }>>;
   getAllPushSubscriptionsByRole(role: string): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string }; soundEnabled: number }>>;  
@@ -1046,6 +1047,15 @@ export class DatabaseStorage implements IStorage {
       .update(pushSubscriptions)
       .set({ soundEnabled })
       .where(eq(pushSubscriptions.endpoint, endpoint));
+  }
+
+  async getPushSubscriptionByEndpoint(endpoint: string): Promise<{ soundEnabled: number } | undefined> {
+    const [sub] = await db
+      .select({ soundEnabled: pushSubscriptions.soundEnabled })
+      .from(pushSubscriptions)
+      .where(eq(pushSubscriptions.endpoint, endpoint));
+    
+    return sub ? { soundEnabled: sub.soundEnabled || 0 } : undefined;
   }
 
   async getUserPushSubscriptions(userId: number): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string }; soundEnabled: number }>> {

@@ -2055,6 +2055,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/push/settings", async (req, res) => {
+    try {
+      const { endpoint } = req.query;
+      
+      if (!endpoint) {
+        return res.status(400).json({ message: "Endpoint required" });
+      }
+
+      const subscription = await storage.getPushSubscriptionByEndpoint(endpoint as string);
+      
+      if (!subscription) {
+        return res.status(404).json({ message: "Subscription not found" });
+      }
+
+      res.json({ soundEnabled: subscription.soundEnabled || 0 });
+    } catch (error: any) {
+      console.error("Error fetching push notification settings:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/push/update-sound", async (req, res) => {
     try {
       const { endpoint, soundEnabled } = req.body;

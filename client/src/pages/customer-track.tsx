@@ -34,7 +34,7 @@ export default function CustomerTrack() {
     enabled: !!plateNumber,
   });
 
-  const { permission, isSubscribed, isLoading: pushLoading, subscribe, unsubscribe } = usePushNotifications({
+  const { permission, isSubscribed, soundEnabled, isLoading: pushLoading, subscribe, unsubscribe, toggleSound } = usePushNotifications({
     plateNumber,
   });
 
@@ -171,20 +171,36 @@ export default function CustomerTrack() {
         {isSubscribed && (
           <Card className="mb-4 border-green-500/20 bg-green-500/5">
             <CardContent className="p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Bell className="h-4 w-4 text-green-600" />
-                  <p className="text-sm text-green-600">Notifications enabled</p>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Bell className="h-4 w-4 text-green-600" />
+                    <p className="text-sm text-green-600">Notifications enabled</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={unsubscribe}
+                    disabled={pushLoading}
+                    data-testid="button-disable-notifications"
+                  >
+                    <BellOff className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={unsubscribe}
-                  disabled={pushLoading}
-                  data-testid="button-disable-notifications"
-                >
-                  <BellOff className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center justify-between gap-3 pt-2 border-t border-green-500/20">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">Sound</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={soundEnabled ? "default" : "outline"}
+                    onClick={toggleSound}
+                    disabled={pushLoading}
+                    data-testid="button-toggle-sound"
+                  >
+                    {soundEnabled ? 'On' : 'Off'}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
