@@ -386,7 +386,7 @@ export default function CleanerDashboard() {
                   action={
                     <Button
                       className="w-full"
-                      onClick={() => acceptJob.mutate(job.id)}
+                      onClick={() => acceptJob.mutate(String(job.id))}
                       disabled={acceptJob.isPending}
                       data-testid={`button-accept-${job.id}`}
                     >
@@ -414,7 +414,7 @@ export default function CleanerDashboard() {
                     job.status === JobStatus.ASSIGNED ? (
                       <Button
                         className="w-full"
-                        onClick={() => startJob.mutate(job.id)}
+                        onClick={() => startJob.mutate(String(job.id))}
                         data-testid={`button-start-${job.id}`}
                       >
                         Start Job
@@ -424,13 +424,13 @@ export default function CleanerDashboard() {
                         <Input
                           type="file"
                           accept="image/*"
-                          onChange={(e) => handleFileSelect(e, job.id)}
+                          onChange={(e) => handleFileSelect(e, String(job.id))}
                           data-testid={`input-photo-${job.id}`}
                         />
                         <Button
                           className="w-full"
-                          onClick={() => handleUploadProof(job.id)}
-                          disabled={!selectedFile || uploadingJobId !== job.id || completeJob.isPending}
+                          onClick={() => handleUploadProof(String(job.id))}
+                          disabled={!selectedFile || uploadingJobId !== String(job.id) || completeJob.isPending}
                           data-testid={`button-complete-${job.id}`}
                         >
                           <Upload className="h-4 w-4 mr-2" />
