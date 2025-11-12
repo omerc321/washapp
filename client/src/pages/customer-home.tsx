@@ -479,7 +479,7 @@ export default function CustomerHome() {
       )}
 
       {/* Sticky Bottom CTA */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 z-20">
+      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 z-[1200]">
         <div className="max-w-md mx-auto">
           {mode === 'track' ? (
             <Button
