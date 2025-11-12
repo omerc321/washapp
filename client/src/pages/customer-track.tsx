@@ -34,7 +34,7 @@ export default function CustomerTrack() {
     enabled: !!plateNumber,
   });
 
-  const { isSubscribed, isLoading: pushLoading, subscribe, unsubscribe } = usePushNotifications({
+  const { permission, isSubscribed, isLoading: pushLoading, subscribe, unsubscribe } = usePushNotifications({
     plateNumber,
   });
 
