@@ -25,6 +25,7 @@ I prefer simple language and clear explanations. I want iterative development wi
 -   **File Uploads**: Multer for local file storage (job photos, trade licenses).
 -   **Location**: Geofence polygon matching using ray-casting algorithm for point-in-polygon checks. Companies can define multiple named service areas.
 -   **Security**: Session-based authentication, CSRF protection, role-based access control, Stripe webhook signature verification.
+-   **PWA**: Progressive Web App implementation with service worker for offline capabilities, web app manifest for installability, and install prompt UI. Users can install the app on their mobile devices for an app-like experience.
 
 ### Feature Specifications
 -   **Customer Flow**: Anonymous booking with car plate entry, map-based location selection, geofence-based company matching (only companies with geofences containing the customer location are shown), optional cleaner email request (validated against company geofences), Stripe payment in AED (company price + 3 AED platform fee clearly displayed), and job tracking (Paid → Assigned → In Progress → Completed).
