@@ -31,6 +31,9 @@ export default function CleanerDashboard() {
   const { data: availableJobs = [], isLoading: loadingJobs } = useQuery<Job[]>({
     queryKey: ["/api/cleaner/available-jobs"],
     enabled: !!cleaner,
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000,
+    staleTime: 0,
   });
 
   // Get my active jobs
