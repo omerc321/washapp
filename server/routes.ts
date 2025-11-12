@@ -1943,6 +1943,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========== PUSH NOTIFICATION ROUTES ==========
+  
+  app.get("/api/push/vapid-public-key", (_req, res) => {
+    res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || '' });
+  });
+
+  app.post("/api/push/subscribe", async (req, res) => {
+    try {
+      const { endpoint, keys, userId, customerId } = req.body;
+      
+      if (!endpoint || !keys || !keys.p256dh || !keys.auth) {
+        return res.status(400).json({ message: "Invalid subscription data" });
+      }
+
+      await storage.createPushSubscription({
+        userId: userId || undefined,
+        customerId: customerId || undefined,
+        endpoint,
+        keys,
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error subscribing to push notifications:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/push/unsubscribe", async (req, res) => {
+    try {
+      const { endpoint } = req.body;
+      
+      if (!endpoint) {
+        return res.status(400).json({ message: "Endpoint required" });
+      }
+
+      await storage.deletePushSubscription(endpoint);
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error unsubscribing from push notifications:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return createServer(app);
 }
 

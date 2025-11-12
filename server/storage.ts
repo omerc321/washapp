@@ -7,6 +7,7 @@ import {
   customers,
   shiftSessions,
   deviceTokens,
+  pushSubscriptions,
   feeSettings,
   jobFinancials,
   companyWithdrawals,
@@ -129,6 +130,13 @@ export interface IStorage {
   registerDeviceToken(userId: number, token: string, platform: string): Promise<void>;
   unregisterDeviceToken(token: string): Promise<void>;
   getUserDeviceTokens(userId: number): Promise<string[]>;
+  
+  // Push subscription operations (for web push notifications)
+  createPushSubscription(data: { userId?: number; customerId?: number; endpoint: string; keys: { p256dh: string; auth: string } }): Promise<void>;
+  deletePushSubscription(endpoint: string): Promise<void>;
+  getUserPushSubscriptions(userId: number): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string } }>>;
+  getCustomerPushSubscriptions(customerId: number): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string } }>>;
+  getAllPushSubscriptionsByRole(role: string): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string } }>>;  
   updateTokenLastUsed(token: string): Promise<void>;
   
   // Financial operations
@@ -1003,6 +1011,77 @@ export class DatabaseStorage implements IStorage {
       .update(deviceTokens)
       .set({ lastUsedAt: new Date() })
       .where(eq(deviceTokens.token, token));
+  }
+
+  // ===== PUSH SUBSCRIPTION OPERATIONS =====
+  
+  async createPushSubscription(data: { 
+    userId?: number; 
+    customerId?: number; 
+    endpoint: string; 
+    keys: { p256dh: string; auth: string } 
+  }): Promise<void> {
+    await db
+      .insert(pushSubscriptions)
+      .values({
+        userId: data.userId || null,
+        customerId: data.customerId || null,
+        endpoint: data.endpoint,
+        keys: data.keys,
+      })
+      .onConflictDoNothing();
+  }
+
+  async deletePushSubscription(endpoint: string): Promise<void> {
+    await db
+      .delete(pushSubscriptions)
+      .where(eq(pushSubscriptions.endpoint, endpoint));
+  }
+
+  async getUserPushSubscriptions(userId: number): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string } }>> {
+    const subs = await db
+      .select({
+        endpoint: pushSubscriptions.endpoint,
+        keys: pushSubscriptions.keys,
+      })
+      .from(pushSubscriptions)
+      .where(eq(pushSubscriptions.userId, userId));
+    
+    return subs.map(s => ({
+      endpoint: s.endpoint,
+      keys: s.keys as { p256dh: string; auth: string },
+    }));
+  }
+
+  async getCustomerPushSubscriptions(customerId: number): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string } }>> {
+    const subs = await db
+      .select({
+        endpoint: pushSubscriptions.endpoint,
+        keys: pushSubscriptions.keys,
+      })
+      .from(pushSubscriptions)
+      .where(eq(pushSubscriptions.customerId, customerId));
+    
+    return subs.map(s => ({
+      endpoint: s.endpoint,
+      keys: s.keys as { p256dh: string; auth: string },
+    }));
+  }
+
+  async getAllPushSubscriptionsByRole(role: string): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string } }>> {
+    const subs = await db
+      .select({
+        endpoint: pushSubscriptions.endpoint,
+        keys: pushSubscriptions.keys,
+      })
+      .from(pushSubscriptions)
+      .innerJoin(users, eq(pushSubscriptions.userId, users.id))
+      .where(eq(users.role, role as any));
+    
+    return subs.map(s => ({
+      endpoint: s.endpoint,
+      keys: s.keys as { p256dh: string; auth: string },
+    }));
   }
 
   // ===== FINANCIAL OPERATIONS =====

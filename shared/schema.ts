@@ -272,6 +272,27 @@ export const deviceTokensRelations = relations(deviceTokens, ({ one }) => ({
   }),
 }));
 
+// Push Subscriptions Table (Web Push Notifications)
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id"), // For authenticated users (cleaners, company admins, platform admins)
+  customerId: integer("customer_id"), // For anonymous customers
+  endpoint: text("endpoint").notNull().unique(),
+  keys: jsonb("keys").$type<{ p256dh: string; auth: string }>().notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const pushSubscriptionsRelations = relations(pushSubscriptions, ({ one }) => ({
+  user: one(users, {
+    fields: [pushSubscriptions.userId],
+    references: [users.id],
+  }),
+  customer: one(customers, {
+    fields: [pushSubscriptions.customerId],
+    references: [customers.id],
+  }),
+}));
+
 // Fee Settings Table (platform and payment processing fees)
 export const feeSettings = pgTable("fee_settings", {
   id: serial("id").primaryKey(),
@@ -507,6 +528,16 @@ export const selectDeviceTokenSchema = createSelectSchema(deviceTokens);
 
 export type DeviceToken = typeof deviceTokens.$inferSelect;
 export type InsertDeviceToken = z.infer<typeof insertDeviceTokenSchema>;
+
+export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const selectPushSubscriptionSchema = createSelectSchema(pushSubscriptions);
+
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
 
 export const insertFeeSettingsSchema = createInsertSchema(feeSettings).omit({
   id: true,
