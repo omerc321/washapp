@@ -15,6 +15,13 @@
       "when": 1762785033558,
       "tag": "0001_ambiguous_overlord",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1762970000000,
+      "tag": "0002_add_sound_enabled",
+      "breakpoints": true
     }
   ]
 }
