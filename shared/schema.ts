@@ -279,6 +279,7 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
   customerId: integer("customer_id"), // For anonymous customers
   endpoint: text("endpoint").notNull().unique(),
   keys: jsonb("keys").$type<{ p256dh: string; auth: string }>().notNull(),
+  soundEnabled: integer("sound_enabled").notNull().default(0), // 0 = off, 1 = on
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

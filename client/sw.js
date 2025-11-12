@@ -63,12 +63,32 @@ self.addEventListener('push', (event) => {
     data: data.data || {},
     tag: data.tag || 'default',
     requireInteraction: data.requireInteraction || false,
+    silent: !data.playSound,
   };
 
   event.waitUntil(
-    self.registration.showNotification(title, options)
+    Promise.all([
+      self.registration.showNotification(title, options),
+      data.playSound ? playNotificationSound() : Promise.resolve(),
+    ])
   );
 });
+
+function playNotificationSound() {
+  return clients.matchAll({ type: 'window', includeUncontrolled: true })
+    .then((clientList) => {
+      if (clientList.length > 0) {
+        clientList.forEach((client) => {
+          client.postMessage({
+            type: 'PLAY_NOTIFICATION_SOUND',
+          });
+        });
+      }
+    })
+    .catch((error) => {
+      console.error('Error playing notification sound:', error);
+    });
+}
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();

@@ -29,12 +29,17 @@ export class PushNotificationService {
       
       const promises = subscriptions.map(async (sub) => {
         try {
+          const payloadWithSound = {
+            ...payload,
+            playSound: sub.soundEnabled === 1,
+          };
+          
           await webpush.sendNotification(
             {
               endpoint: sub.endpoint,
               keys: sub.keys,
             },
-            JSON.stringify(payload)
+            JSON.stringify(payloadWithSound)
           );
         } catch (error: any) {
           if (error.statusCode === 410 || error.statusCode === 404) {
@@ -57,12 +62,17 @@ export class PushNotificationService {
       
       const promises = subscriptions.map(async (sub) => {
         try {
+          const payloadWithSound = {
+            ...payload,
+            playSound: sub.soundEnabled === 1,
+          };
+          
           await webpush.sendNotification(
             {
               endpoint: sub.endpoint,
               keys: sub.keys,
             },
-            JSON.stringify(payload)
+            JSON.stringify(payloadWithSound)
           );
         } catch (error: any) {
           if (error.statusCode === 410 || error.statusCode === 404) {
@@ -85,12 +95,17 @@ export class PushNotificationService {
       
       const promises = subscriptions.map(async (sub) => {
         try {
+          const payloadWithSound = {
+            ...payload,
+            playSound: sub.soundEnabled === 1,
+          };
+          
           await webpush.sendNotification(
             {
               endpoint: sub.endpoint,
               keys: sub.keys,
             },
-            JSON.stringify(payload)
+            JSON.stringify(payloadWithSound)
           );
         } catch (error: any) {
           if (error.statusCode === 410 || error.statusCode === 404) {

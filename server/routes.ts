@@ -2003,7 +2003,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/push/subscribe", async (req, res) => {
     try {
-      const { endpoint, keys, plateNumber } = req.body;
+      const { endpoint, keys, plateNumber, soundEnabled } = req.body;
       
       if (!endpoint || !keys || !keys.p256dh || !keys.auth) {
         return res.status(400).json({ message: "Invalid subscription data" });
@@ -2028,6 +2028,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customerId: customerId || undefined,
         endpoint,
         keys,
+        soundEnabled: soundEnabled || 0,
       });
 
       res.json({ success: true });
@@ -2050,6 +2051,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error: any) {
       console.error("Error unsubscribing from push notifications:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/push/update-sound", async (req, res) => {
+    try {
+      const { endpoint, soundEnabled } = req.body;
+      
+      if (!endpoint || soundEnabled === undefined) {
+        return res.status(400).json({ message: "Endpoint and soundEnabled required" });
+      }
+
+      await storage.updatePushSubscriptionSound(endpoint, soundEnabled);
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error updating push notification sound:", error);
       res.status(500).json({ message: error.message });
     }
   });

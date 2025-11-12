@@ -132,11 +132,12 @@ export interface IStorage {
   getUserDeviceTokens(userId: number): Promise<string[]>;
   
   // Push subscription operations (for web push notifications)
-  createPushSubscription(data: { userId?: number; customerId?: number; endpoint: string; keys: { p256dh: string; auth: string } }): Promise<void>;
+  createPushSubscription(data: { userId?: number; customerId?: number; endpoint: string; keys: { p256dh: string; auth: string }; soundEnabled?: number }): Promise<void>;
   deletePushSubscription(endpoint: string): Promise<void>;
-  getUserPushSubscriptions(userId: number): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string } }>>;
-  getCustomerPushSubscriptions(customerId: number): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string } }>>;
-  getAllPushSubscriptionsByRole(role: string): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string } }>>;  
+  updatePushSubscriptionSound(endpoint: string, soundEnabled: number): Promise<void>;
+  getUserPushSubscriptions(userId: number): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string }; soundEnabled: number }>>;
+  getCustomerPushSubscriptions(customerId: number): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string }; soundEnabled: number }>>;
+  getAllPushSubscriptionsByRole(role: string): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string }; soundEnabled: number }>>;  
   updateTokenLastUsed(token: string): Promise<void>;
   
   // Financial operations
@@ -1019,7 +1020,8 @@ export class DatabaseStorage implements IStorage {
     userId?: number; 
     customerId?: number; 
     endpoint: string; 
-    keys: { p256dh: string; auth: string } 
+    keys: { p256dh: string; auth: string };
+    soundEnabled?: number;
   }): Promise<void> {
     await db
       .insert(pushSubscriptions)
@@ -1028,6 +1030,7 @@ export class DatabaseStorage implements IStorage {
         customerId: data.customerId || null,
         endpoint: data.endpoint,
         keys: data.keys,
+        soundEnabled: data.soundEnabled || 0,
       })
       .onConflictDoNothing();
   }
@@ -1038,11 +1041,19 @@ export class DatabaseStorage implements IStorage {
       .where(eq(pushSubscriptions.endpoint, endpoint));
   }
 
-  async getUserPushSubscriptions(userId: number): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string } }>> {
+  async updatePushSubscriptionSound(endpoint: string, soundEnabled: number): Promise<void> {
+    await db
+      .update(pushSubscriptions)
+      .set({ soundEnabled })
+      .where(eq(pushSubscriptions.endpoint, endpoint));
+  }
+
+  async getUserPushSubscriptions(userId: number): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string }; soundEnabled: number }>> {
     const subs = await db
       .select({
         endpoint: pushSubscriptions.endpoint,
         keys: pushSubscriptions.keys,
+        soundEnabled: pushSubscriptions.soundEnabled,
       })
       .from(pushSubscriptions)
       .where(eq(pushSubscriptions.userId, userId));
@@ -1050,14 +1061,16 @@ export class DatabaseStorage implements IStorage {
     return subs.map(s => ({
       endpoint: s.endpoint,
       keys: s.keys as { p256dh: string; auth: string },
+      soundEnabled: s.soundEnabled || 0,
     }));
   }
 
-  async getCustomerPushSubscriptions(customerId: number): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string } }>> {
+  async getCustomerPushSubscriptions(customerId: number): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string }; soundEnabled: number }>> {
     const subs = await db
       .select({
         endpoint: pushSubscriptions.endpoint,
         keys: pushSubscriptions.keys,
+        soundEnabled: pushSubscriptions.soundEnabled,
       })
       .from(pushSubscriptions)
       .where(eq(pushSubscriptions.customerId, customerId));
@@ -1065,14 +1078,16 @@ export class DatabaseStorage implements IStorage {
     return subs.map(s => ({
       endpoint: s.endpoint,
       keys: s.keys as { p256dh: string; auth: string },
+      soundEnabled: s.soundEnabled || 0,
     }));
   }
 
-  async getAllPushSubscriptionsByRole(role: string): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string } }>> {
+  async getAllPushSubscriptionsByRole(role: string): Promise<Array<{ endpoint: string; keys: { p256dh: string; auth: string }; soundEnabled: number }>> {
     const subs = await db
       .select({
         endpoint: pushSubscriptions.endpoint,
         keys: pushSubscriptions.keys,
+        soundEnabled: pushSubscriptions.soundEnabled,
       })
       .from(pushSubscriptions)
       .innerJoin(users, eq(pushSubscriptions.userId, users.id))
@@ -1081,6 +1096,7 @@ export class DatabaseStorage implements IStorage {
     return subs.map(s => ({
       endpoint: s.endpoint,
       keys: s.keys as { p256dh: string; auth: string },
+      soundEnabled: s.soundEnabled || 0,
     }));
   }
 

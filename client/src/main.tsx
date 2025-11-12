@@ -1,12 +1,14 @@
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
+import { initNotificationSoundListener } from "./lib/notification-sound";
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
       .then((registration) => {
         console.log('SW registered:', registration);
+        initNotificationSoundListener();
       })
       .catch((error) => {
         console.log('SW registration failed:', error);

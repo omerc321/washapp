@@ -11,6 +11,7 @@ interface UsePushNotificationsOptions {
 export function usePushNotifications(options: UsePushNotificationsOptions = {}) {
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -80,6 +81,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
         endpoint: subscriptionData.endpoint,
         keys: subscriptionData.keys,
         plateNumber: options.plateNumber,
+        soundEnabled: soundEnabled ? 1 : 0,
       });
 
       setIsSubscribed(true);
@@ -149,12 +151,57 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
     }
   }, [options.autoSubscribe, permission, isSubscribed, subscribe]);
 
+  const toggleSound = useCallback(async () => {
+    if (!isSubscribed) {
+      return false;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+
+      if (subscription) {
+        const subscriptionData = subscription.toJSON();
+        const newSoundEnabled = !soundEnabled;
+        
+        await apiRequest('POST', '/api/push/update-sound', {
+          endpoint: subscriptionData.endpoint,
+          soundEnabled: newSoundEnabled ? 1 : 0,
+        });
+
+        setSoundEnabled(newSoundEnabled);
+        toast({
+          title: newSoundEnabled ? 'Sound Enabled' : 'Sound Disabled',
+          description: newSoundEnabled 
+            ? 'You will hear a sound with notifications' 
+            : 'Notifications will be silent',
+        });
+      }
+
+      setIsLoading(false);
+      return true;
+    } catch (error) {
+      console.error('Error toggling sound:', error);
+      toast({
+        title: 'Update Failed',
+        description: 'Could not update sound preference',
+        variant: 'destructive',
+      });
+      setIsLoading(false);
+      return false;
+    }
+  }, [isSubscribed, soundEnabled, toast]);
+
   return {
     permission,
     isSubscribed,
+    soundEnabled,
     isLoading,
     subscribe,
     unsubscribe,
+    toggleSound,
   };
 }
 
