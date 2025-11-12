@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { Car, MapPin, Phone, Building2, Clock, Star, ChevronLeft, AlertCircle } from "lucide-react";
+import { Car, MapPin, Phone, Building2, Clock, Star, ChevronLeft, AlertCircle, Bell, BellOff } from "lucide-react";
 import { Job, JobStatus } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/use-websocket";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 import logoUrl from "@assets/IMG_2508_1762619079711.png";
 
 export default function CustomerTrack() {
@@ -31,6 +32,10 @@ export default function CustomerTrack() {
       return res.json();
     },
     enabled: !!plateNumber,
+  });
+
+  const { isSubscribed, isLoading: pushLoading, subscribe, unsubscribe } = usePushNotifications({
+    plateNumber,
   });
 
   useWebSocket({
@@ -136,6 +141,54 @@ export default function CustomerTrack() {
 
       {/* Content */}
       <div className="flex-1 max-w-md mx-auto w-full px-4 py-6 pb-20">
+
+        {/* Push Notification Banner */}
+        {!isSubscribed && permission === 'default' && jobs && jobs.length > 0 && (
+          <Card className="mb-4 border-primary/20 bg-primary/5">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <Bell className="h-5 w-5 text-primary mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Get instant job updates</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Enable notifications to receive real-time alerts about your car wash
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={subscribe}
+                  disabled={pushLoading}
+                  data-testid="button-enable-notifications"
+                >
+                  {pushLoading ? 'Enabling...' : 'Enable'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Notification Status */}
+        {isSubscribed && (
+          <Card className="mb-4 border-green-500/20 bg-green-500/5">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Bell className="h-4 w-4 text-green-600" />
+                  <p className="text-sm text-green-600">Notifications enabled</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={unsubscribe}
+                  disabled={pushLoading}
+                  data-testid="button-disable-notifications"
+                >
+                  <BellOff className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {isLoading ? (
           <div className="space-y-4">

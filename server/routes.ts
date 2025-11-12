@@ -14,6 +14,7 @@ import { requireAuth, requireRole, optionalAuth, requireActiveCleaner } from "./
 import { sendEmail } from "./lib/resend";
 import { broadcastJobUpdate } from "./websocket";
 import { createJobFinancialRecord, calculateJobFees } from "./financialUtils";
+import { PushNotificationService } from "./push-service";
 import { 
   JobStatus, 
   CleanerStatus, 
@@ -746,10 +747,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Broadcast update to relevant parties
           const updatedJob = await storage.getJob(job.id);
           if (updatedJob) {
+            // Send push notification based on final status
             if (finalStatus === JobStatus.ASSIGNED && assignedCleanerId) {
+              // Notify customer that cleaner is assigned
+              const cleaner = await storage.getCleaner(assignedCleanerId);
+              const cleanerUser = cleaner ? await storage.getUser(cleaner.userId) : null;
+              
+              PushNotificationService.notifyJobStatusChange(updatedJob.id, JobStatus.ASSIGNED, {
+                carPlateNumber: updatedJob.carPlateNumber,
+                cleanerName: cleanerUser?.displayName,
+                customerId: updatedJob.customerId || undefined,
+              }).catch(err => console.error('Push notification failed:', err));
+              
               // Only broadcast to the assigned cleaner
               broadcastJobUpdate(updatedJob);
             } else {
+              // Notify customer that payment is confirmed (pool mode)
+              PushNotificationService.notifyJobStatusChange(updatedJob.id, JobStatus.PAID, {
+                carPlateNumber: updatedJob.carPlateNumber,
+                customerId: updatedJob.customerId || undefined,
+              }).catch(err => console.error('Push notification failed:', err));
+              
               // Broadcast to all on-duty cleaners (pool mode)
               broadcastJobUpdate(updatedJob);
             }
@@ -970,8 +988,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const job = await storage.getJob(jobId);
       
-      // Broadcast update via WebSocket
+      // Send push notification
       if (job) {
+        PushNotificationService.notifyJobStatusChange(jobId, JobStatus.ASSIGNED, {
+          carPlateNumber: job.carPlateNumber,
+          cleanerName: req.user?.displayName,
+          customerId: job.customerId || undefined,
+        }).catch(err => console.error('Push notification failed:', err));
+        
+        // Broadcast update via WebSocket
         broadcastJobUpdate(job);
       }
       
@@ -1100,8 +1125,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const job = await storage.getJob(jobId);
       
-      // Broadcast update via WebSocket
+      // Send push notification
       if (job) {
+        PushNotificationService.notifyJobStatusChange(jobId, JobStatus.ASSIGNED, {
+          carPlateNumber: job.carPlateNumber,
+          cleanerName: req.user?.displayName,
+          customerId: job.customerId || undefined,
+        }).catch(err => console.error('Push notification failed:', err));
+        
+        // Broadcast update via WebSocket
         broadcastJobUpdate(job);
       }
       
@@ -1121,9 +1153,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         startedAt: new Date(),
       });
       
-      // Broadcast job start
       const startedJob = await storage.getJob(parseInt(jobId));
-      if (startedJob) broadcastJobUpdate(startedJob);
+      
+      // Send push notification
+      if (startedJob) {
+        PushNotificationService.notifyJobStatusChange(parseInt(jobId), JobStatus.IN_PROGRESS, {
+          carPlateNumber: startedJob.carPlateNumber,
+          cleanerName: req.user?.displayName,
+          customerId: startedJob.customerId || undefined,
+        }).catch(err => console.error('Push notification failed:', err));
+        
+        // Broadcast job start
+        broadcastJobUpdate(startedJob);
+      }
 
       res.json({ success: true });
     } catch (error: any) {
@@ -1148,9 +1190,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         proofPhotoURL,
       });
       
-      // Broadcast job completion
       const completedJob = await storage.getJob(parseInt(jobId));
-      if (completedJob) broadcastJobUpdate(completedJob);
+      
+      // Send push notification
+      if (completedJob) {
+        PushNotificationService.notifyJobStatusChange(parseInt(jobId), JobStatus.COMPLETED, {
+          carPlateNumber: completedJob.carPlateNumber,
+          cleanerName: req.user?.displayName,
+          customerId: completedJob.customerId || undefined,
+        }).catch(err => console.error('Push notification failed:', err));
+        
+        // Broadcast job completion
+        broadcastJobUpdate(completedJob);
+      }
 
       // Update cleaner status back to on-duty
       const cleaner = await storage.getCleanerByUserId(req.user!.id);
@@ -1951,10 +2003,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/push/subscribe", async (req, res) => {
     try {
-      const { endpoint, keys, userId, customerId } = req.body;
+      const { endpoint, keys, plateNumber } = req.body;
       
       if (!endpoint || !keys || !keys.p256dh || !keys.auth) {
         return res.status(400).json({ message: "Invalid subscription data" });
+      }
+
+      const userId = req.user?.id;
+      let customerId: number | undefined;
+
+      if (!userId && plateNumber) {
+        const jobs = await storage.getJobsByPlateNumber(plateNumber);
+        if (jobs.length > 0 && jobs[0].customerId) {
+          customerId = jobs[0].customerId;
+        } else {
+          return res.status(404).json({ message: "No jobs found for this plate number" });
+        }
+      } else if (!userId) {
+        return res.status(400).json({ message: "Authentication or plate number required" });
       }
 
       await storage.createPushSubscription({

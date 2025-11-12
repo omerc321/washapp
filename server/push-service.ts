@@ -138,7 +138,7 @@ export class PushNotificationService {
           body: `${context.cleanerName} will wash your car ${context.carPlateNumber}`,
           icon: '/icon-192.png',
           tag: `job-${jobId}`,
-          data: { jobId, type: 'job_status_change', status: newStatus, url: `/customer/track/${jobId}` },
+          data: { jobId, type: 'job_status_change', status: newStatus, url: `/customer/track/${context.carPlateNumber}` },
           requireInteraction: true,
         };
         if (context.customerId) {
@@ -152,7 +152,7 @@ export class PushNotificationService {
           body: `${context.cleanerName} has started washing your car`,
           icon: '/icon-192.png',
           tag: `job-${jobId}`,
-          data: { jobId, type: 'job_status_change', status: newStatus, url: `/customer/track/${jobId}` },
+          data: { jobId, type: 'job_status_change', status: newStatus, url: `/customer/track/${context.carPlateNumber}` },
         };
         if (context.customerId) {
           await this.sendToCustomer(context.customerId, payload);
@@ -161,11 +161,11 @@ export class PushNotificationService {
 
       case JobStatus.COMPLETED:
         payload = {
-          title: 'Wash Complete! ✨',
+          title: 'Wash Complete!',
           body: `Your car ${context.carPlateNumber} is ready! Please rate your experience`,
           icon: '/icon-192.png',
           tag: `job-${jobId}`,
-          data: { jobId, type: 'job_status_change', status: newStatus, url: `/customer/track/${jobId}` },
+          data: { jobId, type: 'job_status_change', status: newStatus, url: `/customer/track/${context.carPlateNumber}` },
           requireInteraction: true,
         };
         if (context.customerId) {
