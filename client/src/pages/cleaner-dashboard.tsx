@@ -71,9 +71,11 @@ export default function CleanerDashboard() {
       const res = await apiRequest("POST", "/api/cleaner/start-shift", {});
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/shift-status"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/profile"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/cleaner/shift-status"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/cleaner/profile"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/cleaner/shift-status"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/cleaner/profile"] });
       toast({
         title: "Shift Started",
         description: "You are now on duty",
@@ -87,9 +89,11 @@ export default function CleanerDashboard() {
       const res = await apiRequest("POST", "/api/cleaner/end-shift", {});
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/shift-status"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/profile"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/cleaner/shift-status"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/cleaner/profile"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/cleaner/shift-status"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/cleaner/profile"] });
       toast({
         title: "Shift Ended",
         description: "You are now off duty",

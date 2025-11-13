@@ -1578,6 +1578,7 @@ export class DatabaseStorage implements IStorage {
       photoURL: row.photo_url,
       phoneNumber: row.phone_number,
       companyId: row.company_id,
+      soundEnabled: row.sound_enabled || 0,
       createdAt: row.created_at,
     };
   }
