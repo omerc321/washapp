@@ -39,9 +39,11 @@ export default function CustomerTrack() {
     plateNumber,
   });
 
-  const { subscribe: wsSubscribe } = useWebSocket({
+  const { subscribe: wsSubscribe, isConnected } = useWebSocket({
     onMessage: (data) => {
+      console.log('[Customer Track] WebSocket message received:', data);
       if (data.type === 'job_update' && data.job) {
+        console.log('[Customer Track] Job update for:', data.job.carPlateNumber, 'Status:', data.job.status);
         queryClient.invalidateQueries({ queryKey: ["/api/jobs/track", plateNumber] });
         
         const statusMessages: Record<JobStatus, string> = {
@@ -62,16 +64,24 @@ export default function CustomerTrack() {
         }
       }
     },
+    onOpen: () => {
+      console.log('[Customer Track] WebSocket connected');
+    },
+    onClose: () => {
+      console.log('[Customer Track] WebSocket disconnected');
+    },
   });
 
   // Subscribe to job updates when jobs are loaded
   useEffect(() => {
-    if (jobs && jobs.length > 0) {
+    if (jobs && jobs.length > 0 && isConnected) {
+      console.log('[Customer Track] Subscribing to', jobs.length, 'jobs');
       jobs.forEach(job => {
+        console.log('[Customer Track] Subscribing to job:', job.id);
         wsSubscribe({ jobId: job.id });
       });
     }
-  }, [jobs, wsSubscribe]);
+  }, [jobs, wsSubscribe, isConnected]);
 
   const submitRating = useMutation({
     mutationFn: async () => {

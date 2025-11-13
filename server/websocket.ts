@@ -96,17 +96,33 @@ export function setupWebSocket(server: Server) {
 
 // Broadcast job updates to subscribed clients
 export function broadcastJobUpdate(job: Job) {
-  if (!wss) return;
+  if (!wss) {
+    console.log('[WS] broadcastJobUpdate: No WebSocket server');
+    return;
+  }
+
+  console.log('[WS] Broadcasting job update:', {
+    jobId: job.id,
+    status: job.status,
+    carPlate: job.carPlateNumber,
+    customerId: job.customerId,
+    cleanerId: job.cleanerId,
+    companyId: job.companyId,
+  });
 
   const message = JSON.stringify({
     type: "job_update",
     job,
   });
 
+  let sentCount = 0;
   wss.clients.forEach((ws: WebSocket) => {
     const client = ws as WebSocketClient;
     
     if (ws.readyState === WebSocket.OPEN) {
+      const subscriptions = Array.from(client.subscriptions || []);
+      console.log('[WS] Client subscriptions:', subscriptions);
+      
       const shouldSend = 
         client.subscriptions?.has(`job:${job.id}`) ||
         client.subscriptions?.has(`customer:${job.customerId}`) ||
@@ -114,10 +130,14 @@ export function broadcastJobUpdate(job: Job) {
         client.subscriptions?.has(`company:${job.companyId}`);
 
       if (shouldSend) {
+        console.log('[WS] Sending job update to client');
         ws.send(message);
+        sentCount++;
       }
     }
   });
+  
+  console.log('[WS] Broadcast complete. Sent to', sentCount, 'clients');
 }
 
 // Broadcast cleaner status updates
