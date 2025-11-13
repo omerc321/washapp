@@ -931,8 +931,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Cleaner profile not found" });
       }
       
-      const session = await storage.startShift(cleaner.id);
-      res.json(session);
+      const { latitude, longitude } = req.body;
+      const shift = await storage.startShift(cleaner.id, latitude, longitude);
+      res.json(shift);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -946,7 +947,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Cleaner profile not found" });
       }
       
-      await storage.endShift(cleaner.id);
+      const { latitude, longitude } = req.body;
+      await storage.endShift(cleaner.id, latitude, longitude);
       res.json({ message: "Shift ended successfully" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -1266,6 +1268,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const cleaners = await storage.getCompanyCleaners(req.user.companyId);
       res.json(cleaners);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get company shift history
+  app.get("/api/company/shift-history", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      if (!req.user?.companyId) {
+        return res.status(400).json({ message: "No company associated with user" });
+      }
+
+      const cleanerId = req.query.cleanerId ? parseInt(req.query.cleanerId as string) : undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+      
+      const shifts = await storage.getCompanyShiftHistory(req.user.companyId, cleanerId, limit);
+      res.json(shifts);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
