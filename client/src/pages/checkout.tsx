@@ -208,7 +208,7 @@ function CheckoutForm({
               disabled={updatingTip}
               data-testid={`button-tip-${amount}`}
             >
-              {amount === 0 ? "No tip" : `${amount} د.إ`}
+              {amount === 0 ? "No tip" : `${amount} AED`}
             </Button>
           ))}
           <div className="col-span-3">
@@ -243,7 +243,7 @@ function CheckoutForm({
                     return;
                   }
                   if (amount > 1000) {
-                    setCustomTipError("Maximum tip is 1000 د.إ");
+                    setCustomTipError("Maximum tip is 1000 AED");
                     return;
                   }
                   setCustomTipError("");
@@ -430,20 +430,20 @@ export default function Checkout() {
             <div className="space-y-2 pt-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Service Price</span>
-                <span>{feeBreakdown?.basePrice?.toFixed(2) || jobData.basePrice} د.إ</span>
+                <span>{feeBreakdown?.basePrice?.toFixed(2) || jobData.basePrice} AED</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Tax (5%)</span>
-                <span>{feeBreakdown?.taxAmount?.toFixed(2) || jobData.taxAmount} د.إ</span>
+                <span>{feeBreakdown?.taxAmount?.toFixed(2) || jobData.taxAmount} AED</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Platform Fee</span>
-                <span>{feeBreakdown?.platformFee?.toFixed(2) || jobData.platformFee} د.إ</span>
+                <span>{feeBreakdown?.platformFee?.toFixed(2) || jobData.platformFee} AED</span>
               </div>
               {feeBreakdown?.tipAmount > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Tip for Cleaner</span>
-                  <span className="text-primary font-medium">{feeBreakdown.tipAmount.toFixed(2)} د.إ</span>
+                  <span className="text-primary font-medium">{feeBreakdown.tipAmount.toFixed(2)} AED</span>
                 </div>
               )}
               <Separator />
@@ -452,7 +452,7 @@ export default function Checkout() {
                   <DollarSign className="h-5 w-5 text-muted-foreground" />
                   <span className="font-semibold">Total</span>
                 </div>
-                <span className="text-2xl font-bold">{feeBreakdown?.totalAmount?.toFixed(2) || jobData.price} د.إ</span>
+                <span className="text-2xl font-bold">{feeBreakdown?.totalAmount?.toFixed(2) || jobData.price} AED</span>
               </div>
             </div>
           </div>

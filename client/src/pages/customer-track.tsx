@@ -407,7 +407,7 @@ function JobCard({
               <p className="font-medium mb-1">Full Refund Processed</p>
               <p className="text-muted-foreground">
                 No cleaner accepted your job within 15 minutes. 
-                Your payment of {job.totalAmount} د.إ has been fully refunded 
+                Your payment of {job.totalAmount} AED has been fully refunded 
                 and will appear on your card within 10 business days.
               </p>
             </div>
@@ -492,7 +492,7 @@ function JobCard({
 
         <div className="flex items-center justify-between pt-2 border-t">
           <span className="text-sm text-muted-foreground">Total Paid</span>
-          <span className="text-lg font-bold">{job.totalAmount} د.إ</span>
+          <span className="text-lg font-bold">{job.totalAmount} AED</span>
         </div>
       </CardContent>
 

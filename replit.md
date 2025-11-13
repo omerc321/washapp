@@ -38,7 +38,7 @@ I prefer simple language and clear explanations. I want iterative development wi
 
 ### System Design Choices
 -   **Data Models**: Comprehensive models for Users, Companies, Cleaners, Cleaner Invitations, Cleaner Geofence Assignments, Jobs, Job Financials, Company Withdrawals, Fee Settings, and Transactions.
--   **Currency**: All transactions in AED (United Arab Emirates Dirham) with د.إ symbol displayed.
+-   **Currency**: All transactions in AED (United Arab Emirates Dirham) with "AED" displayed.
 -   **Fee Structure**: 5% tax + 3 AED flat platform fee + 2.9% + 1 AED Stripe payment processing fees.
 -   **Transaction Tracking**: All payments, refunds, and withdrawals tracked with unique reference numbers.
 -   **Auto-Refund**: Jobs not accepted within 15 minutes are automatically refunded with Stripe refund processing.

@@ -156,7 +156,7 @@ export default function CompanyFinancials() {
               <CardTitle className="text-sm font-medium">Gross Revenue</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{Number(summary.totalRevenue).toFixed(2)} د.إ</div>
+              <div className="text-2xl font-bold">{Number(summary.totalRevenue).toFixed(2)} AED</div>
               <p className="text-xs text-muted-foreground mt-1">Before refunds & fees</p>
             </CardContent>
           </Card>
@@ -165,7 +165,7 @@ export default function CompanyFinancials() {
               <CardTitle className="text-sm font-medium">Refunds</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600 dark:text-red-400">-{Number(summary.totalRefunds).toFixed(2)} د.إ</div>
+              <div className="text-2xl font-bold text-red-600 dark:text-red-400">-{Number(summary.totalRefunds).toFixed(2)} AED</div>
               <p className="text-xs text-muted-foreground mt-1">Auto-refunded jobs</p>
             </CardContent>
           </Card>
@@ -174,7 +174,7 @@ export default function CompanyFinancials() {
               <CardTitle className="text-sm font-medium">Platform Fees</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600 dark:text-red-400">-{Number(summary.platformFees).toFixed(2)} د.إ</div>
+              <div className="text-2xl font-bold text-red-600 dark:text-red-400">-{Number(summary.platformFees).toFixed(2)} AED</div>
               <p className="text-xs text-muted-foreground mt-1">Service fees</p>
             </CardContent>
           </Card>
@@ -183,7 +183,7 @@ export default function CompanyFinancials() {
               <CardTitle className="text-sm font-medium">Net Earnings</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{Number(summary.netEarnings).toFixed(2)} د.إ</div>
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{Number(summary.netEarnings).toFixed(2)} AED</div>
               <p className="text-xs text-muted-foreground mt-1">After all deductions</p>
             </CardContent>
           </Card>
@@ -196,7 +196,7 @@ export default function CompanyFinancials() {
               <CardTitle className="text-sm font-medium">Tax Collected (5%)</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{Number(summary.taxAmount).toFixed(2)} د.إ</div>
+              <div className="text-2xl font-bold">{Number(summary.taxAmount).toFixed(2)} AED</div>
               <p className="text-xs text-muted-foreground mt-1">Included in gross revenue</p>
             </CardContent>
           </Card>
@@ -205,7 +205,7 @@ export default function CompanyFinancials() {
               <CardTitle className="text-sm font-medium">Available Balance</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{Number(summary.availableBalance).toFixed(2)} د.إ</div>
+              <div className="text-2xl font-bold">{Number(summary.availableBalance).toFixed(2)} AED</div>
               <p className="text-xs text-muted-foreground mt-1">Available for withdrawal</p>
             </CardContent>
           </Card>
@@ -294,19 +294,19 @@ export default function CompanyFinancials() {
                       <TableRow key={job.id} data-testid={`job-${job.id}`}>
                         <TableCell className="font-medium">#{job.jobId}</TableCell>
                         <TableCell className="min-w-[120px]">{job.cleanerName || "Unassigned"}</TableCell>
-                        <TableCell className="min-w-[100px]">{parseFloat(job.baseJobAmount || "0").toFixed(2)} د.إ</TableCell>
-                        <TableCell className="min-w-[80px]">{parseFloat(job.baseTax || "0").toFixed(2)} د.إ</TableCell>
+                        <TableCell className="min-w-[100px]">{parseFloat(job.baseJobAmount || "0").toFixed(2)} AED</TableCell>
+                        <TableCell className="min-w-[80px]">{parseFloat(job.baseTax || "0").toFixed(2)} AED</TableCell>
                         <TableCell className="text-primary font-medium min-w-[100px]">
-                          {parseFloat(job.tipAmount || "0") > 0 ? `${parseFloat(job.tipAmount).toFixed(2)} د.إ` : "-"}
+                          {parseFloat(job.tipAmount || "0") > 0 ? `${parseFloat(job.tipAmount).toFixed(2)} AED` : "-"}
                         </TableCell>
                         <TableCell className="min-w-[80px]">
-                          {parseFloat(job.tipTax || "0") > 0 ? `${parseFloat(job.tipTax).toFixed(2)} د.إ` : "-"}
+                          {parseFloat(job.tipTax || "0") > 0 ? `${parseFloat(job.tipTax).toFixed(2)} AED` : "-"}
                         </TableCell>
-                        <TableCell className="min-w-[110px]">{parseFloat(job.platformFeeAmount || "0").toFixed(2)} د.إ</TableCell>
-                        <TableCell className="min-w-[100px]">{parseFloat(job.platformFeeTax || "0").toFixed(2)} د.إ</TableCell>
-                        <TableCell className="min-w-[100px]">{parseFloat(job.paymentProcessingFeeAmount || "0").toFixed(2)} د.إ</TableCell>
-                        <TableCell className="font-medium min-w-[100px]">{parseFloat(job.grossAmount || "0").toFixed(2)} د.إ</TableCell>
-                        <TableCell className="font-medium text-green-600 dark:text-green-400 min-w-[100px]">{parseFloat(job.netPayableAmount || "0").toFixed(2)} د.إ</TableCell>
+                        <TableCell className="min-w-[110px]">{parseFloat(job.platformFeeAmount || "0").toFixed(2)} AED</TableCell>
+                        <TableCell className="min-w-[100px]">{parseFloat(job.platformFeeTax || "0").toFixed(2)} AED</TableCell>
+                        <TableCell className="min-w-[100px]">{parseFloat(job.paymentProcessingFeeAmount || "0").toFixed(2)} AED</TableCell>
+                        <TableCell className="font-medium min-w-[100px]">{parseFloat(job.grossAmount || "0").toFixed(2)} AED</TableCell>
+                        <TableCell className="font-medium text-green-600 dark:text-green-400 min-w-[100px]">{parseFloat(job.netPayableAmount || "0").toFixed(2)} AED</TableCell>
                         <TableCell className="text-sm min-w-[100px]">{new Date(job.paidAt).toLocaleDateString()}</TableCell>
                       </TableRow>
                     ))}

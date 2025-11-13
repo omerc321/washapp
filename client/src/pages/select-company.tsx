@@ -164,10 +164,10 @@ export default function SelectCompany() {
                         const tax = Number((subtotal * 0.05).toFixed(2));
                         const total = Number((subtotal + tax).toFixed(2));
                         return total;
-                      })()} د.إ
+                      })()} AED
                     </div>
                     <div className="text-xs text-muted-foreground leading-tight">
-                      {Number(company.pricePerWash).toFixed(2)} د.إ + 3 د.إ fee + 5% tax
+                      {Number(company.pricePerWash).toFixed(2)} AED + 3 AED fee + 5% tax
                     </div>
                   </div>
                 </div>
