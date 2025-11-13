@@ -27,12 +27,22 @@ export default function CustomerTrack() {
   const { data: jobs, isLoading } = useQuery<Job[]>({
     queryKey: ["/api/jobs/track", plateNumber],
     queryFn: async () => {
-      const res = await fetch(`/api/jobs/track/${plateNumber}`);
+      const res = await fetch(`/api/jobs/track/${plateNumber}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+        },
+      });
       if (!res.ok) throw new Error("Failed to fetch jobs");
       return res.json();
     },
     enabled: !!plateNumber,
     staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const { permission, isSubscribed, soundEnabled, isLoading: pushLoading, subscribe, unsubscribe, toggleSound } = usePushNotifications({

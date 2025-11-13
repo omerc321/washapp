@@ -853,6 +853,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!plateNumber) {
         return res.status(400).json({ message: "Plate number is required" });
       }
+      
+      // Disable caching completely for real-time updates
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'Surrogate-Control': 'no-store'
+      });
+      
       const jobs = await storage.getJobsByPlateNumber(plateNumber);
       res.json(jobs);
     } catch (error: any) {
