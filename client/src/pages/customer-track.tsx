@@ -39,7 +39,7 @@ export default function CustomerTrack() {
     plateNumber,
   });
 
-  useWebSocket({
+  const { subscribe: wsSubscribe } = useWebSocket({
     onMessage: (data) => {
       if (data.type === 'job_update' && data.job) {
         queryClient.invalidateQueries({ queryKey: ["/api/jobs/track", plateNumber] });
@@ -63,6 +63,15 @@ export default function CustomerTrack() {
       }
     },
   });
+
+  // Subscribe to job updates when jobs are loaded
+  useEffect(() => {
+    if (jobs && jobs.length > 0) {
+      jobs.forEach(job => {
+        wsSubscribe({ jobId: job.id });
+      });
+    }
+  }, [jobs, wsSubscribe]);
 
   const submitRating = useMutation({
     mutationFn: async () => {
