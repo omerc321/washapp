@@ -571,7 +571,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         assignmentMode: requestedCleanerEmail ? 'direct' : 'pool',
       });
 
-      res.json({ clientSecret: paymentIntent.client_secret, jobId: job.id });
+      res.json({ 
+        clientSecret: paymentIntent.client_secret, 
+        jobId: job.id,
+        fees // Include full fee breakdown for accurate frontend display
+      });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

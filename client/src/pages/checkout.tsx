@@ -318,24 +318,26 @@ export default function Checkout() {
     
     const data = JSON.parse(stored);
     setJobData(data);
-    
-    // Set initial fee breakdown from jobData
-    setFeeBreakdown({
-      basePrice: data.basePrice,
-      taxAmount: data.taxAmount,
-      platformFee: data.platformFee,
-      tipAmount: 0,
-      totalAmount: data.price,
-    });
 
-    // Create PaymentIntent
+    // Create PaymentIntent and get authoritative fees from backend
     apiRequest("POST", "/api/create-payment-intent", data)
       .then((res) => res.json())
-      .then((data) => {
-        setClientSecret(data.clientSecret);
+      .then((responseData) => {
+        setClientSecret(responseData.clientSecret);
         // Extract payment intent ID from client secret
-        const piId = data.clientSecret.split('_secret_')[0];
+        const piId = responseData.clientSecret.split('_secret_')[0];
         setPaymentIntentId(piId);
+        
+        // Set fee breakdown from backend response (includes platform fee tax!)
+        if (responseData.fees) {
+          setFeeBreakdown({
+            basePrice: responseData.fees.baseJobAmount,
+            taxAmount: responseData.fees.taxAmount,
+            platformFee: responseData.fees.platformFeeAmount,
+            tipAmount: responseData.fees.tipAmount,
+            totalAmount: responseData.fees.totalAmount,
+          });
+        }
       })
       .catch((error) => {
         toast({
