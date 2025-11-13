@@ -338,6 +338,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNearbyCompanies(lat: number, lon: number): Promise<CompanyWithCleaners[]> {
+    console.log(`[Geofence] Customer location: lat=${lat}, lon=${lon}`);
+    
     // Get companies with geofences and their on-duty cleaners
     const query = `
       SELECT 
@@ -363,6 +365,7 @@ export class DatabaseStorage implements IStorage {
     
     const result = await pool.query(query);
     const rows = result.rows;
+    console.log(`[Geofence] Found ${rows.length} company-geofence combinations from SQL`);
 
     // Filter companies whose geofences contain the customer location
     const companyMap = new Map<number, CompanyWithCleaners>();
@@ -371,19 +374,25 @@ export class DatabaseStorage implements IStorage {
       const polygon = row.polygon as Array<[number, number]>;
       const cleanerCount = parseInt(row.cleaner_count || '0');
       
+      console.log(`[Geofence] Company ${row.company_id} "${row.name}" geofence ${row.geofence_id}: ${cleanerCount} cleaners, ${polygon?.length || 0} vertices`);
+      
       // Skip if no on-duty cleaners
       if (cleanerCount === 0) {
+        console.log(`[Geofence] ❌ Skip: No on-duty cleaners`);
         continue;
       }
       
       // Validate polygon before checking (minimum 3 vertices)
       if (!polygon || !Array.isArray(polygon) || polygon.length < 3) {
-        console.warn(`Company ${row.company_id}: Invalid geofence polygon (needs at least 3 points)`);
+        console.warn(`[Geofence] ❌ Skip: Invalid polygon (${polygon?.length || 0} vertices, need 3+)`);
         continue;
       }
       
       // Check if point is inside polygon using ray casting algorithm
-      if (this.isPointInPolygon(lat, lon, polygon)) {
+      const isInside = this.isPointInPolygon(lat, lon, polygon);
+      console.log(`[Geofence] Point-in-polygon check: ${isInside ? '✅ INSIDE' : '❌ OUTSIDE'}`);
+      
+      if (isInside) {
         const companyId = row.company_id;
         const existing = companyMap.get(companyId);
         

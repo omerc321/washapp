@@ -555,7 +555,7 @@ export default function CompanyDashboard() {
                         });
                       }
                     }}
-                    disabled={updateCleanerGeofencesMutation.isPending || (!editAssignAllGeofences && editSelectedGeofenceIds.length === 0 && geofences.length > 0)}
+                    disabled={updateCleanerGeofencesMutation.isPending}
                     data-testid="button-submit-edit"
                   >
                     {updateCleanerGeofencesMutation.isPending ? "Updating..." : "Update"}

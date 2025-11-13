@@ -106,8 +106,9 @@ export default function CleanerDashboard() {
       });
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/profile"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/cleaner/profile"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/cleaner/profile"] });
       toast({
         title: "Status Updated",
         description: "Your availability status has been updated",
