@@ -6,6 +6,7 @@ import {
   cleanerInvitations,
   customers,
   shiftSessions,
+  cleanerShifts,
   deviceTokens,
   pushSubscriptions,
   feeSettings,
@@ -27,6 +28,8 @@ import {
   type InsertCustomer,
   type ShiftSession,
   type InsertShiftSession,
+  type CleanerShift,
+  type InsertCleanerShift,
   type FeeSetting,
   type InsertFeeSetting,
   type JobFinancials,
@@ -117,10 +120,11 @@ export interface IStorage {
   updateCustomerLastLogin(id: number): Promise<void>;
   
   // Shift session operations
-  startShift(cleanerId: number): Promise<ShiftSession>;
-  endShift(cleanerId: number): Promise<void>;
-  getActiveShift(cleanerId: number): Promise<ShiftSession | undefined>;
-  getCleanerShiftHistory(cleanerId: number, limit?: number): Promise<ShiftSession[]>;
+  startShift(cleanerId: number, latitude?: number, longitude?: number): Promise<CleanerShift>;
+  endShift(cleanerId: number, latitude?: number, longitude?: number): Promise<void>;
+  getActiveShift(cleanerId: number): Promise<CleanerShift | undefined>;
+  getCleanerShiftHistory(cleanerId: number, limit?: number): Promise<CleanerShift[]>;
+  getCompanyShiftHistory(companyId: number, cleanerId?: number, limit?: number): Promise<CleanerShift[]>;
   
   // Analytics
   getAdminAnalytics(): Promise<any>;
@@ -784,12 +788,25 @@ export class DatabaseStorage implements IStorage {
 
   // ===== SHIFT SESSION OPERATIONS =====
 
-  async startShift(cleanerId: number): Promise<ShiftSession> {
+  async startShift(cleanerId: number, latitude?: number, longitude?: number): Promise<CleanerShift> {
+    // Close any existing open shifts first
     await this.endShift(cleanerId);
 
-    const [session] = await db
-      .insert(shiftSessions)
-      .values({ cleanerId })
+    // Get cleaner's company ID
+    const cleaner = await this.getCleaner(cleanerId);
+    if (!cleaner) {
+      throw new Error("Cleaner not found");
+    }
+
+    const [shift] = await db
+      .insert(cleanerShifts)
+      .values({ 
+        cleanerId,
+        companyId: cleaner.companyId,
+        shiftStart: new Date(),
+        startLatitude: latitude?.toString(),
+        startLongitude: longitude?.toString(),
+      })
       .returning();
 
     await db
@@ -800,25 +817,27 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(cleaners.id, cleanerId));
 
-    return session;
+    return shift;
   }
 
-  async endShift(cleanerId: number): Promise<void> {
+  async endShift(cleanerId: number, latitude?: number, longitude?: number): Promise<void> {
     const activeShift = await this.getActiveShift(cleanerId);
     if (!activeShift) return;
 
-    const endedAt = new Date();
+    const shiftEnd = new Date();
     const durationMinutes = Math.floor(
-      (endedAt.getTime() - new Date(activeShift.startedAt).getTime()) / (1000 * 60)
+      (shiftEnd.getTime() - new Date(activeShift.shiftStart).getTime()) / (1000 * 60)
     );
 
     await db
-      .update(shiftSessions)
-      .set({
-        endedAt,
+      .update(cleanerShifts)
+      .set({ 
+        shiftEnd, 
         durationMinutes,
+        endLatitude: latitude?.toString(),
+        endLongitude: longitude?.toString(),
       })
-      .where(eq(shiftSessions.id, activeShift.id));
+      .where(eq(cleanerShifts.id, activeShift.id));
 
     await db
       .update(cleaners)
@@ -826,25 +845,39 @@ export class DatabaseStorage implements IStorage {
       .where(eq(cleaners.id, cleanerId));
   }
 
-  async getActiveShift(cleanerId: number): Promise<ShiftSession | undefined> {
-    const [session] = await db
+  async getActiveShift(cleanerId: number): Promise<CleanerShift | undefined> {
+    const [shift] = await db
       .select()
-      .from(shiftSessions)
+      .from(cleanerShifts)
       .where(and(
-        eq(shiftSessions.cleanerId, cleanerId),
-        sql`${shiftSessions.endedAt} IS NULL`
+        eq(cleanerShifts.cleanerId, cleanerId),
+        sql`${cleanerShifts.shiftEnd} IS NULL`
       ))
-      .orderBy(desc(shiftSessions.startedAt))
+      .orderBy(desc(cleanerShifts.shiftStart))
       .limit(1);
-    return session;
+    return shift;
   }
 
-  async getCleanerShiftHistory(cleanerId: number, limit: number = 10): Promise<ShiftSession[]> {
+  async getCleanerShiftHistory(cleanerId: number, limit: number = 10): Promise<CleanerShift[]> {
     return await db
       .select()
-      .from(shiftSessions)
-      .where(eq(shiftSessions.cleanerId, cleanerId))
-      .orderBy(desc(shiftSessions.startedAt))
+      .from(cleanerShifts)
+      .where(eq(cleanerShifts.cleanerId, cleanerId))
+      .orderBy(desc(cleanerShifts.shiftStart))
+      .limit(limit);
+  }
+
+  async getCompanyShiftHistory(companyId: number, cleanerId?: number, limit = 100): Promise<CleanerShift[]> {
+    const conditions = [eq(cleanerShifts.companyId, companyId)];
+    if (cleanerId) {
+      conditions.push(eq(cleanerShifts.cleanerId, cleanerId));
+    }
+
+    return await db
+      .select()
+      .from(cleanerShifts)
+      .where(and(...conditions))
+      .orderBy(desc(cleanerShifts.shiftStart))
       .limit(limit);
   }
 
