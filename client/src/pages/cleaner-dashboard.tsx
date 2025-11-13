@@ -7,19 +7,22 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Car, MapPin, Phone, Building2, Upload, CheckCircle2, Clock, Navigation } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Car, MapPin, Phone, Building2, Upload, CheckCircle2, Clock, Navigation, History } from "lucide-react";
 import { Job, Cleaner, CleanerStatus, JobStatus } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { Input } from "@/components/ui/input";
+import { formatDistanceToNow, format } from "date-fns";
 
 export default function CleanerDashboard() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingJobId, setUploadingJobId] = useState<string | null>(null);
+  const [shiftHistoryDialogOpen, setShiftHistoryDialogOpen] = useState(false);
 
   // Get cleaner profile
   const { data: cleaner, isLoading: loadingCleaner } = useQuery<Cleaner>({
@@ -50,6 +53,28 @@ export default function CleanerDashboard() {
     staleTime: 0,
   });
 
+  // Get shift history
+  type ShiftHistoryItem = {
+    id: number;
+    cleanerId: number;
+    companyId: number;
+    shiftStart: string;
+    shiftEnd: string | null;
+    durationMinutes: number | null;
+  };
+
+  const { data: shiftHistory = [], isLoading: isLoadingShiftHistory, refetch: refetchShiftHistory } = useQuery<ShiftHistoryItem[]>({
+    queryKey: ["/api/cleaner/shift-history"],
+    enabled: shiftHistoryDialogOpen && !!cleaner,
+  });
+
+  // Refetch when dialog opens
+  useEffect(() => {
+    if (shiftHistoryDialogOpen) {
+      refetchShiftHistory();
+    }
+  }, [shiftHistoryDialogOpen, refetchShiftHistory]);
+
   // WebSocket for real-time job updates
   useWebSocket({
     onMessage: (data) => {
@@ -70,8 +95,7 @@ export default function CleanerDashboard() {
   // Start shift mutation
   const startShift = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/cleaner/start-shift", {});
-      return res.json();
+      return await apiRequest("POST", "/api/cleaner/start-shift", {});
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/cleaner/shift-status"] });
@@ -88,8 +112,7 @@ export default function CleanerDashboard() {
   // End shift mutation
   const endShift = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/cleaner/end-shift", {});
-      return res.json();
+      return await apiRequest("POST", "/api/cleaner/end-shift", {});
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/cleaner/shift-status"] });
@@ -106,11 +129,10 @@ export default function CleanerDashboard() {
   // Toggle availability mutation
   const toggleAvailability = useMutation({
     mutationFn: async (status: CleanerStatus) => {
-      const res = await apiRequest("POST", "/api/cleaner/toggle-status", { 
+      return await apiRequest("POST", "/api/cleaner/toggle-status", { 
         status,
         userId: currentUser?.id 
       });
-      return res.json();
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/cleaner/profile"] });
@@ -125,10 +147,9 @@ export default function CleanerDashboard() {
   // Accept job mutation
   const acceptJob = useMutation({
     mutationFn: async (jobId: string) => {
-      const res = await apiRequest("POST", `/api/cleaner/accept-job/${jobId}`, {
+      return await apiRequest("POST", `/api/cleaner/accept-job/${jobId}`, {
         userId: currentUser?.id
       });
-      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cleaner/available-jobs"] });
@@ -143,8 +164,7 @@ export default function CleanerDashboard() {
   // Start job mutation
   const startJob = useMutation({
     mutationFn: async (jobId: string) => {
-      const res = await apiRequest("POST", `/api/cleaner/start-job/${jobId}`, {});
-      return res.json();
+      return await apiRequest("POST", `/api/cleaner/start-job/${jobId}`, {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cleaner/my-jobs"] });
@@ -154,11 +174,10 @@ export default function CleanerDashboard() {
   // Complete job mutation
   const completeJob = useMutation({
     mutationFn: async ({ jobId, photoURL }: { jobId: string; photoURL: string }) => {
-      const res = await apiRequest("POST", `/api/cleaner/complete-job/${jobId}`, { 
+      return await apiRequest("POST", `/api/cleaner/complete-job/${jobId}`, { 
         proofPhotoURL: photoURL,
         userId: currentUser?.id
       });
-      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cleaner/my-jobs"] });
@@ -174,11 +193,10 @@ export default function CleanerDashboard() {
   // Update location mutation
   const updateLocation = useMutation({
     mutationFn: async ({ latitude, longitude }: { latitude: number; longitude: number }) => {
-      const res = await apiRequest("POST", "/api/cleaner/update-location", {
+      return await apiRequest("POST", "/api/cleaner/update-location", {
         latitude,
         longitude,
       });
-      return res.json();
     },
   });
 
@@ -300,7 +318,7 @@ export default function CleanerDashboard() {
               </Badge>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             {/* Shift Status */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -336,6 +354,109 @@ export default function CleanerDashboard() {
                   Start Shift
                 </Button>
               )}
+            </div>
+
+            {/* Shift History Button */}
+            <div className="pt-2 border-t">
+              <Dialog open={shiftHistoryDialogOpen} onOpenChange={setShiftHistoryDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    data-testid="button-shift-history"
+                  >
+                    <History className="mr-2 h-4 w-4" />
+                    View Shift History
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Shift History</DialogTitle>
+                    <DialogDescription>
+                      View your past and ongoing shifts
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="space-y-4">
+                    {isLoadingShiftHistory ? (
+                      <div className="space-y-3">
+                        {[1, 2, 3].map((i) => (
+                          <Skeleton key={i} className="h-24 w-full" />
+                        ))}
+                      </div>
+                    ) : shiftHistory.length === 0 ? (
+                      <Card className="p-8 text-center">
+                        <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                        <p className="text-muted-foreground">No shift history found</p>
+                      </Card>
+                    ) : (
+                      <div className="space-y-3">
+                        {shiftHistory.map((shift) => {
+                          const isOngoing = !shift.shiftEnd;
+                          const durationText = shift.durationMinutes 
+                            ? `${Math.floor(shift.durationMinutes / 60)}h ${shift.durationMinutes % 60}m`
+                            : "Ongoing";
+                          
+                          return (
+                            <Card key={shift.id} data-testid={`shift-${shift.id}`}>
+                              <CardHeader className="pb-3">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div>
+                                    <CardTitle className="text-base">
+                                      {format(new Date(shift.shiftStart), "PPP")}
+                                    </CardTitle>
+                                  </div>
+                                  <Badge 
+                                    variant={isOngoing ? "default" : "secondary"}
+                                    data-testid={`badge-status-${shift.id}`}
+                                  >
+                                    {isOngoing ? "Ongoing" : "Completed"}
+                                  </Badge>
+                                </div>
+                              </CardHeader>
+                              <CardContent className="space-y-2">
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                  <div>
+                                    <p className="text-muted-foreground">Start Time</p>
+                                    <p className="font-medium" data-testid={`shift-start-${shift.id}`}>
+                                      {format(new Date(shift.shiftStart), "p")}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {formatDistanceToNow(new Date(shift.shiftStart), { addSuffix: true })}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground">
+                                      {isOngoing ? "Current Duration" : "End Time"}
+                                    </p>
+                                    {isOngoing ? (
+                                      <>
+                                        <p className="font-medium" data-testid={`shift-duration-${shift.id}`}>
+                                          {formatDistanceToNow(new Date(shift.shiftStart))}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">In progress</p>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <p className="font-medium" data-testid={`shift-end-${shift.id}`}>
+                                          {shift.shiftEnd ? format(new Date(shift.shiftEnd), "p") : "-"}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                          Duration: {durationText}
+                                        </p>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </CardContent>
         </Card>

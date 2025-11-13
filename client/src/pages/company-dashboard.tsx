@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Users, Briefcase, DollarSign, Star, TrendingUp, UserPlus, AlertCircle, Phone, CheckCircle, Clock, XCircle, FileText, ShieldOff, ShieldCheck, Map, Settings } from "lucide-react";
+import { Users, Briefcase, DollarSign, Star, TrendingUp, UserPlus, AlertCircle, Phone, CheckCircle, Clock, XCircle, FileText, ShieldOff, ShieldCheck, Map, Settings, History } from "lucide-react";
 import { CompanyAnalytics, Cleaner, Company, CleanerInvitation } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -16,6 +16,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatDistanceToNow, format } from "date-fns";
 import GeofenceEditor from "@/components/geofence-editor";
 import GeofenceManager from "@/components/geofence-manager";
 
@@ -35,6 +37,8 @@ export default function CompanyDashboard() {
   const [reactivatingCleanerId, setReactivatingCleanerId] = useState<number | null>(null);
   const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
   const [showGeofence, setShowGeofence] = useState(false);
+  const [shiftHistoryDialogOpen, setShiftHistoryDialogOpen] = useState(false);
+  const [selectedCleanerId, setSelectedCleanerId] = useState<string>("all");
 
   // Helper function to check if a cleaner is truly online (active within last 10 minutes)
   const isCleanerOnline = (cleaner: Cleaner): boolean => {
@@ -85,6 +89,28 @@ export default function CompanyDashboard() {
     queryKey: ["/api/company/geofences"],
     enabled: !!currentUser?.companyId && company?.isActive === 1,
   });
+
+  type ShiftHistoryItem = {
+    id: number;
+    cleanerId: number;
+    companyId: number;
+    shiftStart: string;
+    shiftEnd: string | null;
+    durationMinutes: number | null;
+    cleanerName: string;
+  };
+
+  const { data: shiftHistory = [], isLoading: isLoadingShiftHistory, refetch: refetchShiftHistory } = useQuery<ShiftHistoryItem[]>({
+    queryKey: ["/api/company/shift-history", selectedCleanerId !== "all" ? { cleanerId: selectedCleanerId } : {}],
+    enabled: shiftHistoryDialogOpen && !!currentUser?.companyId,
+  });
+
+  // Refetch when dialog opens or when cleaner filter changes
+  useEffect(() => {
+    if (shiftHistoryDialogOpen) {
+      refetchShiftHistory();
+    }
+  }, [shiftHistoryDialogOpen, selectedCleanerId, refetchShiftHistory]);
 
   const inviteCleanerMutation = useMutation({
     mutationFn: async (data: { phoneNumber: string; geofenceIds?: number[]; assignAll?: boolean }) => {
@@ -354,6 +380,101 @@ export default function CompanyDashboard() {
               <Map className="mr-2 h-4 w-4" />
               {showGeofence ? "Hide" : "Manage"} Working Area
             </Button>
+
+            <Dialog open={shiftHistoryDialogOpen} onOpenChange={setShiftHistoryDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  data-testid="button-shift-history"
+                  disabled={company?.isActive === 0}
+                >
+                  <History className="mr-2 h-4 w-4" />
+                  Shift History
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Shift History</DialogTitle>
+                  <DialogDescription>
+                    View shift history for all cleaners or filter by specific cleaner
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-4">
+                  {/* Cleaner Filter */}
+                  <div className="flex items-center gap-4">
+                    <Label>Filter by Cleaner:</Label>
+                    <Select value={selectedCleanerId} onValueChange={setSelectedCleanerId}>
+                      <SelectTrigger className="w-[280px]" data-testid="select-cleaner-filter">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Cleaners</SelectItem>
+                        {cleaners?.map((cleaner) => (
+                          <SelectItem key={cleaner.id} value={cleaner.id.toString()}>
+                            {cleaner.displayName || `Cleaner #${cleaner.id}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Shift History List */}
+                  {isLoadingShiftHistory ? (
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((i) => (
+                        <Skeleton key={i} className="h-24 w-full" />
+                      ))}
+                    </div>
+                  ) : shiftHistory.length === 0 ? (
+                    <Card className="p-8 text-center">
+                      <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                      <p className="text-muted-foreground">No shift history found</p>
+                    </Card>
+                  ) : (
+                    <div className="space-y-3">
+                      {shiftHistory.map((shift) => {
+                        const isOngoing = !shift.shiftEnd;
+                        const durationText = shift.durationMinutes 
+                          ? `${Math.floor(shift.durationMinutes / 60)}h ${shift.durationMinutes % 60}m`
+                          : "Ongoing";
+
+                        return (
+                          <Card key={shift.id} className="p-4" data-testid={`shift-${shift.id}`}>
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <p className="font-medium">{shift.cleanerName || `Cleaner #${shift.cleanerId}`}</p>
+                                  <Badge variant={isOngoing ? "default" : "secondary"}>
+                                    {isOngoing ? "Ongoing" : "Completed"}
+                                  </Badge>
+                                </div>
+                                <div className="text-sm text-muted-foreground space-y-1">
+                                  <p>
+                                    <strong>Date:</strong> {format(new Date(shift.shiftStart), "PPP")}
+                                  </p>
+                                  <p>
+                                    <strong>Started:</strong> {formatDistanceToNow(new Date(shift.shiftStart), { addSuffix: true })}
+                                  </p>
+                                  {shift.shiftEnd && (
+                                    <p>
+                                      <strong>Ended:</strong> {formatDistanceToNow(new Date(shift.shiftEnd), { addSuffix: true })}
+                                    </p>
+                                  )}
+                                  <p>
+                                    <strong>Duration:</strong> {durationText}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
             
             <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
               <DialogTrigger asChild>
