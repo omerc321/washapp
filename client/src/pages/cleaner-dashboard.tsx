@@ -25,6 +25,7 @@ export default function CleanerDashboard() {
   const { data: cleaner, isLoading: loadingCleaner } = useQuery<Cleaner>({
     queryKey: ["/api/cleaner/profile"],
     enabled: !!currentUser,
+    staleTime: 0,
   });
 
   // Get available jobs
@@ -46,6 +47,7 @@ export default function CleanerDashboard() {
   const { data: shiftData } = useQuery<{ activeShift: any; cleaner: Cleaner }>({
     queryKey: ["/api/cleaner/shift-status"],
     enabled: !!cleaner,
+    staleTime: 0,
   });
 
   // WebSocket for real-time job updates
