@@ -176,6 +176,32 @@ export const cleanerGeofenceAssignmentsRelations = relations(cleanerGeofenceAssi
   }),
 }));
 
+// Cleaner Shifts Table - Track shift start/end times
+export const cleanerShifts = pgTable("cleaner_shifts", {
+  id: serial("id").primaryKey(),
+  cleanerId: integer("cleaner_id").notNull().references(() => cleaners.id, { onDelete: "cascade" }),
+  companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  shiftStart: timestamp("shift_start").notNull(),
+  shiftEnd: timestamp("shift_end"),
+  durationMinutes: integer("duration_minutes"),
+  startLatitude: numeric("start_latitude", { precision: 10, scale: 8 }),
+  startLongitude: numeric("start_longitude", { precision: 11, scale: 8 }),
+  endLatitude: numeric("end_latitude", { precision: 10, scale: 8 }),
+  endLongitude: numeric("end_longitude", { precision: 11, scale: 8 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const cleanerShiftsRelations = relations(cleanerShifts, ({ one }) => ({
+  cleaner: one(cleaners, {
+    fields: [cleanerShifts.cleanerId],
+    references: [cleaners.id],
+  }),
+  company: one(companies, {
+    fields: [cleanerShifts.companyId],
+    references: [companies.id],
+  }),
+}));
+
 // Jobs Table
 export const jobs = pgTable("jobs", {
   id: serial("id").primaryKey(),
@@ -475,6 +501,13 @@ export const insertCleanerGeofenceAssignmentSchema = createInsertSchema(cleanerG
 
 export const selectCleanerGeofenceAssignmentSchema = createSelectSchema(cleanerGeofenceAssignments);
 
+export const insertCleanerShiftSchema = createInsertSchema(cleanerShifts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const selectCleanerShiftSchema = createSelectSchema(cleanerShifts);
+
 // TypeScript Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -496,6 +529,9 @@ export type InsertCompanyGeofence = z.infer<typeof insertCompanyGeofenceSchema>;
 
 export type CleanerGeofenceAssignment = typeof cleanerGeofenceAssignments.$inferSelect;
 export type InsertCleanerGeofenceAssignment = z.infer<typeof insertCleanerGeofenceAssignmentSchema>;
+
+export type CleanerShift = typeof cleanerShifts.$inferSelect;
+export type InsertCleanerShift = z.infer<typeof insertCleanerShiftSchema>;
 
 export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
