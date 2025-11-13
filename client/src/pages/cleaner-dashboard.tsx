@@ -300,58 +300,42 @@ export default function CleanerDashboard() {
               </Badge>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="availability" className="text-base">
-                Available for Jobs
-              </Label>
-              <Switch
-                id="availability"
-                checked={cleaner.status === CleanerStatus.ON_DUTY}
-                onCheckedChange={(checked) =>
-                  toggleAvailability.mutate(checked ? CleanerStatus.ON_DUTY : CleanerStatus.OFF_DUTY)
-                }
-                data-testid="switch-availability"
-              />
-            </div>
-
+          <CardContent>
             {/* Shift Status */}
-            <div className="pt-4 border-t">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Clock className={shiftData?.activeShift ? "text-green-500" : "text-muted-foreground"} />
-                  <div>
-                    <p className="text-sm font-medium">
-                      {shiftData?.activeShift ? "Shift Active" : "No Active Shift"}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className={shiftData?.activeShift ? "text-green-500" : "text-muted-foreground"} />
+                <div>
+                  <p className="text-sm font-medium">
+                    {shiftData?.activeShift ? "On Shift" : "No Active Shift"}
+                  </p>
+                  {shiftData?.activeShift && (
+                    <p className="text-xs text-muted-foreground">
+                      Started {new Date(shiftData.activeShift.startedAt).toLocaleTimeString()}
                     </p>
-                    {shiftData?.activeShift && (
-                      <p className="text-xs text-muted-foreground">
-                        Started {new Date(shiftData.activeShift.startedAt).toLocaleTimeString()}
-                      </p>
-                    )}
-                  </div>
+                  )}
                 </div>
-                {shiftData?.activeShift ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => endShift.mutate()}
-                    disabled={endShift.isPending}
-                    data-testid="button-end-shift"
-                  >
-                    End Shift
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    onClick={() => startShift.mutate()}
-                    disabled={startShift.isPending}
-                    data-testid="button-start-shift"
-                  >
-                    Start Shift
-                  </Button>
-                )}
               </div>
+              {shiftData?.activeShift ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => endShift.mutate()}
+                  disabled={endShift.isPending}
+                  data-testid="button-stop-shift"
+                >
+                  Stop Shift
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={() => startShift.mutate()}
+                  disabled={startShift.isPending}
+                  data-testid="button-start-shift"
+                >
+                  Start Shift
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
