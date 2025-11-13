@@ -452,6 +452,19 @@ function JobCard({
           </div>
         )}
 
+        {/* Proof Photo - Show after completion */}
+        {job.status === JobStatus.COMPLETED && job.proofPhotoURL && (
+          <div className="pt-2 border-t">
+            <p className="text-sm text-muted-foreground mb-2">Completion Photo</p>
+            <img 
+              src={job.proofPhotoURL} 
+              alt="Completed car wash proof" 
+              className="w-full h-auto rounded-lg border"
+              data-testid={`img-proof-${job.id}`}
+            />
+          </div>
+        )}
+
         {job.rating && (
           <div className="flex items-center gap-2 pt-2 border-t">
             <div className="flex">
