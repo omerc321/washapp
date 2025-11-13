@@ -23,6 +23,7 @@ export const users = pgTable("users", {
   photoURL: text("photo_url"),
   phoneNumber: varchar("phone_number", { length: 50 }),
   companyId: integer("company_id"),
+  soundEnabled: integer("sound_enabled").notNull().default(1),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

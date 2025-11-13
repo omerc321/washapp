@@ -59,6 +59,12 @@ export class PushNotificationService {
   static async sendToCustomer(customerId: number, payload: PushNotificationPayload): Promise<void> {
     try {
       const subscriptions = await storage.getCustomerPushSubscriptions(customerId);
+      console.log(`[Push] Customer #${customerId} has ${subscriptions.length} subscription(s)`);
+      
+      if (subscriptions.length === 0) {
+        console.log(`[Push] No active subscriptions for customer #${customerId} - notification not sent`);
+        return;
+      }
       
       const promises = subscriptions.map(async (sub) => {
         try {
@@ -131,6 +137,8 @@ export class PushNotificationService {
     cleanerId?: number;
     userId?: number;
   }): Promise<void> {
+    console.log(`[Push] Job status change: Job #${jobId} → ${newStatus}, customerId: ${context.customerId || 'none'}`);
+    
     let payload: PushNotificationPayload | null = null;
 
     switch (newStatus) {
@@ -143,7 +151,10 @@ export class PushNotificationService {
           data: { jobId, type: 'job_status_change', status: newStatus },
         };
         if (context.customerId) {
+          console.log(`[Push] Sending PAID notification to customer #${context.customerId}`);
           await this.sendToCustomer(context.customerId, payload);
+        } else {
+          console.log(`[Push] Skipping PAID notification - no customerId`);
         }
         break;
 
@@ -157,7 +168,10 @@ export class PushNotificationService {
           requireInteraction: true,
         };
         if (context.customerId) {
+          console.log(`[Push] Sending ASSIGNED notification to customer #${context.customerId}`);
           await this.sendToCustomer(context.customerId, payload);
+        } else {
+          console.log(`[Push] Skipping ASSIGNED notification - no customerId`);
         }
         break;
 
@@ -170,7 +184,10 @@ export class PushNotificationService {
           data: { jobId, type: 'job_status_change', status: newStatus, url: `/customer/track/${context.carPlateNumber}` },
         };
         if (context.customerId) {
+          console.log(`[Push] Sending IN_PROGRESS notification to customer #${context.customerId}`);
           await this.sendToCustomer(context.customerId, payload);
+        } else {
+          console.log(`[Push] Skipping IN_PROGRESS notification - no customerId`);
         }
         break;
 
@@ -184,7 +201,10 @@ export class PushNotificationService {
           requireInteraction: true,
         };
         if (context.customerId) {
+          console.log(`[Push] Sending COMPLETED notification to customer #${context.customerId}`);
           await this.sendToCustomer(context.customerId, payload);
+        } else {
+          console.log(`[Push] Skipping COMPLETED notification - no customerId`);
         }
         break;
 
@@ -197,7 +217,10 @@ export class PushNotificationService {
           data: { jobId, type: 'job_status_change', status: newStatus },
         };
         if (context.customerId) {
+          console.log(`[Push] Sending CANCELLED notification to customer #${context.customerId}`);
           await this.sendToCustomer(context.customerId, payload);
+        } else {
+          console.log(`[Push] Skipping CANCELLED notification - no customerId`);
         }
         break;
 
@@ -210,7 +233,10 @@ export class PushNotificationService {
           data: { jobId, type: 'job_status_change', status: newStatus },
         };
         if (context.customerId) {
+          console.log(`[Push] Sending REFUNDED notification to customer #${context.customerId}`);
           await this.sendToCustomer(context.customerId, payload);
+        } else {
+          console.log(`[Push] Skipping REFUNDED notification - no customerId`);
         }
         break;
     }
