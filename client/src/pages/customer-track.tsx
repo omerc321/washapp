@@ -32,6 +32,7 @@ export default function CustomerTrack() {
       return res.json();
     },
     enabled: !!plateNumber,
+    staleTime: 0,
   });
 
   const { permission, isSubscribed, soundEnabled, isLoading: pushLoading, subscribe, unsubscribe, toggleSound } = usePushNotifications({
