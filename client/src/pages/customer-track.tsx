@@ -45,7 +45,7 @@ export default function CustomerTrack() {
     refetchOnReconnect: true,
   });
 
-  const { permission, isSubscribed, soundEnabled, isLoading: pushLoading, subscribe, unsubscribe, toggleSound } = usePushNotifications({
+  const { permission, isSubscribed, soundEnabled, isLoading: pushLoading, isSupported, subscribe, unsubscribe, toggleSound } = usePushNotifications({
     plateNumber,
   });
 
@@ -172,8 +172,8 @@ export default function CustomerTrack() {
       {/* Content */}
       <div className="flex-1 max-w-md mx-auto w-full px-4 py-6 pb-20">
 
-        {/* Push Notification Banner */}
-        {!isSubscribed && permission === 'default' && jobs && jobs.length > 0 && (
+        {/* Push Notification Banner - Only show if supported */}
+        {isSupported && !isSubscribed && permission === 'default' && jobs && jobs.length > 0 && (
           <Card className="mb-4 border-primary/20 bg-primary/5">
             <CardContent className="p-4">
               <div className="flex items-start gap-3">

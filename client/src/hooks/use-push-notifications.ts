@@ -13,10 +13,19 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSupported, setIsSupported] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    if ('Notification' in window) {
+    // Check if push notifications are supported
+    const supported = 
+      'Notification' in window && 
+      'serviceWorker' in navigator && 
+      'PushManager' in window;
+    
+    setIsSupported(supported);
+    
+    if (supported) {
       setPermission(Notification.permission);
     }
   }, []);
@@ -65,9 +74,21 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
 
   const subscribe = useCallback(async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      // Detect iOS Safari
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      
+      let description = 'Push notifications are not supported in this browser';
+      
+      if (isIOS) {
+        description = 'For iOS: Install this app to your home screen to enable notifications';
+      } else if (isSafari) {
+        description = 'Safari requires installing the app to home screen for notifications';
+      }
+      
       toast({
         title: 'Not Supported',
-        description: 'Push notifications are not supported in this browser',
+        description,
         variant: 'destructive',
       });
       return false;
@@ -223,6 +244,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
     isSubscribed,
     soundEnabled,
     isLoading,
+    isSupported,
     subscribe,
     unsubscribe,
     toggleSound,
