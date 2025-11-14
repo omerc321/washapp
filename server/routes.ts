@@ -978,8 +978,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Cleaner profile not found" });
       }
       
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-      const history = await storage.getCleanerShiftHistory(cleaner.id, limit);
+      const filters: any = {};
+      
+      if (req.query.startDate) {
+        filters.startDate = new Date(req.query.startDate as string);
+      }
+      
+      if (req.query.endDate) {
+        filters.endDate = new Date(req.query.endDate as string);
+      }
+      
+      if (req.query.limit) {
+        filters.limit = parseInt(req.query.limit as string);
+      } else {
+        filters.limit = 100;
+      }
+      
+      const history = await storage.getCleanerShiftHistory(cleaner.id, filters);
       res.json(history);
     } catch (error: any) {
       res.status(500).json({ message: error.message });

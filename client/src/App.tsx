@@ -19,6 +19,7 @@ import Checkout from "@/pages/checkout";
 import CustomerJobs from "@/pages/customer-jobs";
 import CustomerTrack from "@/pages/customer-track";
 import CleanerDashboard from "@/pages/cleaner-dashboard";
+import CleanerShiftHistory from "@/pages/cleaner-shift-history";
 import AdminDashboard from "@/pages/admin-dashboard";
 import CompanyDashboard from "@/pages/company-dashboard";
 import CompanyFinancials from "@/pages/company-financials";
@@ -78,6 +79,9 @@ function Router() {
         {/* Cleaner Routes - Auth required */}
         <Route path="/cleaner">
           {() => <ProtectedRoute component={CleanerDashboard} allowedRoles={[UserRole.CLEANER]} />}
+        </Route>
+        <Route path="/cleaner/shift-history">
+          {() => <ProtectedRoute component={CleanerShiftHistory} allowedRoles={[UserRole.CLEANER]} />}
         </Route>
 
         {/* Company Routes - Auth required */}

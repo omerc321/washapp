@@ -123,7 +123,11 @@ export interface IStorage {
   startShift(cleanerId: number, latitude?: number, longitude?: number): Promise<CleanerShift>;
   endShift(cleanerId: number, latitude?: number, longitude?: number): Promise<void>;
   getActiveShift(cleanerId: number): Promise<CleanerShift | undefined>;
-  getCleanerShiftHistory(cleanerId: number, limit?: number): Promise<CleanerShift[]>;
+  getCleanerShiftHistory(cleanerId: number, filters?: {
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+  }): Promise<CleanerShift[]>;
   getCompanyShiftHistory(companyId: number, filters?: {
     cleanerId?: number;
     startDate?: Date;
@@ -863,13 +867,30 @@ export class DatabaseStorage implements IStorage {
     return shift;
   }
 
-  async getCleanerShiftHistory(cleanerId: number, limit: number = 10): Promise<CleanerShift[]> {
+  async getCleanerShiftHistory(cleanerId: number, filters?: {
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+  }): Promise<CleanerShift[]> {
+    const conditions = [eq(cleanerShifts.cleanerId, cleanerId)];
+    
+    if (filters?.startDate) {
+      conditions.push(gte(cleanerShifts.shiftStart, filters.startDate));
+    }
+    
+    if (filters?.endDate) {
+      // Add 1 day to endDate to include the entire day
+      const endOfDay = new Date(filters.endDate);
+      endOfDay.setDate(endOfDay.getDate() + 1);
+      conditions.push(sql`${cleanerShifts.shiftStart} < ${endOfDay}`);
+    }
+    
     return await db
       .select()
       .from(cleanerShifts)
-      .where(eq(cleanerShifts.cleanerId, cleanerId))
+      .where(and(...conditions))
       .orderBy(desc(cleanerShifts.shiftStart))
-      .limit(limit);
+      .limit(filters?.limit || 100);
   }
 
   async getCompanyShiftHistory(companyId: number, filters?: {

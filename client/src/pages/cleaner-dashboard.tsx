@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +8,6 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Car, MapPin, Phone, Building2, Upload, CheckCircle2, Clock, Navigation, History } from "lucide-react";
 import { Job, Cleaner, CleanerStatus, JobStatus } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
@@ -22,7 +22,6 @@ export default function CleanerDashboard() {
   const { toast } = useToast();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingJobId, setUploadingJobId] = useState<string | null>(null);
-  const [shiftHistoryDialogOpen, setShiftHistoryDialogOpen] = useState(false);
 
   // Get cleaner profile
   const { data: cleaner, isLoading: loadingCleaner } = useQuery<Cleaner>({
@@ -52,28 +51,6 @@ export default function CleanerDashboard() {
     enabled: !!cleaner,
     staleTime: 0,
   });
-
-  // Get shift history
-  type ShiftHistoryItem = {
-    id: number;
-    cleanerId: number;
-    companyId: number;
-    shiftStart: string;
-    shiftEnd: string | null;
-    durationMinutes: number | null;
-  };
-
-  const { data: shiftHistory = [], isLoading: isLoadingShiftHistory, refetch: refetchShiftHistory } = useQuery<ShiftHistoryItem[]>({
-    queryKey: ["/api/cleaner/shift-history"],
-    enabled: shiftHistoryDialogOpen && !!cleaner,
-  });
-
-  // Refetch when dialog opens
-  useEffect(() => {
-    if (shiftHistoryDialogOpen) {
-      refetchShiftHistory();
-    }
-  }, [shiftHistoryDialogOpen, refetchShiftHistory]);
 
   // WebSocket for real-time job updates
   useWebSocket({
@@ -358,105 +335,16 @@ export default function CleanerDashboard() {
 
             {/* Shift History Button */}
             <div className="pt-2 border-t">
-              <Dialog open={shiftHistoryDialogOpen} onOpenChange={setShiftHistoryDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    data-testid="button-shift-history"
-                  >
-                    <History className="mr-2 h-4 w-4" />
-                    View Shift History
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Shift History</DialogTitle>
-                    <DialogDescription>
-                      View your past and ongoing shifts
-                    </DialogDescription>
-                  </DialogHeader>
-
-                  <div className="space-y-4">
-                    {isLoadingShiftHistory ? (
-                      <div className="space-y-3">
-                        {[1, 2, 3].map((i) => (
-                          <Skeleton key={i} className="h-24 w-full" />
-                        ))}
-                      </div>
-                    ) : shiftHistory.length === 0 ? (
-                      <Card className="p-8 text-center">
-                        <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                        <p className="text-muted-foreground">No shift history found</p>
-                      </Card>
-                    ) : (
-                      <div className="space-y-3">
-                        {shiftHistory.map((shift) => {
-                          const isOngoing = !shift.shiftEnd;
-                          const durationText = shift.durationMinutes 
-                            ? `${Math.floor(shift.durationMinutes / 60)}h ${shift.durationMinutes % 60}m`
-                            : "Ongoing";
-                          
-                          return (
-                            <Card key={shift.id} data-testid={`shift-${shift.id}`}>
-                              <CardHeader className="pb-3">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div>
-                                    <CardTitle className="text-base">
-                                      {format(new Date(shift.shiftStart), "PPP")}
-                                    </CardTitle>
-                                  </div>
-                                  <Badge 
-                                    variant={isOngoing ? "default" : "secondary"}
-                                    data-testid={`badge-status-${shift.id}`}
-                                  >
-                                    {isOngoing ? "Ongoing" : "Completed"}
-                                  </Badge>
-                                </div>
-                              </CardHeader>
-                              <CardContent className="space-y-2">
-                                <div className="grid grid-cols-2 gap-4 text-sm">
-                                  <div>
-                                    <p className="text-muted-foreground">Start Time</p>
-                                    <p className="font-medium" data-testid={`shift-start-${shift.id}`}>
-                                      {format(new Date(shift.shiftStart), "p")}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {formatDistanceToNow(new Date(shift.shiftStart), { addSuffix: true })}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground">
-                                      {isOngoing ? "Current Duration" : "End Time"}
-                                    </p>
-                                    {isOngoing ? (
-                                      <>
-                                        <p className="font-medium" data-testid={`shift-duration-${shift.id}`}>
-                                          {formatDistanceToNow(new Date(shift.shiftStart))}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">In progress</p>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <p className="font-medium" data-testid={`shift-end-${shift.id}`}>
-                                          {shift.shiftEnd ? format(new Date(shift.shiftEnd), "p") : "-"}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">
-                                          Duration: {durationText}
-                                        </p>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <Link href="/cleaner/shift-history">
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  data-testid="button-shift-history"
+                >
+                  <History className="mr-2 h-4 w-4" />
+                  View Shift History
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>
