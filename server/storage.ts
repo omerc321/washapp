@@ -50,7 +50,7 @@ import {
   type CompanyWithCleaners,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, gte, inArray, isNull, isNotNull } from "drizzle-orm";
+import { eq, and, desc, sql, gte, inArray, isNull, isNotNull, not } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { pool } from "./db";
 
