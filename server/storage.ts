@@ -129,7 +129,7 @@ export interface IStorage {
     startDate?: Date;
     endDate?: Date;
     limit?: number;
-  }): Promise<CleanerShift[]>;
+  }): Promise<Array<CleanerShift & { cleanerName: string }>>;
   
   // Analytics
   getAdminAnalytics(): Promise<any>;
@@ -877,7 +877,7 @@ export class DatabaseStorage implements IStorage {
     startDate?: Date;
     endDate?: Date;
     limit?: number;
-  }): Promise<CleanerShift[]> {
+  }): Promise<Array<CleanerShift & { cleanerName: string }>> {
     const conditions = [eq(cleanerShifts.companyId, companyId)];
     
     if (filters?.cleanerId) {
@@ -895,12 +895,32 @@ export class DatabaseStorage implements IStorage {
       conditions.push(sql`${cleanerShifts.shiftStart} < ${endOfDay}`);
     }
 
-    return await db
-      .select()
+    const results = await db
+      .select({
+        id: cleanerShifts.id,
+        cleanerId: cleanerShifts.cleanerId,
+        companyId: cleanerShifts.companyId,
+        shiftStart: cleanerShifts.shiftStart,
+        shiftEnd: cleanerShifts.shiftEnd,
+        durationMinutes: cleanerShifts.durationMinutes,
+        startLatitude: cleanerShifts.startLatitude,
+        startLongitude: cleanerShifts.startLongitude,
+        endLatitude: cleanerShifts.endLatitude,
+        endLongitude: cleanerShifts.endLongitude,
+        createdAt: cleanerShifts.createdAt,
+        cleanerName: users.displayName,
+      })
       .from(cleanerShifts)
+      .leftJoin(cleaners, eq(cleanerShifts.cleanerId, cleaners.id))
+      .leftJoin(users, eq(cleaners.userId, users.id))
       .where(and(...conditions))
       .orderBy(desc(cleanerShifts.shiftStart))
       .limit(filters?.limit || 100);
+
+    return results.map(r => ({
+      ...r,
+      cleanerName: r.cleanerName || 'Unknown',
+    }));
   }
 
   // ===== ANALYTICS =====
