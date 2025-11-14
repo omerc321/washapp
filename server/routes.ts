@@ -958,6 +958,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get active shift
   app.get("/api/cleaner/shift-status", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
     try {
+      res.set('Cache-Control', 'no-store, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      
       const cleaner = await storage.getCleanerByUserId(req.user!.id);
       if (!cleaner) {
         return res.status(404).json({ message: "Cleaner profile not found" });
@@ -973,6 +976,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get shift history
   app.get("/api/cleaner/shift-history", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
     try {
+      res.set('Cache-Control', 'no-store, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      
       const cleaner = await storage.getCleanerByUserId(req.user!.id);
       if (!cleaner) {
         return res.status(404).json({ message: "Cleaner profile not found" });
@@ -1077,6 +1083,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get available jobs for cleaner
   app.get("/api/cleaner/available-jobs", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
     try {
+      res.set('Cache-Control', 'no-store, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      
       const cleaner = await storage.getCleanerByUserId(req.user!.id);
 
       if (!cleaner) {
@@ -1125,6 +1134,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get cleaner's active jobs
   app.get("/api/cleaner/my-jobs", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
     try {
+      res.set('Cache-Control', 'no-store, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      
       const cleaner = await storage.getCleanerByUserId(req.user!.id);
 
       if (!cleaner) {
@@ -1263,6 +1275,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get company analytics
   app.get("/api/company/analytics", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
     try {
+      res.set('Cache-Control', 'no-store, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      
       if (!req.user?.companyId) {
         return res.status(400).json({ message: "No company associated with user" });
       }
@@ -1291,6 +1306,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get company shift history
   app.get("/api/company/shift-history", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
     try {
+      res.set('Cache-Control', 'no-store, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      
       if (!req.user?.companyId) {
         return res.status(400).json({ message: "No company associated with user" });
       }
@@ -1817,6 +1835,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get platform analytics
   app.get("/api/admin/analytics", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
     try {
+      res.set('Cache-Control', 'no-store, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      
       const analytics = await storage.getAdminAnalytics();
       res.json(analytics);
     } catch (error: any) {
@@ -1827,6 +1848,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get pending companies for approval
   app.get("/api/admin/pending-companies", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
     try {
+      res.set('Cache-Control', 'no-store, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      
       const companies = await storage.getPendingCompanies();
       res.json(companies);
     } catch (error: any) {
