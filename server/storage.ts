@@ -1343,6 +1343,25 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(companyWithdrawals.createdAt));
   }
 
+  // ===== TRANSACTION OPERATIONS =====
+
+  async getCompanyTransactions(companyId: number): Promise<Transaction[]> {
+    return await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.companyId, companyId))
+      .orderBy(desc(transactions.createdAt));
+  }
+
+  async createTransaction(transaction: InsertTransaction): Promise<Transaction> {
+    const [result] = await db
+      .insert(transactions)
+      .values(transaction)
+      .returning();
+    
+    return result;
+  }
+
   // ===== FINANCIAL AGGREGATIONS =====
 
   async getCompanyFinancialSummary(companyId: number): Promise<{
@@ -1386,6 +1405,16 @@ export class DatabaseStorage implements IStorage {
       .from(companyWithdrawals)
       .where(eq(companyWithdrawals.companyId, companyId));
 
+    const paymentSummary = await db
+      .select({
+        totalPayments: sql<string>`COALESCE(SUM(${transactions.amount}), 0)::text`,
+      })
+      .from(transactions)
+      .where(and(
+        eq(transactions.companyId, companyId),
+        eq(transactions.type, 'payment')
+      ));
+
     const totalRevenue = Number(financialSummary[0]?.totalRevenue || 0);
     const platformFees = Number(financialSummary[0]?.platformFees || 0);
     const paymentProcessingFees = Number(financialSummary[0]?.paymentProcessingFees || 0);
@@ -1394,7 +1423,8 @@ export class DatabaseStorage implements IStorage {
     const totalRefunds = Number(refundSummary[0]?.totalRefunds || 0);
     const totalWithdrawals = Number(withdrawalSummary[0]?.totalWithdrawals || 0);
     const pendingWithdrawals = Number(withdrawalSummary[0]?.pendingWithdrawals || 0);
-    const availableBalance = netEarnings - totalWithdrawals - pendingWithdrawals;
+    const totalPayments = Number(paymentSummary[0]?.totalPayments || 0);
+    const availableBalance = netEarnings - totalWithdrawals - pendingWithdrawals - totalPayments;
 
     return {
       totalRevenue,

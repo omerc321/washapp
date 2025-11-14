@@ -1941,6 +1941,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get company transactions
+  app.get("/api/admin/financials/company/:companyId/transactions", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
+    try {
+      res.setHeader('Cache-Control', 'no-store, must-revalidate');
+      const { companyId } = req.params;
+      const transactions = await storage.getCompanyTransactions(parseInt(companyId));
+      res.json(transactions);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Create payment transaction (reduces company balance)
+  app.post("/api/admin/financials/company/:companyId/transactions", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
+    try {
+      const { companyId } = req.params;
+      const { amount, description } = req.body;
+
+      const amountNumber = Number(amount);
+      if (!amountNumber || amountNumber <= 0) {
+        return res.status(400).json({ message: "Amount must be greater than 0" });
+      }
+
+      if (!description || description.trim().length === 0) {
+        return res.status(400).json({ message: "Description is required" });
+      }
+
+      const summary = await storage.getCompanyFinancialSummary(parseInt(companyId));
+      if (amountNumber > summary.availableBalance) {
+        return res.status(400).json({ message: "Payment amount exceeds available balance" });
+      }
+
+      const referenceNumber = `PAY-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
+
+      const transaction = await storage.createTransaction({
+        referenceNumber,
+        type: 'payment',
+        companyId: parseInt(companyId),
+        amount: amountNumber.toString(),
+        currency: 'AED',
+        description,
+      });
+
+      res.json(transaction);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ==== COMPANY FINANCIAL ROUTES ====
   
   // Get company financial overview

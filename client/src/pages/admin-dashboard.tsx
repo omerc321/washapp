@@ -36,6 +36,17 @@ interface CompanyWithdrawal {
   createdAt: Date;
 }
 
+interface Transaction {
+  id: number;
+  referenceNumber: string;
+  type: 'payment' | 'refund' | 'withdrawal';
+  companyId: number;
+  amount: string;
+  currency: string;
+  description: string | null;
+  createdAt: string;
+}
+
 function FinancialsTab() {
   const { toast } = useToast();
   const [selectedCompany, setSelectedCompany] = useState<number | null>(null);
@@ -44,6 +55,9 @@ function FinancialsTab() {
   const [referenceNumber, setReferenceNumber] = useState("");
   const [note, setNote] = useState("");
   const [status, setStatus] = useState<'completed' | 'cancelled'>('completed');
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentDescription, setPaymentDescription] = useState("");
 
   const { data: companies, isLoading: loadingCompanies } = useQuery<CompanyFinancialSummary[]>({
     queryKey: ["/api/admin/financials/companies"],
@@ -51,6 +65,11 @@ function FinancialsTab() {
 
   const { data: companyDetails, isLoading: loadingDetails } = useQuery({
     queryKey: ["/api/admin/financials/company", selectedCompany],
+    enabled: !!selectedCompany,
+  });
+
+  const { data: transactions = [], isLoading: loadingTransactions } = useQuery<Transaction[]>({
+    queryKey: ["/api/admin/financials/company", selectedCompany, "transactions"],
     enabled: !!selectedCompany,
   });
 
@@ -68,6 +87,31 @@ function FinancialsTab() {
       toast({
         title: "Withdrawal Processed",
         description: "The withdrawal has been updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createPaymentMutation = useMutation({
+    mutationFn: async (data: { amount: number; description: string }) => {
+      return await apiRequest("POST", `/api/admin/financials/company/${selectedCompany}/transactions`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/financials/companies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/financials/company", selectedCompany] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/financials/company", selectedCompany, "transactions"] });
+      setPaymentDialogOpen(false);
+      setPaymentAmount("");
+      setPaymentDescription("");
+      toast({
+        title: "Payment Transaction Created",
+        description: "The payment has been recorded successfully.",
       });
     },
     onError: (error: Error) => {
@@ -178,6 +222,62 @@ function FinancialsTab() {
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle>Transaction History</CardTitle>
+              <CardDescription>All financial transactions for this company</CardDescription>
+            </div>
+            <Button
+              onClick={() => setPaymentDialogOpen(true)}
+              data-testid="button-add-payment"
+            >
+              <Banknote className="h-4 w-4 mr-2" />
+              Add Payment
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {loadingTransactions ? (
+              <p className="text-center text-muted-foreground py-8">Loading transactions...</p>
+            ) : transactions.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Reference</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {transactions.map((transaction) => (
+                    <TableRow key={transaction.id} data-testid={`transaction-${transaction.id}`}>
+                      <TableCell className="text-sm">{new Date(transaction.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <span className={`inline-block px-2 py-1 text-xs rounded-full ${
+                          transaction.type === 'payment' ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100' :
+                          transaction.type === 'refund' ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100' :
+                          'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-100'
+                        }`}>
+                          {transaction.type}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm font-mono">{transaction.referenceNumber}</TableCell>
+                      <TableCell className="text-sm">{transaction.description || "—"}</TableCell>
+                      <TableCell className={`text-right font-medium ${transaction.type === 'payment' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                        {transaction.type === 'payment' ? '-' : '+'}{Number(transaction.amount).toFixed(2)} {transaction.currency}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">No transactions yet</p>
+            )}
+          </CardContent>
+        </Card>
+
         <Dialog open={withdrawalDialogOpen} onOpenChange={setWithdrawalDialogOpen}>
           <DialogContent data-testid="dialog-process-withdrawal">
             <DialogHeader>
@@ -244,6 +344,75 @@ function FinancialsTab() {
                 data-testid="button-submit-withdrawal"
               >
                 Update Withdrawal
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+          <DialogContent data-testid="dialog-add-payment">
+            <DialogHeader>
+              <DialogTitle>Add Payment Transaction</DialogTitle>
+              <DialogDescription>
+                Record a payment that reduces the company balance
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div>
+                <Label htmlFor="payment-amount">Amount (AED)</Label>
+                <Input
+                  id="payment-amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  data-testid="input-payment-amount"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Available balance: {companyDetails?.summary.availableBalance.toFixed(2)} AED
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="payment-description">Description</Label>
+                <Textarea
+                  id="payment-description"
+                  placeholder="Payment description or reference"
+                  value={paymentDescription}
+                  onChange={(e) => setPaymentDescription(e.target.value)}
+                  data-testid="textarea-payment-description"
+                />
+              </div>
+              <Button
+                className="w-full"
+                onClick={() => {
+                  const amount = parseFloat(paymentAmount);
+                  if (!amount || amount <= 0) {
+                    toast({
+                      title: "Invalid Amount",
+                      description: "Please enter a valid amount greater than 0",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  if (!paymentDescription.trim()) {
+                    toast({
+                      title: "Description Required",
+                      description: "Please enter a description for this payment",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  createPaymentMutation.mutate({
+                    amount,
+                    description: paymentDescription.trim(),
+                  });
+                }}
+                disabled={createPaymentMutation.isPending}
+                data-testid="button-submit-payment"
+              >
+                Create Payment Transaction
               </Button>
             </div>
           </DialogContent>
