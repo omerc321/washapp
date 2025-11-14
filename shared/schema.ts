@@ -406,7 +406,7 @@ export const transactions = pgTable("transactions", {
   id: serial("id").primaryKey(),
   referenceNumber: varchar("reference_number", { length: 100 }).notNull().unique(), // Unique transaction reference
   type: transactionTypeEnum("type").notNull(),
-  direction: transactionDirectionEnum("direction").notNull(),
+  direction: transactionDirectionEnum("direction").notNull().default('debit'),
   
   // Related entities
   jobId: integer("job_id"),
