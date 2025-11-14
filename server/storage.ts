@@ -1409,6 +1409,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(companyWithdrawals.companyId, companyId));
 
     // Sum debit adjustments (admin_payment, refund) - transactions that reduce balance
+    // Exclude withdrawal type to prevent double-counting (withdrawals tracked in companyWithdrawals table)
     const debitAdjustmentsSummary = await db
       .select({
         debitAdjustments: sql<string>`COALESCE(SUM(${transactions.amount}), 0)::text`,
@@ -1416,7 +1417,8 @@ export class DatabaseStorage implements IStorage {
       .from(transactions)
       .where(and(
         eq(transactions.companyId, companyId),
-        eq(transactions.direction, 'debit')
+        eq(transactions.direction, 'debit'),
+        not(eq(transactions.type, 'withdrawal'))
       ));
 
     const totalRevenue = Number(financialSummary[0]?.totalRevenue || 0);
@@ -1475,6 +1477,7 @@ export class DatabaseStorage implements IStorage {
           FROM ${transactions}
           WHERE ${transactions.companyId} = ${companies.id}
           AND ${transactions.direction} = 'debit'
+          AND ${transactions.type} != 'withdrawal'
         ), 0)::text`,
       })
       .from(companies)
