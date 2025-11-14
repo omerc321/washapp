@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Link } from "wouter";
 import { ArrowLeft, Download, Calendar, Clock } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import ExcelJS from "exceljs";
 
 type CleanerWithUser = {
@@ -242,11 +243,11 @@ export default function CompanyShiftHistory() {
           Showing {filteredShifts.length} shift{filteredShifts.length !== 1 ? "s" : ""}
         </div>
 
-        {/* Shift History List */}
+        {/* Shift History Table */}
         {isLoading ? (
           <div className="space-y-4">
             {[1, 2, 3, 4, 5].map((i) => (
-              <Skeleton key={i} className="h-32 w-full" />
+              <Skeleton key={i} className="h-16 w-full" />
             ))}
           </div>
         ) : filteredShifts.length === 0 ? (
@@ -260,89 +261,53 @@ export default function CompanyShiftHistory() {
             </p>
           </Card>
         ) : (
-          <div className="space-y-4">
-            {filteredShifts.map((shift) => {
-              const isOngoing = !shift.shiftEnd;
-              const durationText = shift.durationMinutes != null
-                ? `${Math.floor(shift.durationMinutes / 60)}h ${shift.durationMinutes % 60}m`
-                : "Ongoing";
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Cleaner Name</TableHead>
+                  <TableHead>Start Time</TableHead>
+                  <TableHead>End Time</TableHead>
+                  <TableHead>Total Duration</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredShifts.map((shift) => {
+                  const isOngoing = !shift.shiftEnd;
+                  const durationText = shift.durationMinutes != null
+                    ? `${Math.floor(shift.durationMinutes / 60)}h ${shift.durationMinutes % 60}m`
+                    : "Ongoing";
 
-              return (
-                <Card key={shift.id} data-testid={`shift-${shift.id}`}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg">
-                          {shift.cleanerName || `Cleaner #${shift.cleanerId}`}
-                        </CardTitle>
-                        <CardDescription className="mt-1">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-3 w-3" />
-                            {format(new Date(shift.shiftStart), "PPP")}
-                          </div>
-                        </CardDescription>
-                      </div>
-                      <Badge
-                        variant={isOngoing ? "default" : "secondary"}
-                        data-testid={`badge-status-${shift.id}`}
-                      >
-                        {isOngoing ? "Ongoing" : "Completed"}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                      {/* Start Time */}
-                      <div>
-                        <p className="text-muted-foreground font-medium mb-1">Start Time</p>
-                        <p className="font-semibold" data-testid={`shift-start-${shift.id}`}>
-                          {format(new Date(shift.shiftStart), "p")}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {formatDistanceToNow(new Date(shift.shiftStart), { addSuffix: true })}
-                        </p>
-                      </div>
-
-                      {/* End Time / Duration */}
-                      <div>
-                        <p className="text-muted-foreground font-medium mb-1">
-                          {isOngoing ? "Current Duration" : "End Time"}
-                        </p>
-                        {isOngoing ? (
-                          <>
-                            <p className="font-semibold" data-testid={`shift-duration-${shift.id}`}>
-                              {formatDistanceToNow(new Date(shift.shiftStart))}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">In progress</p>
-                          </>
-                        ) : (
-                          <>
-                            <p className="font-semibold" data-testid={`shift-end-${shift.id}`}>
-                              {shift.shiftEnd ? format(new Date(shift.shiftEnd), "p") : "-"}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Duration: {durationText}
-                            </p>
-                          </>
+                  return (
+                    <TableRow key={shift.id} data-testid={`shift-row-${shift.id}`}>
+                      <TableCell data-testid={`shift-date-${shift.id}`}>
+                        {format(new Date(shift.shiftStart), "MMM d, yyyy")}
+                      </TableCell>
+                      <TableCell data-testid={`shift-cleaner-${shift.id}`}>
+                        {shift.cleanerName || `Cleaner #${shift.cleanerId}`}
+                      </TableCell>
+                      <TableCell data-testid={`shift-start-${shift.id}`}>
+                        {format(new Date(shift.shiftStart), "h:mm a")}
+                      </TableCell>
+                      <TableCell data-testid={`shift-end-${shift.id}`}>
+                        {shift.shiftEnd ? format(new Date(shift.shiftEnd), "h:mm a") : (
+                          <Badge variant="default">Ongoing</Badge>
                         )}
-                      </div>
-
-                      {/* Total Duration */}
-                      {!isOngoing && (
-                        <div>
-                          <p className="text-muted-foreground font-medium mb-1">Total Duration</p>
-                          <p className="font-semibold">{durationText}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {shift.durationMinutes ? `${(shift.durationMinutes / 60).toFixed(1)} hours` : "-"}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                      </TableCell>
+                      <TableCell data-testid={`shift-duration-${shift.id}`}>
+                        {isOngoing ? (
+                          <Badge variant="default">Ongoing</Badge>
+                        ) : (
+                          durationText
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Card>
         )}
       </div>
     </div>
