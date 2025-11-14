@@ -206,7 +206,7 @@ export default function CleanerShiftHistory() {
           <div className="space-y-4">
             {shiftHistory.map((shift) => {
               const isOngoing = !shift.shiftEnd;
-              const durationText = shift.durationMinutes
+              const durationText = shift.durationMinutes != null
                 ? `${Math.floor(shift.durationMinutes / 60)}h ${shift.durationMinutes % 60}m`
                 : "Ongoing";
 
