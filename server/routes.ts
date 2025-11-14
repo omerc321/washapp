@@ -748,6 +748,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             new Date()
           );
           
+          // Create transaction record for customer payment
+          await storage.createTransaction({
+            referenceNumber: paymentIntent.id,
+            type: 'payment',
+            jobId: job.id,
+            companyId: job.companyId,
+            amount: (Number(job.price) + Number(job.tipAmount || 0)).toString(),
+            currency: 'AED',
+            description: `Customer payment for job ${job.id} - ${job.carPlateNumber}`,
+          });
+          
           // Broadcast update to relevant parties
           const updatedJob = await storage.getJob(job.id);
           if (updatedJob) {

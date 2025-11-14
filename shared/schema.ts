@@ -10,7 +10,8 @@ export const cleanerStatusEnum = pgEnum("cleaner_status", ["on_duty", "off_duty"
 export const invitationStatusEnum = pgEnum("invitation_status", ["pending", "consumed", "revoked"]);
 export const paymentMethodEnum = pgEnum("payment_method", ["card", "cash", "bank_transfer"]);
 export const withdrawalStatusEnum = pgEnum("withdrawal_status", ["pending", "completed", "cancelled"]);
-export const transactionTypeEnum = pgEnum("transaction_type", ["payment", "refund", "withdrawal"]);
+export const transactionTypeEnum = pgEnum("transaction_type", ["customer_payment", "admin_payment", "refund", "withdrawal"]);
+export const transactionDirectionEnum = pgEnum("transaction_direction", ["credit", "debit"]);
 export const assignmentModeEnum = pgEnum("assignment_mode", ["pool", "direct"]);
 
 // Users Table
@@ -405,6 +406,7 @@ export const transactions = pgTable("transactions", {
   id: serial("id").primaryKey(),
   referenceNumber: varchar("reference_number", { length: 100 }).notNull().unique(), // Unique transaction reference
   type: transactionTypeEnum("type").notNull(),
+  direction: transactionDirectionEnum("direction").notNull(),
   
   // Related entities
   jobId: integer("job_id"),
