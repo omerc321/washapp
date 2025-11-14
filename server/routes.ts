@@ -1280,10 +1280,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No company associated with user" });
       }
 
-      const cleanerId = req.query.cleanerId ? parseInt(req.query.cleanerId as string) : undefined;
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+      const filters: any = {};
       
-      const shifts = await storage.getCompanyShiftHistory(req.user.companyId, cleanerId, limit);
+      if (req.query.cleanerId) {
+        filters.cleanerId = parseInt(req.query.cleanerId as string);
+      }
+      
+      if (req.query.startDate) {
+        filters.startDate = new Date(req.query.startDate as string);
+      }
+      
+      if (req.query.endDate) {
+        filters.endDate = new Date(req.query.endDate as string);
+      }
+      
+      if (req.query.limit) {
+        filters.limit = parseInt(req.query.limit as string);
+      }
+      
+      const shifts = await storage.getCompanyShiftHistory(req.user.companyId, filters);
       res.json(shifts);
     } catch (error: any) {
       res.status(500).json({ message: error.message });

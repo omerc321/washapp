@@ -22,6 +22,7 @@ import CleanerDashboard from "@/pages/cleaner-dashboard";
 import AdminDashboard from "@/pages/admin-dashboard";
 import CompanyDashboard from "@/pages/company-dashboard";
 import CompanyFinancials from "@/pages/company-financials";
+import CompanyShiftHistory from "@/pages/company-shift-history";
 import { UserRole } from "@shared/schema";
 
 function ProtectedRoute({ 
@@ -85,6 +86,9 @@ function Router() {
         </Route>
         <Route path="/company/financials">
           {() => <ProtectedRoute component={CompanyFinancials} allowedRoles={[UserRole.COMPANY_ADMIN]} />}
+        </Route>
+        <Route path="/company/shift-history">
+          {() => <ProtectedRoute component={CompanyShiftHistory} allowedRoles={[UserRole.COMPANY_ADMIN]} />}
         </Route>
 
         {/* Admin Routes - Auth required */}

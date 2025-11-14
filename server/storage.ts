@@ -124,7 +124,12 @@ export interface IStorage {
   endShift(cleanerId: number, latitude?: number, longitude?: number): Promise<void>;
   getActiveShift(cleanerId: number): Promise<CleanerShift | undefined>;
   getCleanerShiftHistory(cleanerId: number, limit?: number): Promise<CleanerShift[]>;
-  getCompanyShiftHistory(companyId: number, cleanerId?: number, limit?: number): Promise<CleanerShift[]>;
+  getCompanyShiftHistory(companyId: number, filters?: {
+    cleanerId?: number;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+  }): Promise<CleanerShift[]>;
   
   // Analytics
   getAdminAnalytics(): Promise<any>;
@@ -867,10 +872,27 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
 
-  async getCompanyShiftHistory(companyId: number, cleanerId?: number, limit = 100): Promise<CleanerShift[]> {
+  async getCompanyShiftHistory(companyId: number, filters?: {
+    cleanerId?: number;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+  }): Promise<CleanerShift[]> {
     const conditions = [eq(cleanerShifts.companyId, companyId)];
-    if (cleanerId) {
-      conditions.push(eq(cleanerShifts.cleanerId, cleanerId));
+    
+    if (filters?.cleanerId) {
+      conditions.push(eq(cleanerShifts.cleanerId, filters.cleanerId));
+    }
+    
+    if (filters?.startDate) {
+      conditions.push(gte(cleanerShifts.shiftStart, filters.startDate));
+    }
+    
+    if (filters?.endDate) {
+      // Add 1 day to endDate to include the entire day
+      const endOfDay = new Date(filters.endDate);
+      endOfDay.setDate(endOfDay.getDate() + 1);
+      conditions.push(sql`${cleanerShifts.shiftStart} < ${endOfDay}`);
     }
 
     return await db
@@ -878,7 +900,7 @@ export class DatabaseStorage implements IStorage {
       .from(cleanerShifts)
       .where(and(...conditions))
       .orderBy(desc(cleanerShifts.shiftStart))
-      .limit(limit);
+      .limit(filters?.limit || 100);
   }
 
   // ===== ANALYTICS =====
