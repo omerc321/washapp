@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Building2, Users, Briefcase, DollarSign, TrendingUp, CheckCircle2, Check, X, ArrowLeft, Banknote } from "lucide-react";
-import { AdminAnalytics, Company } from "@shared/schema";
+import { AdminAnalytics, Company, Transaction, CompanyWithdrawal } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -23,28 +23,6 @@ interface CompanyFinancialSummary {
   netEarnings: number;
   totalWithdrawals: number;
   availableBalance: number;
-}
-
-interface CompanyWithdrawal {
-  id: number;
-  companyId: number;
-  amount: string;
-  status: 'pending' | 'completed' | 'cancelled';
-  referenceNumber?: string;
-  note?: string;
-  processedAt?: Date;
-  createdAt: Date;
-}
-
-interface Transaction {
-  id: number;
-  referenceNumber: string;
-  type: 'payment' | 'refund' | 'withdrawal';
-  companyId: number;
-  amount: string;
-  currency: string;
-  description: string | null;
-  createdAt: string;
 }
 
 function FinancialsTab() {
@@ -251,25 +229,40 @@ function FinancialsTab() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {transactions.map((transaction) => (
-                    <TableRow key={transaction.id} data-testid={`transaction-${transaction.id}`}>
-                      <TableCell className="text-sm">{new Date(transaction.createdAt).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        <span className={`inline-block px-2 py-1 text-xs rounded-full ${
-                          transaction.type === 'payment' ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100' :
-                          transaction.type === 'refund' ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100' :
-                          'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-100'
-                        }`}>
-                          {transaction.type}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-sm font-mono">{transaction.referenceNumber}</TableCell>
-                      <TableCell className="text-sm">{transaction.description || "—"}</TableCell>
-                      <TableCell className={`text-right font-medium ${transaction.type === 'payment' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                        {transaction.type === 'payment' ? '-' : '+'}{Number(transaction.amount).toFixed(2)} {transaction.currency}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {transactions.map((transaction) => {
+                    const typeLabels: Record<string, string> = {
+                      customer_payment: 'Customer Payment',
+                      admin_payment: 'Admin Payment',
+                      refund: 'Refund',
+                      withdrawal: 'Withdrawal',
+                    };
+                    const typeColors: Record<string, string> = {
+                      customer_payment: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100',
+                      admin_payment: 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-100',
+                      refund: 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100',
+                      withdrawal: 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-100',
+                    };
+                    const isCredit = transaction.direction === 'credit';
+                    const displayType = typeLabels[transaction.type] || transaction.type;
+                    
+                    return (
+                      <TableRow key={transaction.id} data-testid={`transaction-${transaction.id}`}>
+                        <TableCell className="text-sm">{new Date(transaction.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          <span className={`inline-block px-2 py-1 text-xs rounded-full ${
+                            typeColors[transaction.type] || 'bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100'
+                          }`}>
+                            {displayType}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm font-mono">{transaction.referenceNumber}</TableCell>
+                        <TableCell className="text-sm">{transaction.description || "—"}</TableCell>
+                        <TableCell className={`text-right font-medium ${isCredit ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {isCredit ? '+' : '-'}{Number(transaction.amount).toFixed(2)} {transaction.currency}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             ) : (
