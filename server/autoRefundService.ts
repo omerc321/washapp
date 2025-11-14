@@ -71,6 +71,7 @@ export async function checkAndRefundExpiredJobs() {
         // Create refund transaction record
         await db.insert(transactions).values({
           type: 'refund',
+          direction: 'debit',
           amount: job.price,
           currency: 'AED',
           jobId: job.id,

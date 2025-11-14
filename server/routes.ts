@@ -751,7 +751,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Create transaction record for customer payment
           await storage.createTransaction({
             referenceNumber: paymentIntent.id,
-            type: 'payment',
+            type: 'customer_payment',
+            direction: 'credit',
             jobId: job.id,
             companyId: job.companyId,
             amount: (Number(job.price) + Number(job.tipAmount || 0)).toString(),
@@ -1988,7 +1989,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const transaction = await storage.createTransaction({
         referenceNumber,
-        type: 'payment',
+        type: 'admin_payment',
+        direction: 'debit',
         companyId: parseInt(companyId),
         amount: amountNumber.toString(),
         currency: 'AED',

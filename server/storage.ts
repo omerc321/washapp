@@ -1408,14 +1408,15 @@ export class DatabaseStorage implements IStorage {
       .from(companyWithdrawals)
       .where(eq(companyWithdrawals.companyId, companyId));
 
-    const paymentSummary = await db
+    // Sum debit adjustments (admin_payment, refund) - transactions that reduce balance
+    const debitAdjustmentsSummary = await db
       .select({
-        totalPayments: sql<string>`COALESCE(SUM(${transactions.amount}), 0)::text`,
+        debitAdjustments: sql<string>`COALESCE(SUM(${transactions.amount}), 0)::text`,
       })
       .from(transactions)
       .where(and(
         eq(transactions.companyId, companyId),
-        eq(transactions.type, 'payment')
+        eq(transactions.direction, 'debit')
       ));
 
     const totalRevenue = Number(financialSummary[0]?.totalRevenue || 0);
@@ -1426,15 +1427,13 @@ export class DatabaseStorage implements IStorage {
     const totalRefunds = Number(refundSummary[0]?.totalRefunds || 0);
     const totalWithdrawals = Number(withdrawalSummary[0]?.totalWithdrawals || 0);
     const pendingWithdrawals = Number(withdrawalSummary[0]?.pendingWithdrawals || 0);
-    const totalPayments = Number(paymentSummary[0]?.totalPayments || 0);
+    const debitAdjustments = Number(debitAdjustmentsSummary[0]?.debitAdjustments || 0);
     
-    // DUAL-LEDGER DESIGN NOTE:
-    // This calculation assumes withdrawals (companyWithdrawals table) and payment transactions
-    // (transactions table with type='payment') are tracked separately with NO overlap.
-    // If withdrawals are migrated to also create transaction records (type='withdrawal'),
-    // this will double-count and cause incorrect negative balances.
-    // TODO: Future migration to unified signed-amount ledger requires backfill and API updates.
-    const availableBalance = netEarnings - totalWithdrawals - pendingWithdrawals - totalPayments;
+    // BALANCE CALCULATION:
+    // netEarnings (from job_financials) already includes customer payments
+    // Subtract: completed withdrawals, pending withdrawals, and debit adjustments (refunds, admin_payments)
+    // Note: customer_payment transactions are NOT included (would double-count with job_financials)
+    const availableBalance = netEarnings - totalWithdrawals - pendingWithdrawals - debitAdjustments;
 
     return {
       totalRevenue,
@@ -1471,11 +1470,11 @@ export class DatabaseStorage implements IStorage {
           WHERE ${companyWithdrawals.companyId} = ${companies.id}
           AND ${companyWithdrawals.status} = 'completed'
         ), 0)::text`,
-        totalPayments: sql<string>`COALESCE((
+        debitAdjustments: sql<string>`COALESCE((
           SELECT SUM(${transactions.amount})
           FROM ${transactions}
           WHERE ${transactions.companyId} = ${companies.id}
-          AND ${transactions.type} = 'payment'
+          AND ${transactions.direction} = 'debit'
         ), 0)::text`,
       })
       .from(companies)
@@ -1490,7 +1489,7 @@ export class DatabaseStorage implements IStorage {
       platformFees: Number(row.platformFees || 0),
       netEarnings: Number(row.netEarnings || 0),
       totalWithdrawals: Number(row.totalWithdrawals || 0),
-      availableBalance: Number(row.netEarnings || 0) - Number(row.totalWithdrawals || 0) - Number(row.totalPayments || 0),
+      availableBalance: Number(row.netEarnings || 0) - Number(row.totalWithdrawals || 0) - Number(row.debitAdjustments || 0),
     }));
   }
 
