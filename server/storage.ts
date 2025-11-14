@@ -170,6 +170,10 @@ export interface IStorage {
   getCompanyWithdrawals(companyId: number): Promise<CompanyWithdrawal[]>;
   getAllWithdrawals(): Promise<CompanyWithdrawal[]>;
   
+  // Transaction operations
+  getCompanyTransactions(companyId: number): Promise<Transaction[]>;
+  createTransaction(transaction: InsertTransaction): Promise<Transaction>;
+  
   // Financial aggregations
   getCompanyFinancialSummary(companyId: number): Promise<{
     totalRevenue: number;
