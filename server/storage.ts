@@ -1424,6 +1424,13 @@ export class DatabaseStorage implements IStorage {
     const totalWithdrawals = Number(withdrawalSummary[0]?.totalWithdrawals || 0);
     const pendingWithdrawals = Number(withdrawalSummary[0]?.pendingWithdrawals || 0);
     const totalPayments = Number(paymentSummary[0]?.totalPayments || 0);
+    
+    // DUAL-LEDGER DESIGN NOTE:
+    // This calculation assumes withdrawals (companyWithdrawals table) and payment transactions
+    // (transactions table with type='payment') are tracked separately with NO overlap.
+    // If withdrawals are migrated to also create transaction records (type='withdrawal'),
+    // this will double-count and cause incorrect negative balances.
+    // TODO: Future migration to unified signed-amount ledger requires backfill and API updates.
     const availableBalance = netEarnings - totalWithdrawals - pendingWithdrawals - totalPayments;
 
     return {
@@ -1461,6 +1468,12 @@ export class DatabaseStorage implements IStorage {
           WHERE ${companyWithdrawals.companyId} = ${companies.id}
           AND ${companyWithdrawals.status} = 'completed'
         ), 0)::text`,
+        totalPayments: sql<string>`COALESCE((
+          SELECT SUM(${transactions.amount})
+          FROM ${transactions}
+          WHERE ${transactions.companyId} = ${companies.id}
+          AND ${transactions.type} = 'payment'
+        ), 0)::text`,
       })
       .from(companies)
       .leftJoin(jobFinancials, eq(jobFinancials.companyId, companies.id))
@@ -1474,7 +1487,7 @@ export class DatabaseStorage implements IStorage {
       platformFees: Number(row.platformFees || 0),
       netEarnings: Number(row.netEarnings || 0),
       totalWithdrawals: Number(row.totalWithdrawals || 0),
-      availableBalance: Number(row.netEarnings || 0) - Number(row.totalWithdrawals || 0),
+      availableBalance: Number(row.netEarnings || 0) - Number(row.totalWithdrawals || 0) - Number(row.totalPayments || 0),
     }));
   }
 
