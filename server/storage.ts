@@ -1374,6 +1374,7 @@ export class DatabaseStorage implements IStorage {
     paymentProcessingFees: number;
     taxAmount: number;
     netEarnings: number;
+    adminPayouts: number;
     totalWithdrawals: number;
     pendingWithdrawals: number;
     availableBalance: number;
@@ -1413,30 +1414,26 @@ export class DatabaseStorage implements IStorage {
       .from(companyWithdrawals)
       .where(eq(companyWithdrawals.companyId, companyId));
 
-    // Sum debit adjustments (refund) - transactions that reduce balance
-    // Exclude withdrawal type to prevent double-counting (withdrawals tracked in companyWithdrawals table)
-    const debitAdjustmentsSummary = await db
+    // Sum admin payouts (admin_payment) - money already paid to company from their revenue
+    const adminPayoutsSummary = await db
       .select({
-        debitAdjustments: sql<string>`COALESCE(SUM(${transactions.amount}), 0)::text`,
+        adminPayouts: sql<string>`COALESCE(SUM(${transactions.amount}), 0)::text`,
       })
       .from(transactions)
       .where(and(
         eq(transactions.companyId, companyId),
-        eq(transactions.direction, 'debit'),
-        not(eq(transactions.type, 'withdrawal'))
+        eq(transactions.type, 'admin_payment')
       ));
 
-    // Sum credit adjustments (admin_payment) - transactions that increase balance
-    // Exclude customer_payment type to prevent double-counting (already in netEarnings from job_financials)
-    const creditAdjustmentsSummary = await db
+    // Sum refunds only (exclude admin_payment and withdrawal)
+    const refundsSummary = await db
       .select({
-        creditAdjustments: sql<string>`COALESCE(SUM(${transactions.amount}), 0)::text`,
+        refunds: sql<string>`COALESCE(SUM(${transactions.amount}), 0)::text`,
       })
       .from(transactions)
       .where(and(
         eq(transactions.companyId, companyId),
-        eq(transactions.direction, 'credit'),
-        not(eq(transactions.type, 'customer_payment'))
+        eq(transactions.type, 'refund')
       ));
 
     const totalRevenue = Number(financialSummary[0]?.totalRevenue || 0);
@@ -1447,15 +1444,14 @@ export class DatabaseStorage implements IStorage {
     const totalRefunds = Number(refundSummary[0]?.totalRefunds || 0);
     const totalWithdrawals = Number(withdrawalSummary[0]?.totalWithdrawals || 0);
     const pendingWithdrawals = Number(withdrawalSummary[0]?.pendingWithdrawals || 0);
-    const debitAdjustments = Number(debitAdjustmentsSummary[0]?.debitAdjustments || 0);
-    const creditAdjustments = Number(creditAdjustmentsSummary[0]?.creditAdjustments || 0);
+    const adminPayouts = Number(adminPayoutsSummary[0]?.adminPayouts || 0);
+    const refundsFromTransactions = Number(refundsSummary[0]?.refunds || 0);
     
     // BALANCE CALCULATION:
-    // netEarnings (from job_financials) already includes customer payments
-    // Add: credit adjustments (admin_payment)
-    // Subtract: completed withdrawals, pending withdrawals, and debit adjustments (refunds)
+    // netEarnings = revenue from completed jobs (after all deductions)
+    // Subtract: admin payouts (already paid to company), withdrawals (requested/completed), refunds
     // Note: customer_payment transactions are NOT included (would double-count with job_financials)
-    const availableBalance = netEarnings + creditAdjustments - totalWithdrawals - pendingWithdrawals - debitAdjustments;
+    const availableBalance = netEarnings - adminPayouts - totalWithdrawals - pendingWithdrawals - refundsFromTransactions;
 
     return {
       totalRevenue,
@@ -1464,6 +1460,7 @@ export class DatabaseStorage implements IStorage {
       paymentProcessingFees,
       taxAmount,
       netEarnings,
+      adminPayouts,
       totalWithdrawals,
       pendingWithdrawals,
       availableBalance,
@@ -1493,19 +1490,17 @@ export class DatabaseStorage implements IStorage {
           WHERE ${companyWithdrawals.companyId} = ${companies.id}
           AND ${companyWithdrawals.status} = 'completed'
         ), 0)::text`,
-        debitAdjustments: sql<string>`COALESCE((
+        adminPayouts: sql<string>`COALESCE((
           SELECT SUM(${transactions.amount})
           FROM ${transactions}
           WHERE ${transactions.companyId} = ${companies.id}
-          AND ${transactions.direction} = 'debit'
-          AND ${transactions.type} != 'withdrawal'
+          AND ${transactions.type} = 'admin_payment'
         ), 0)::text`,
-        creditAdjustments: sql<string>`COALESCE((
+        refunds: sql<string>`COALESCE((
           SELECT SUM(${transactions.amount})
           FROM ${transactions}
           WHERE ${transactions.companyId} = ${companies.id}
-          AND ${transactions.direction} = 'credit'
-          AND ${transactions.type} != 'customer_payment'
+          AND ${transactions.type} = 'refund'
         ), 0)::text`,
       })
       .from(companies)
@@ -1521,7 +1516,7 @@ export class DatabaseStorage implements IStorage {
       platformFees: Number(row.platformFees || 0),
       netEarnings: Number(row.netEarnings || 0),
       totalWithdrawals: Number(row.totalWithdrawals || 0),
-      availableBalance: Number(row.netEarnings || 0) + Number(row.creditAdjustments || 0) - Number(row.totalWithdrawals || 0) - Number(row.debitAdjustments || 0),
+      availableBalance: Number(row.netEarnings || 0) - Number(row.adminPayouts || 0) - Number(row.totalWithdrawals || 0) - Number(row.refunds || 0),
     }));
   }
 
