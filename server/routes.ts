@@ -1965,7 +1965,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create payment transaction (reduces company balance)
+  // Create payment transaction (adds money to company balance)
   app.post("/api/admin/financials/company/:companyId/transactions", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
     try {
       const { companyId } = req.params;
@@ -1980,17 +1980,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Description is required" });
       }
 
-      const summary = await storage.getCompanyFinancialSummary(parseInt(companyId));
-      if (amountNumber > summary.availableBalance) {
-        return res.status(400).json({ message: "Payment amount exceeds available balance" });
-      }
-
       const referenceNumber = `PAY-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
 
       const transaction = await storage.createTransaction({
         referenceNumber,
         type: 'admin_payment',
-        direction: 'debit',
+        direction: 'credit',
         companyId: parseInt(companyId),
         amount: amountNumber.toString(),
         currency: 'AED',
