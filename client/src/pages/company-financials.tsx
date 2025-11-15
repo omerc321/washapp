@@ -57,6 +57,9 @@ interface Transaction {
   currency: string;
   description: string;
   createdAt: Date;
+  grossAmount?: string;
+  netAmount?: string;
+  taxAmount?: string;
 }
 
 export default function CompanyFinancials() {
@@ -311,9 +314,10 @@ export default function CompanyFinancials() {
                       <TableHead>Date</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Job ID</TableHead>
-                      <TableHead>Reference</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-right">Gross (incl. VAT)</TableHead>
+                      <TableHead className="text-right">VAT (5%)</TableHead>
+                      <TableHead className="text-right">Net Amount</TableHead>
+                      <TableHead className="text-right">Transaction</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -344,8 +348,15 @@ export default function CompanyFinancials() {
                           <TableCell data-testid={`transaction-job-${transaction.id}`}>
                             {transaction.jobId ? `#${transaction.jobId}` : '-'}
                           </TableCell>
-                          <TableCell className="font-mono text-xs">{transaction.referenceNumber}</TableCell>
-                          <TableCell className="text-sm max-w-xs truncate">{transaction.description}</TableCell>
+                          <TableCell className="text-right text-sm">
+                            {transaction.grossAmount ? `${Number(transaction.grossAmount).toFixed(2)} AED` : '-'}
+                          </TableCell>
+                          <TableCell className="text-right text-sm text-muted-foreground">
+                            {transaction.taxAmount ? `${Number(transaction.taxAmount).toFixed(2)} AED` : '-'}
+                          </TableCell>
+                          <TableCell className="text-right text-sm font-medium">
+                            {transaction.netAmount ? `${Number(transaction.netAmount).toFixed(2)} AED` : '-'}
+                          </TableCell>
                           <TableCell className={`text-right font-medium ${isCredit ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                             {isCredit ? '+' : '-'}{Number(transaction.amount).toFixed(2)} {transaction.currency}
                           </TableCell>
