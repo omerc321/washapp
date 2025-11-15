@@ -46,6 +46,19 @@ interface FinancialSummary {
   availableBalance: number;
 }
 
+interface Transaction {
+  id: number;
+  referenceNumber: string;
+  companyId: number;
+  jobId: number | null;
+  type: string;
+  direction: string;
+  amount: string;
+  currency: string;
+  description: string;
+  createdAt: Date;
+}
+
 export default function CompanyFinancials() {
   const { toast } = useToast();
   const [selectedCleanerId, setSelectedCleanerId] = useState<string>("all");
@@ -58,6 +71,10 @@ export default function CompanyFinancials() {
 
   const { data: summary, isLoading: loadingSummary } = useQuery<FinancialSummary>({
     queryKey: ["/api/company/financials/overview"],
+  });
+
+  const { data: adminPayouts, isLoading: loadingAdminPayouts } = useQuery<Transaction[]>({
+    queryKey: ["/api/company/financials/admin-payouts"],
   });
 
   const filters: any = {};
@@ -224,6 +241,50 @@ export default function CompanyFinancials() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Admin Payouts Section */}
+        {adminPayouts && adminPayouts.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Admin Payouts</CardTitle>
+              <CardDescription>Payments already made to your company</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingAdminPayouts ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Reference</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {adminPayouts.map((payout) => (
+                        <TableRow key={payout.id} data-testid={`payout-${payout.id}`}>
+                          <TableCell className="font-medium">{payout.referenceNumber}</TableCell>
+                          <TableCell>{new Date(payout.createdAt).toLocaleDateString()}</TableCell>
+                          <TableCell>{payout.description}</TableCell>
+                          <TableCell className="text-right font-medium text-red-600 dark:text-red-400">
+                            -{Number(payout.amount).toFixed(2)} {payout.currency}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="mb-6">
           <CardHeader>

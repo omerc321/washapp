@@ -2063,6 +2063,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get company admin payment transactions
+  app.get("/api/company/financials/admin-payouts", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const companyId = user.companyId;
+      
+      if (!companyId) {
+        return res.status(400).json({ message: "Company not found for user" });
+      }
+      
+      const transactions = await storage.getCompanyTransactions(companyId);
+      const adminPayouts = transactions.filter(t => t.type === 'admin_payment');
+      res.json(adminPayouts);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Export financials to Excel
   app.post("/api/company/financials/export", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
     try {
