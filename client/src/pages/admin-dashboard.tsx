@@ -223,6 +223,7 @@ function FinancialsTab() {
                   <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Type</TableHead>
+                    <TableHead>Job ID</TableHead>
                     <TableHead>Reference</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
@@ -254,6 +255,9 @@ function FinancialsTab() {
                           }`}>
                             {displayType}
                           </span>
+                        </TableCell>
+                        <TableCell className="text-sm font-mono" data-testid={`transaction-job-${transaction.id}`}>
+                          {transaction.jobId ? `#${transaction.jobId}` : '—'}
                         </TableCell>
                         <TableCell className="text-sm font-mono">{transaction.referenceNumber}</TableCell>
                         <TableCell className="text-sm">{transaction.description || "—"}</TableCell>
