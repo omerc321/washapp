@@ -1005,17 +1005,28 @@ export class DatabaseStorage implements IStorage {
         gte(jobs.createdAt, firstDayOfMonth)
       ));
     
-    // Use job_financials for accurate revenue tracking
+    // Calculate revenue using net payable amount (what company actually earns)
+    // Exclude refunded jobs to match available balance calculation
     const [totalRevenueResult] = await db.select({ 
-      total: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text` 
-    }).from(jobFinancials)
-      .where(eq(jobFinancials.companyId, companyId));
-    
-    const [revenueThisMonthResult] = await db.select({ 
-      total: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text` 
-    }).from(jobFinancials)
+      grossRevenue: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text`,
+      netRevenue: sql<string>`COALESCE(SUM(${jobFinancials.netPayableAmount}), 0)::text`
+    })
+      .from(jobFinancials)
+      .innerJoin(jobs, eq(jobFinancials.jobId, jobs.id))
       .where(and(
         eq(jobFinancials.companyId, companyId),
+        ne(jobs.status, 'refunded')
+      ));
+    
+    const [revenueThisMonthResult] = await db.select({ 
+      grossRevenue: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text`,
+      netRevenue: sql<string>`COALESCE(SUM(${jobFinancials.netPayableAmount}), 0)::text`
+    })
+      .from(jobFinancials)
+      .innerJoin(jobs, eq(jobFinancials.jobId, jobs.id))
+      .where(and(
+        eq(jobFinancials.companyId, companyId),
+        ne(jobs.status, 'refunded'),
         gte(jobFinancials.paidAt, firstDayOfMonth)
       ));
     
@@ -1065,11 +1076,13 @@ export class DatabaseStorage implements IStorage {
     
     return {
       totalJobsCompleted: company?.totalJobsCompleted || 0,
-      totalRevenue: parseFloat(totalRevenueResult.total || "0"),
+      totalRevenue: parseFloat(totalRevenueResult.netRevenue || "0"),
+      totalGrossRevenue: parseFloat(totalRevenueResult.grossRevenue || "0"),
       averageRating: parseFloat(company?.rating as any) || 0,
       activeCleaners: activeCleanersResult.count,
       jobsThisMonth: jobsThisMonthResult.count,
-      revenueThisMonth: parseFloat(revenueThisMonthResult.total || "0"),
+      revenueThisMonth: parseFloat(revenueThisMonthResult.netRevenue || "0"),
+      grossRevenueThisMonth: parseFloat(revenueThisMonthResult.grossRevenue || "0"),
       shiftRoster,
     };
   }
