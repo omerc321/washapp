@@ -1015,7 +1015,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(jobs, eq(jobFinancials.jobId, jobs.id))
       .where(and(
         eq(jobFinancials.companyId, companyId),
-        ne(jobs.status, 'refunded')
+        not(eq(jobs.status, 'refunded'))
       ));
     
     const [revenueThisMonthResult] = await db.select({ 
@@ -1026,7 +1026,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(jobs, eq(jobFinancials.jobId, jobs.id))
       .where(and(
         eq(jobFinancials.companyId, companyId),
-        ne(jobs.status, 'refunded'),
+        not(eq(jobs.status, 'refunded')),
         gte(jobFinancials.paidAt, firstDayOfMonth)
       ));
     
