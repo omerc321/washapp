@@ -2081,6 +2081,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all company transactions (for transaction history)
+  app.get("/api/company/financials/transactions", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      res.setHeader('Cache-Control', 'no-store, must-revalidate');
+      const user = req.user as any;
+      const companyId = user.companyId;
+      
+      if (!companyId) {
+        return res.status(400).json({ message: "Company not found for user" });
+      }
+      
+      const transactions = await storage.getCompanyTransactions(companyId);
+      res.json(transactions);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Export financials to Excel
   app.post("/api/company/financials/export", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
     try {

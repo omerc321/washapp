@@ -77,6 +77,10 @@ export default function CompanyFinancials() {
     queryKey: ["/api/company/financials/admin-payouts"],
   });
 
+  const { data: allTransactions, isLoading: loadingTransactions } = useQuery<Transaction[]>({
+    queryKey: ["/api/company/financials/transactions"],
+  });
+
   const filters: any = {};
   if (selectedCleanerId && selectedCleanerId !== "all") filters.cleanerId = selectedCleanerId;
   if (startDate) filters.startDate = startDate;
@@ -285,6 +289,77 @@ export default function CompanyFinancials() {
             </CardContent>
           </Card>
         )}
+
+        {/* Transaction History Section */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Transaction History</CardTitle>
+            <CardDescription>Complete ledger of all financial transactions</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingTransactions ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-16 w-full" />
+                ))}
+              </div>
+            ) : allTransactions && allTransactions.length > 0 ? (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Job ID</TableHead>
+                      <TableHead>Reference</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {allTransactions.map((transaction) => {
+                      const isCredit = transaction.direction === 'credit';
+                      const badgeColor = 
+                        transaction.type === 'customer_payment' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                        transaction.type === 'refund' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                        transaction.type === 'admin_payment' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' :
+                        transaction.type === 'withdrawal' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
+                        'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+                      
+                      const typeLabel = 
+                        transaction.type === 'customer_payment' ? 'Customer Payment' :
+                        transaction.type === 'refund' ? 'Refund' :
+                        transaction.type === 'admin_payment' ? 'Admin Payment' :
+                        transaction.type === 'withdrawal' ? 'Withdrawal' :
+                        transaction.type;
+
+                      return (
+                        <TableRow key={transaction.id} data-testid={`transaction-${transaction.id}`}>
+                          <TableCell className="text-sm">{new Date(transaction.createdAt).toLocaleDateString()}</TableCell>
+                          <TableCell>
+                            <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${badgeColor}`}>
+                              {typeLabel}
+                            </span>
+                          </TableCell>
+                          <TableCell data-testid={`transaction-job-${transaction.id}`}>
+                            {transaction.jobId ? `#${transaction.jobId}` : '-'}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">{transaction.referenceNumber}</TableCell>
+                          <TableCell className="text-sm max-w-xs truncate">{transaction.description}</TableCell>
+                          <TableCell className={`text-right font-medium ${isCredit ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                            {isCredit ? '+' : '-'}{Number(transaction.amount).toFixed(2)} {transaction.currency}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">No transactions available</p>
+            )}
+          </CardContent>
+        </Card>
 
         <Card className="mb-6">
           <CardHeader>
