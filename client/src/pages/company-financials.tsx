@@ -317,7 +317,6 @@ export default function CompanyFinancials() {
                       <TableHead className="text-right">Gross (incl. VAT)</TableHead>
                       <TableHead className="text-right">VAT (5%)</TableHead>
                       <TableHead className="text-right">Net Amount</TableHead>
-                      <TableHead className="text-right">Transaction</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -333,9 +332,19 @@ export default function CompanyFinancials() {
                       const typeLabel = 
                         transaction.type === 'customer_payment' ? 'Customer Payment' :
                         transaction.type === 'refund' ? 'Refund' :
-                        transaction.type === 'admin_payment' ? 'Admin Payment' :
+                        transaction.type === 'admin_payment' ? 'Pay Out' :
                         transaction.type === 'withdrawal' ? 'Withdrawal' :
                         transaction.type;
+
+                      const netAmountDisplay = transaction.netAmount 
+                        ? `${Number(transaction.netAmount).toFixed(2)} AED`
+                        : `${Number(transaction.amount).toFixed(2)} AED`;
+                      
+                      const netAmountValue = transaction.netAmount 
+                        ? Number(transaction.netAmount)
+                        : Number(transaction.amount);
+                      
+                      const isPositive = isCredit;
 
                       return (
                         <TableRow key={transaction.id} data-testid={`transaction-${transaction.id}`}>
@@ -354,11 +363,8 @@ export default function CompanyFinancials() {
                           <TableCell className="text-right text-sm text-muted-foreground">
                             {transaction.taxAmount ? `${Number(transaction.taxAmount).toFixed(2)} AED` : '-'}
                           </TableCell>
-                          <TableCell className="text-right text-sm font-medium">
-                            {transaction.netAmount ? `${Number(transaction.netAmount).toFixed(2)} AED` : '-'}
-                          </TableCell>
-                          <TableCell className={`text-right font-medium ${isCredit ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                            {isCredit ? '+' : '-'}{Number(transaction.amount).toFixed(2)} {transaction.currency}
+                          <TableCell className={`text-right font-medium ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                            {isPositive ? '+' : '-'}{netAmountDisplay}
                           </TableCell>
                         </TableRow>
                       );
