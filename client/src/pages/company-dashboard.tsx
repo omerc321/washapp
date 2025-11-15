@@ -297,10 +297,10 @@ export default function CompanyDashboard() {
       description: "Currently available",
     },
     {
-      title: "Total Revenue",
-      value: `${analytics.totalRevenue.toLocaleString()} AED`,
+      title: "Net Earnings",
+      value: `${(analytics.totalNetEarnings || 0).toLocaleString()} AED`,
       icon: DollarSign,
-      description: "All time",
+      description: "All time (after fees)",
     },
     {
       title: "Average Rating",
@@ -315,10 +315,10 @@ export default function CompanyDashboard() {
       description: "Current month",
     },
     {
-      title: "Revenue This Month",
-      value: `${analytics.revenueThisMonth.toLocaleString()} AED`,
+      title: "Net Earnings This Month",
+      value: `${(analytics.netEarningsThisMonth || 0).toLocaleString()} AED`,
       icon: DollarSign,
-      description: "Current month",
+      description: "After fees",
     },
   ];
 

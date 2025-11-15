@@ -640,16 +640,20 @@ export const adminAnalyticsSchema = z.object({
   activeJobs: z.number(),
   completedJobs: z.number(),
   totalRevenue: z.number(),
+  totalNetRevenue: z.number(),
   revenueThisMonth: z.number(),
+  netRevenueThisMonth: z.number(),
 });
 
 export const companyAnalyticsSchema = z.object({
   totalJobsCompleted: z.number(),
   totalRevenue: z.number(),
+  totalNetEarnings: z.number(),
   averageRating: z.number(),
   activeCleaners: z.number(),
   jobsThisMonth: z.number(),
   revenueThisMonth: z.number(),
+  netEarningsThisMonth: z.number(),
   shiftRoster: z.array(z.object({
     cleanerId: z.number(),
     cleanerName: z.string(),
