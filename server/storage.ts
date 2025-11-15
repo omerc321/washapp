@@ -1011,6 +1011,13 @@ export class DatabaseStorage implements IStorage {
         gte(cleaners.lastLocationUpdate, tenMinutesAgo)
       ));
     
+    // Count all completed jobs (all time)
+    const [totalJobsCompletedResult] = await db.select({ count: sql<number>`count(*)` }).from(jobs)
+      .where(and(
+        eq(jobs.companyId, companyId),
+        eq(jobs.status, "completed")
+      ));
+    
     // Count only completed jobs this month (revenue-recognized)
     const [jobsThisMonthResult] = await db.select({ count: sql<number>`count(*)` }).from(jobs)
       .where(and(
@@ -1089,7 +1096,7 @@ export class DatabaseStorage implements IStorage {
     });
     
     return {
-      totalJobsCompleted: company?.totalJobsCompleted || 0,
+      totalJobsCompleted: totalJobsCompletedResult.count,
       totalRevenue: parseFloat(totalRevenueResult.grossRevenue || "0"),
       totalNetEarnings: parseFloat(totalRevenueResult.netRevenue || "0"),
       averageRating: parseFloat(company?.rating as any) || 0,
