@@ -1378,6 +1378,7 @@ export class DatabaseStorage implements IStorage {
     pendingWithdrawals: number;
     availableBalance: number;
   }> {
+    // Sum job financials excluding refunded jobs
     const financialSummary = await db
       .select({
         totalRevenue: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text`,
@@ -1387,7 +1388,11 @@ export class DatabaseStorage implements IStorage {
         netEarnings: sql<string>`COALESCE(SUM(${jobFinancials.netPayableAmount}), 0)::text`,
       })
       .from(jobFinancials)
-      .where(eq(jobFinancials.companyId, companyId));
+      .innerJoin(jobs, eq(jobs.id, jobFinancials.jobId))
+      .where(and(
+        eq(jobFinancials.companyId, companyId),
+        not(eq(jobs.status, 'refunded'))
+      ));
 
     // Calculate refunds from jobs with status='refunded'
     const refundSummary = await db
@@ -1459,13 +1464,14 @@ export class DatabaseStorage implements IStorage {
     totalWithdrawals: number;
     availableBalance: number;
   }>> {
+    // Get financial summary for all companies, excluding refunded jobs
     const result = await db
       .select({
         companyId: companies.id,
         companyName: companies.name,
-        totalRevenue: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text`,
-        platformFees: sql<string>`COALESCE(SUM(${jobFinancials.platformFeeAmount}::numeric * 1.05), 0)::text`,
-        netEarnings: sql<string>`COALESCE(SUM(${jobFinancials.netPayableAmount}), 0)::text`,
+        totalRevenue: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} != 'refunded' THEN ${jobFinancials.grossAmount} ELSE 0 END), 0)::text`,
+        platformFees: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} != 'refunded' THEN ${jobFinancials.platformFeeAmount}::numeric * 1.05 ELSE 0 END), 0)::text`,
+        netEarnings: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} != 'refunded' THEN ${jobFinancials.netPayableAmount} ELSE 0 END), 0)::text`,
         totalWithdrawals: sql<string>`COALESCE((
           SELECT SUM(${companyWithdrawals.amount})
           FROM ${companyWithdrawals}
@@ -1482,6 +1488,7 @@ export class DatabaseStorage implements IStorage {
       })
       .from(companies)
       .leftJoin(jobFinancials, eq(jobFinancials.companyId, companies.id))
+      .leftJoin(jobs, eq(jobs.id, jobFinancials.jobId))
       .where(eq(companies.isActive, 1))
       .groupBy(companies.id, companies.name);
 
