@@ -1364,16 +1364,21 @@ export class DatabaseStorage implements IStorage {
         stripePaymentIntentId: transactions.stripePaymentIntentId,
         stripeRefundId: transactions.stripeRefundId,
         withdrawalId: transactions.withdrawalId,
-        grossAmount: jobFinancials.grossAmount,
-        netAmount: jobFinancials.netPayableAmount,
-        taxAmount: sql<string>`COALESCE(${jobFinancials.baseTax}, 0) + COALESCE(${jobFinancials.tipTax}, 0)`,
+        grossAmount: sql<string | null>`${jobFinancials.grossAmount}`,
+        netAmount: sql<string | null>`${jobFinancials.netPayableAmount}`,
+        taxAmount: sql<string | null>`COALESCE(${jobFinancials.baseTax}, 0) + COALESCE(${jobFinancials.tipTax}, 0)`,
       })
       .from(transactions)
       .leftJoin(jobFinancials, eq(transactions.jobId, jobFinancials.jobId))
       .where(eq(transactions.companyId, companyId))
       .orderBy(desc(transactions.createdAt));
     
-    return results;
+    return results.map(r => ({
+      ...r,
+      grossAmount: r.grossAmount ?? undefined,
+      netAmount: r.netAmount ?? undefined,
+      taxAmount: r.taxAmount ?? undefined,
+    }));
   }
 
   async createTransaction(transaction: InsertTransaction): Promise<Transaction> {
