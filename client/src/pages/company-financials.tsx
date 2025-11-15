@@ -40,6 +40,7 @@ interface FinancialSummary {
   paymentProcessingFees: number;
   taxAmount: number;
   netEarnings: number;
+  adminPayouts: number;
   totalWithdrawals: number;
   pendingWithdrawals: number;
   availableBalance: number;
@@ -189,8 +190,17 @@ export default function CompanyFinancials() {
           </Card>
         </div>
         
-        {/* Secondary Stats Row */}
-        <div className="grid gap-4 md:grid-cols-2 mb-6">
+        {/* Payment Breakdown Row */}
+        <div className="grid gap-4 md:grid-cols-3 mb-6">
+          <Card data-testid="card-admin-payouts">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Admin Payouts</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600 dark:text-red-400">-{Number(summary.adminPayouts).toFixed(2)} AED</div>
+              <p className="text-xs text-muted-foreground mt-1">Already paid to you</p>
+            </CardContent>
+          </Card>
           <Card data-testid="card-tax-collected">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Tax Collected (5%)</CardTitle>
@@ -205,8 +215,12 @@ export default function CompanyFinancials() {
               <CardTitle className="text-sm font-medium">Available Balance</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{Number(summary.availableBalance).toFixed(2)} AED</div>
-              <p className="text-xs text-muted-foreground mt-1">Available for withdrawal</p>
+              <div className={`text-2xl font-bold ${Number(summary.availableBalance) < 0 ? 'text-red-600 dark:text-red-400' : ''}`}>
+                {Number(summary.availableBalance).toFixed(2)} AED
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {Number(summary.availableBalance) < 0 ? 'Negative balance' : 'Available for withdrawal'}
+              </p>
             </CardContent>
           </Card>
         </div>
