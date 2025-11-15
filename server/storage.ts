@@ -1448,10 +1448,10 @@ export class DatabaseStorage implements IStorage {
     const refundsFromTransactions = Number(refundsSummary[0]?.refunds || 0);
     
     // BALANCE CALCULATION:
-    // netEarnings = revenue from completed jobs (after all deductions)
-    // Subtract: admin payouts (already paid to company), withdrawals (requested/completed), refunds
-    // Note: customer_payment transactions are NOT included (would double-count with job_financials)
-    const availableBalance = netEarnings - adminPayouts - totalWithdrawals - pendingWithdrawals - refundsFromTransactions;
+    // netEarnings already EXCLUDES refunded jobs (see WHERE NOT refunded above)
+    // So we only subtract: admin payouts (already paid to company) and withdrawals (requested/completed)
+    // DO NOT subtract refunds again - that would be double-counting!
+    const availableBalance = netEarnings - adminPayouts - totalWithdrawals - pendingWithdrawals;
 
     return {
       totalRevenue,
