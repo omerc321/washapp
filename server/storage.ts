@@ -1443,13 +1443,13 @@ export class DatabaseStorage implements IStorage {
   }> {
     // Sum job financials including all transactions (completed + refunded)
     // Gross revenue includes all financial transactions
-    // Net earnings only includes completed jobs
+    // Platform fees, processing fees, and net earnings only include completed jobs
     const financialSummary = await db
       .select({
         totalRevenue: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text`,
-        platformFees: sql<string>`COALESCE(SUM(${jobFinancials.platformFeeAmount}::numeric * 1.05), 0)::text`,
-        paymentProcessingFees: sql<string>`COALESCE(SUM(${jobFinancials.paymentProcessingFeeAmount}), 0)::text`,
-        taxAmount: sql<string>`COALESCE(SUM(${jobFinancials.baseTax}) + SUM(${jobFinancials.tipTax}), 0)::text`,
+        platformFees: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} = 'completed' THEN ${jobFinancials.platformFeeAmount}::numeric * 1.05 ELSE 0 END), 0)::text`,
+        paymentProcessingFees: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} = 'completed' THEN ${jobFinancials.paymentProcessingFeeAmount} ELSE 0 END), 0)::text`,
+        taxAmount: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} = 'completed' THEN ${jobFinancials.baseTax} ELSE 0 END) + SUM(CASE WHEN ${jobs.status} = 'completed' THEN ${jobFinancials.tipTax} ELSE 0 END), 0)::text`,
         netEarnings: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} = 'completed' THEN ${jobFinancials.netPayableAmount} ELSE 0 END), 0)::text`,
       })
       .from(jobFinancials)
@@ -1542,13 +1542,13 @@ export class DatabaseStorage implements IStorage {
   }>> {
     // Get financial summary for all companies
     // Gross revenue includes all financial transactions (completed + refunded)
-    // Net earnings only includes completed jobs
+    // Platform fees and net earnings only include completed jobs
     const result = await db
       .select({
         companyId: companies.id,
         companyName: companies.name,
         totalRevenue: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} IN ('completed', 'refunded') THEN ${jobFinancials.grossAmount} ELSE 0 END), 0)::text`,
-        platformFees: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} IN ('completed', 'refunded') THEN ${jobFinancials.platformFeeAmount}::numeric * 1.05 ELSE 0 END), 0)::text`,
+        platformFees: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} = 'completed' THEN ${jobFinancials.platformFeeAmount}::numeric * 1.05 ELSE 0 END), 0)::text`,
         netEarnings: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} = 'completed' THEN ${jobFinancials.netPayableAmount} ELSE 0 END), 0)::text`,
         totalWithdrawals: sql<string>`COALESCE((
           SELECT SUM(${companyWithdrawals.amount})
