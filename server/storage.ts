@@ -179,12 +179,14 @@ export interface IStorage {
   
   // Financial aggregations
   getCompanyFinancialSummary(companyId: number): Promise<{
+    onlinePayments: number;
     totalRevenue: number;
     totalRefunds: number;
     platformFees: number;
     paymentProcessingFees: number;
     taxAmount: number;
     netEarnings: number;
+    adminPayouts: number;
     totalWithdrawals: number;
     pendingWithdrawals: number;
     availableBalance: number;
@@ -1430,6 +1432,7 @@ export class DatabaseStorage implements IStorage {
   // ===== FINANCIAL AGGREGATIONS =====
 
   async getCompanyFinancialSummary(companyId: number): Promise<{
+    onlinePayments: number;
     totalRevenue: number;
     totalRefunds: number;
     platformFees: number;
@@ -1519,6 +1522,7 @@ export class DatabaseStorage implements IStorage {
     const availableBalance = netEarnings - adminPayouts - totalWithdrawals - pendingWithdrawals;
 
     return {
+      onlinePayments: totalRevenue, // Total Stripe payments received (completed + refunded)
       totalRevenue,
       totalRefunds,
       platformFees,

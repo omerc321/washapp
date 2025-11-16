@@ -34,6 +34,7 @@ interface JobFinancial {
 }
 
 interface FinancialSummary {
+  onlinePayments: number;
   totalRevenue: number;
   totalRefunds: number;
   platformFees: number;
@@ -176,13 +177,13 @@ export default function CompanyFinancials() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
-          <Card data-testid="card-total-revenue">
+          <Card data-testid="card-online-payments">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Gross Revenue</CardTitle>
+              <CardTitle className="text-sm font-medium">Online Payments</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{Number(summary.totalRevenue).toFixed(2)} AED</div>
-              <p className="text-xs text-muted-foreground mt-1">Before refunds & fees</p>
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{Number(summary.onlinePayments).toFixed(2)} AED</div>
+              <p className="text-xs text-muted-foreground mt-1">Stripe payments received</p>
             </CardContent>
           </Card>
           <Card data-testid="card-refunds">
@@ -191,7 +192,7 @@ export default function CompanyFinancials() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600 dark:text-red-400">-{Number(summary.totalRefunds).toFixed(2)} AED</div>
-              <p className="text-xs text-muted-foreground mt-1">Auto-refunded jobs</p>
+              <p className="text-xs text-muted-foreground mt-1">Full refunds to customers</p>
             </CardContent>
           </Card>
           <Card data-testid="card-platform-fees">
@@ -200,7 +201,7 @@ export default function CompanyFinancials() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600 dark:text-red-400">-{Number(summary.platformFees).toFixed(2)} AED</div>
-              <p className="text-xs text-muted-foreground mt-1">Service fees</p>
+              <p className="text-xs text-muted-foreground mt-1">Service fees (completed jobs)</p>
             </CardContent>
           </Card>
           <Card data-testid="card-net-earnings">
