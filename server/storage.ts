@@ -1459,10 +1459,11 @@ export class DatabaseStorage implements IStorage {
         inArray(jobs.status, ['completed', 'refunded'])
       ));
 
-    // Calculate refunds from jobs with status='refunded'
+    // Calculate total refunds including all amounts (base, platform fees, VAT, tips)
+    // Use jobs.totalAmount which is the actual amount refunded by Stripe to customers
     const refundSummary = await db
       .select({
-        totalRefunds: sql<string>`COALESCE(SUM(${jobs.price}), 0)::text`,
+        totalRefunds: sql<string>`COALESCE(SUM(${jobs.totalAmount}), 0)::text`,
       })
       .from(jobs)
       .where(and(
