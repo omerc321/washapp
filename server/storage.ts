@@ -964,23 +964,25 @@ export class DatabaseStorage implements IStorage {
     const [completedJobsResult] = await db.select({ count: sql<number>`count(*)` }).from(jobs)
       .where(eq(jobs.status, "completed"));
     
-    // Calculate platform revenue using job_financials, only for completed jobs
+    // Calculate platform revenue using job_financials
+    // Gross revenue includes all financial transactions (completed + refunded)
+    // Net revenue only includes completed jobs
     const [totalRevenueResult] = await db.select({ 
       grossRevenue: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text`,
-      netRevenue: sql<string>`COALESCE(SUM(${jobFinancials.netPayableAmount}), 0)::text`
+      netRevenue: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} = 'completed' THEN ${jobFinancials.netPayableAmount} ELSE 0 END), 0)::text`
     })
       .from(jobFinancials)
       .innerJoin(jobs, eq(jobFinancials.jobId, jobs.id))
-      .where(eq(jobs.status, 'completed'));
+      .where(inArray(jobs.status, ['completed', 'refunded']));
     
     const [revenueThisMonthResult] = await db.select({ 
       grossRevenue: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text`,
-      netRevenue: sql<string>`COALESCE(SUM(${jobFinancials.netPayableAmount}), 0)::text`
+      netRevenue: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} = 'completed' THEN ${jobFinancials.netPayableAmount} ELSE 0 END), 0)::text`
     })
       .from(jobFinancials)
       .innerJoin(jobs, eq(jobFinancials.jobId, jobs.id))
       .where(and(
-        eq(jobs.status, 'completed'),
+        inArray(jobs.status, ['completed', 'refunded']),
         gte(jobFinancials.createdAt, firstDayOfMonth)
       ));
     
@@ -1027,27 +1029,28 @@ export class DatabaseStorage implements IStorage {
       ));
     
     // Calculate revenue using net payable amount (what company actually earns)
-    // Only include completed jobs (revenue recognition)
+    // Gross revenue includes all financial transactions (completed + refunded)
+    // Net revenue only includes completed jobs (revenue recognition)
     const [totalRevenueResult] = await db.select({ 
       grossRevenue: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text`,
-      netRevenue: sql<string>`COALESCE(SUM(${jobFinancials.netPayableAmount}), 0)::text`
+      netRevenue: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} = 'completed' THEN ${jobFinancials.netPayableAmount} ELSE 0 END), 0)::text`
     })
       .from(jobFinancials)
       .innerJoin(jobs, eq(jobFinancials.jobId, jobs.id))
       .where(and(
         eq(jobFinancials.companyId, companyId),
-        eq(jobs.status, 'completed')
+        inArray(jobs.status, ['completed', 'refunded'])
       ));
     
     const [revenueThisMonthResult] = await db.select({ 
       grossRevenue: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text`,
-      netRevenue: sql<string>`COALESCE(SUM(${jobFinancials.netPayableAmount}), 0)::text`
+      netRevenue: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} = 'completed' THEN ${jobFinancials.netPayableAmount} ELSE 0 END), 0)::text`
     })
       .from(jobFinancials)
       .innerJoin(jobs, eq(jobFinancials.jobId, jobs.id))
       .where(and(
         eq(jobFinancials.companyId, companyId),
-        eq(jobs.status, 'completed'),
+        inArray(jobs.status, ['completed', 'refunded']),
         gte(jobFinancials.createdAt, firstDayOfMonth)
       ));
     
@@ -1438,20 +1441,22 @@ export class DatabaseStorage implements IStorage {
     pendingWithdrawals: number;
     availableBalance: number;
   }> {
-    // Sum job financials excluding refunded jobs
+    // Sum job financials including all transactions (completed + refunded)
+    // Gross revenue includes all financial transactions
+    // Net earnings only includes completed jobs
     const financialSummary = await db
       .select({
         totalRevenue: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text`,
         platformFees: sql<string>`COALESCE(SUM(${jobFinancials.platformFeeAmount}::numeric * 1.05), 0)::text`,
         paymentProcessingFees: sql<string>`COALESCE(SUM(${jobFinancials.paymentProcessingFeeAmount}), 0)::text`,
         taxAmount: sql<string>`COALESCE(SUM(${jobFinancials.baseTax}) + SUM(${jobFinancials.tipTax}), 0)::text`,
-        netEarnings: sql<string>`COALESCE(SUM(${jobFinancials.netPayableAmount}), 0)::text`,
+        netEarnings: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} = 'completed' THEN ${jobFinancials.netPayableAmount} ELSE 0 END), 0)::text`,
       })
       .from(jobFinancials)
       .innerJoin(jobs, eq(jobs.id, jobFinancials.jobId))
       .where(and(
         eq(jobFinancials.companyId, companyId),
-        not(eq(jobs.status, 'refunded'))
+        inArray(jobs.status, ['completed', 'refunded'])
       ));
 
     // Calculate refunds from jobs with status='refunded'
@@ -1535,14 +1540,16 @@ export class DatabaseStorage implements IStorage {
     totalWithdrawals: number;
     availableBalance: number;
   }>> {
-    // Get financial summary for all companies, excluding refunded jobs
+    // Get financial summary for all companies
+    // Gross revenue includes all financial transactions (completed + refunded)
+    // Net earnings only includes completed jobs
     const result = await db
       .select({
         companyId: companies.id,
         companyName: companies.name,
-        totalRevenue: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} != 'refunded' THEN ${jobFinancials.grossAmount} ELSE 0 END), 0)::text`,
-        platformFees: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} != 'refunded' THEN ${jobFinancials.platformFeeAmount}::numeric * 1.05 ELSE 0 END), 0)::text`,
-        netEarnings: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} != 'refunded' THEN ${jobFinancials.netPayableAmount} ELSE 0 END), 0)::text`,
+        totalRevenue: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} IN ('completed', 'refunded') THEN ${jobFinancials.grossAmount} ELSE 0 END), 0)::text`,
+        platformFees: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} IN ('completed', 'refunded') THEN ${jobFinancials.platformFeeAmount}::numeric * 1.05 ELSE 0 END), 0)::text`,
+        netEarnings: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} = 'completed' THEN ${jobFinancials.netPayableAmount} ELSE 0 END), 0)::text`,
         totalWithdrawals: sql<string>`COALESCE((
           SELECT SUM(${companyWithdrawals.amount})
           FROM ${companyWithdrawals}
@@ -1575,7 +1582,8 @@ export class DatabaseStorage implements IStorage {
       platformFees: Number(row.platformFees || 0),
       netEarnings: Number(row.netEarnings || 0),
       totalWithdrawals: Number(row.totalWithdrawals || 0),
-      availableBalance: Number(row.netEarnings || 0) - Number(row.adminPayouts || 0) - Number(row.totalWithdrawals || 0) - Number(row.refunds || 0),
+      // Net earnings already excludes refunds, so only subtract admin payouts and withdrawals
+      availableBalance: Number(row.netEarnings || 0) - Number(row.adminPayouts || 0) - Number(row.totalWithdrawals || 0),
     }));
   }
 
