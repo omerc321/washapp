@@ -9,18 +9,18 @@ interface ProgressIndicatorProps {
 
 export default function ProgressIndicator({ currentStep, totalSteps, steps }: ProgressIndicatorProps) {
   return (
-    <div className="w-full px-4 py-6" data-testid="progress-indicator">
-      {/* Step Indicators */}
-      <div className="flex items-center justify-between mb-3">
-        {steps.map((_, index) => {
-          const stepNumber = index + 1;
-          const isCompleted = stepNumber < currentStep;
-          const isCurrent = stepNumber === currentStep;
-          
-          return (
-            <div key={stepNumber} className="flex items-center flex-1">
-              {/* Step Circle */}
-              <div className="flex flex-col items-center relative">
+    <div className="w-full py-4" data-testid="progress-indicator">
+      <div className="max-w-sm sm:max-w-md mx-auto px-3">
+        {/* Step Indicators */}
+        <div className="flex items-center justify-center gap-4 sm:gap-6 mb-2">
+          {steps.map((_, index) => {
+            const stepNumber = index + 1;
+            const isCompleted = stepNumber < currentStep;
+            const isCurrent = stepNumber === currentStep;
+            
+            return (
+              <div key={stepNumber} className="flex items-center">
+                {/* Step Circle */}
                 <motion.div
                   initial={false}
                   animate={{
@@ -48,61 +48,60 @@ export default function ProgressIndicator({ currentStep, totalSteps, steps }: Pr
                     stepNumber
                   )}
                 </motion.div>
+                
+                {/* Connector Line */}
+                {index < totalSteps - 1 && (
+                  <div className="w-10 sm:w-16 h-1 mx-2 bg-muted rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ scaleX: 0 }}
+                      animate={{ scaleX: isCompleted ? 1 : 0 }}
+                      transition={{ duration: 0.5 }}
+                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-600 origin-left"
+                    />
+                  </div>
+                )}
               </div>
-              
-              {/* Connector Line */}
-              {index < totalSteps - 1 && (
-                <div className="flex-1 h-1 mx-2 bg-muted rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ scaleX: 0 }}
-                    animate={{ scaleX: isCompleted ? 1 : 0 }}
-                    transition={{ duration: 0.5 }}
-                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-600 origin-left"
-                  />
-                </div>
-              )}
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
+        
+        {/* Step Labels */}
+        <div className="grid grid-cols-3 gap-2 text-center mb-2">
+          {steps.map((step, index) => {
+            const stepNumber = index + 1;
+            const isCurrent = stepNumber === currentStep;
+            
+            return (
+              <motion.div
+                key={stepNumber}
+                initial={false}
+                animate={{
+                  opacity: isCurrent ? 1 : 0.5,
+                }}
+              >
+                <p className={`text-xs font-medium ${
+                  isCurrent ? "text-foreground" : "text-muted-foreground"
+                }`}>
+                  {step}
+                </p>
+              </motion.div>
+            );
+          })}
+        </div>
+        
+        {/* Current Step Text */}
+        <motion.div
+          key={currentStep}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="mt-3 text-center"
+        >
+          <p className="text-sm text-muted-foreground" data-testid="step-counter">
+            Step {currentStep} of {totalSteps}
+          </p>
+        </motion.div>
       </div>
-      
-      {/* Step Labels */}
-      <div className="flex items-start justify-between">
-        {steps.map((step, index) => {
-          const stepNumber = index + 1;
-          const isCurrent = stepNumber === currentStep;
-          
-          return (
-            <motion.div
-              key={stepNumber}
-              initial={false}
-              animate={{
-                opacity: isCurrent ? 1 : 0.5,
-              }}
-              className="flex-1 text-center"
-            >
-              <p className={`text-xs font-medium ${
-                isCurrent ? "text-foreground" : "text-muted-foreground"
-              }`}>
-                {step}
-              </p>
-            </motion.div>
-          );
-        })}
-      </div>
-      
-      {/* Current Step Text */}
-      <motion.div
-        key={currentStep}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="mt-4 text-center"
-      >
-        <p className="text-sm text-muted-foreground" data-testid="step-counter">
-          Step {currentStep} of {totalSteps}
-        </p>
-      </motion.div>
     </div>
   );
 }
