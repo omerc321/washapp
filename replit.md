@@ -10,12 +10,13 @@ I prefer simple language and clear explanations. I want iterative development wi
 
 ### UI/UX Decisions
 -   **Design**: Mobile-first responsive design, optimized for potential app store wrapping.
--   **Theme**: Uber-style black/white professional theme with dark mode support and a theme toggle.
+-   **Theme**: Modern vibrant interface with bright blue primary color (220 95% 50%), gradient accents, and dark mode support with theme toggle.
 -   **Navigation**: Role-based bottom navigation.
 -   **Mapping**: Interactive OpenStreetMap integration with Leaflet for location selection, geolocation support, and Nominatim reverse geocoding.
+-   **Booking Flow**: Modern 3-step wizard (Car Details → Location & Company → Payment) with persistent progress indicator, framer-motion animations, and mobile-first design. Reuses existing checkout component to avoid code duplication.
 
 ### Technical Implementations
--   **Frontend**: React, Tailwind CSS, shadcn/ui components, Roboto font.
+-   **Frontend**: React, Tailwind CSS, shadcn/ui components, Roboto font, Framer Motion for animations.
 -   **Backend**: Express.js, Node.js.
 -   **Database**: PostgreSQL with Drizzle ORM.
 -   **Authentication**: Passport.js with bcrypt for email/password (staff roles), `connect-pg-simple` for PostgreSQL session storage.
@@ -28,7 +29,12 @@ I prefer simple language and clear explanations. I want iterative development wi
 -   **PWA**: Progressive Web App implementation with service worker for offline capabilities, web app manifest for installability, and install prompt UI. Users can install the app on their mobile devices for an app-like experience.
 
 ### Feature Specifications
--   **Customer Flow**: Anonymous booking with car plate entry, map-based location selection, geofence-based company matching (only companies with geofences containing the customer location are shown), optional cleaner email request (validated against company geofences), Stripe payment in AED (company price + 3 AED platform fee clearly displayed), and job tracking (Paid → Assigned → In Progress → Completed).
+-   **Customer Booking Flow**: Modern 3-step wizard at `/customer/booking`:
+    -   **Step 1 - Car Details**: Animated car plate and phone number entry with gradient icon backgrounds
+    -   **Step 2 - Location & Company**: Integrated map location picker with geofence-based company matching (only companies with service areas containing the customer location are shown), company selection with pricing display
+    -   **Step 3 - Payment**: Redirects to existing `/customer/checkout` page to complete Stripe payment (reuses checkout component to avoid code duplication)
+    -   **Features**: Persistent progress indicator showing "Step X of 3", framer-motion animations for smooth transitions, mobile-first responsive design, gradient accents and vibrant colors
+-   **Customer Flow**: Anonymous booking with car plate entry, map-based location selection, geofence-based company matching, Stripe payment in AED (company price + 3 AED platform fee clearly displayed), and job tracking (Paid → Assigned → In Progress → Completed).
 -   **Cleaner Flow**: Invitation-based registration, on-duty/off-duty toggle, job acceptance, "Open in Google Maps" navigation to job location, and photo-based job completion. Periodic location tracking for on-duty cleaners. Cleaners can only see and accept jobs within their assigned service areas.
 -   **Company Admin Flow**: Registration (requires admin approval), multiple named geofence management with location search and GPS positioning, cleaner invitation management with service area assignment (all areas or specific areas), detailed financial reports (revenue breakdown, withdrawals, cleaner filtering, Excel export), cleaner service area management post-registration, and company settings management.
 -   **Admin Flow**: Platform-wide analytics, company approval/rejection, financial oversight with drill-down, manual withdrawal processing, and transaction history management. Admins can view all company transactions and create payment transactions that reduce company balances.
