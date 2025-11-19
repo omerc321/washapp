@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Car, MapPin, Phone, Building2, Clock, Star, ChevronLeft, AlertCircle, Bell, BellOff, User, Timer, CheckCircle2, Navigation } from "lucide-react";
 import { Job, JobStatus, Cleaner, Company } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -23,8 +25,22 @@ export default function CustomerTrack() {
   const [rating, setRating] = useState(0);
   const [review, setReview] = useState("");
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [plateInput, setPlateInput] = useState("");
 
   const plateNumber = params?.plateNumber || "";
+
+  const handleTrackSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!plateInput.trim()) {
+      toast({
+        title: "Plate Number Required",
+        description: "Please enter your car plate number",
+        variant: "destructive",
+      });
+      return;
+    }
+    setLocation(`/customer/track/${plateInput.trim().toUpperCase()}`);
+  };
 
   const { data: jobs, isLoading } = useQuery<Job[]>({
     queryKey: ["/api/jobs/track", plateNumber],
@@ -135,9 +151,9 @@ export default function CustomerTrack() {
             <div className="flex items-center gap-3 flex-1">
               <img src={logoUrl} alt="Washapp.ae" className="h-12 w-auto" data-testid="img-logo" />
               <div>
-                <h1 className="text-white text-lg font-bold">{plateNumber}</h1>
+                <h1 className="text-white text-lg font-bold">{plateNumber || "Track Your Wash"}</h1>
                 <p className="text-white/90 text-xs">
-                  Track your car wash
+                  {plateNumber ? "Track your car wash" : "Enter your plate number"}
                 </p>
               </div>
             </div>
@@ -157,6 +173,82 @@ export default function CustomerTrack() {
 
       {/* Content */}
       <div className="flex-1 max-w-md mx-auto w-full px-4 py-6 pb-20">
+
+        {/* Plate Number Input Form - shown when no plate number in URL */}
+        {!plateNumber && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <Card className="border-primary/20">
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/30">
+                    <Car className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl">Track Your Wash</CardTitle>
+                    <CardDescription>Enter your car plate number to track your service</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleTrackSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="plateNumber">Car Plate Number</Label>
+                    <Input
+                      id="plateNumber"
+                      type="text"
+                      placeholder="ABC123"
+                      value={plateInput}
+                      onChange={(e) => setPlateInput(e.target.value.toUpperCase())}
+                      className="text-lg font-bold text-center"
+                      data-testid="input-plate-number"
+                      autoFocus
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    className="w-full bg-primary"
+                    size="lg"
+                    data-testid="button-track-submit"
+                  >
+                    Track My Wash
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-muted/50 border-muted">
+              <CardContent className="pt-6">
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium">Real-time updates</p>
+                      <p className="text-sm text-muted-foreground">Track your wash from booking to completion</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Bell className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium">Push notifications</p>
+                      <p className="text-sm text-muted-foreground">Get notified when your cleaner is on the way</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <User className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium">Cleaner details</p>
+                      <p className="text-sm text-muted-foreground">View your assigned cleaner's profile and contact info</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
 
         {/* Push Notification Banner */}
         {isSupported && !isSubscribed && permission === 'default' && jobs && jobs.length > 0 && (
@@ -235,7 +327,7 @@ export default function CustomerTrack() {
           </motion.div>
         )}
 
-        {isLoading ? (
+        {isLoading && (
           <div className="space-y-4">
             {[1, 2].map((i) => (
               <Card key={i}>
@@ -249,7 +341,9 @@ export default function CustomerTrack() {
               </Card>
             ))}
           </div>
-        ) : !jobs || jobs.length === 0 ? (
+        )}
+        
+        {!isLoading && plateNumber && (!jobs || jobs.length === 0) && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -265,7 +359,7 @@ export default function CustomerTrack() {
                 </p>
                 <Button
                   onClick={() => setLocation("/")}
-                  className="bg-primary hover:bg-primary/90"
+                  className="bg-primary"
                   data-testid="button-book-wash"
                 >
                   Book Your First Wash
@@ -273,7 +367,9 @@ export default function CustomerTrack() {
               </CardContent>
             </Card>
           </motion.div>
-        ) : (
+        )}
+        
+        {!isLoading && plateNumber && jobs && jobs.length > 0 && (
           <>
             {/* Current Active Job */}
             {currentJob && (
@@ -557,20 +653,16 @@ function ActiveJobCard({ job, currentTime }: { job: Job; currentTime: Date }) {
           </div>
         )}
 
-        {/* Cleaner Profile */}
-        {cleaner && job.status !== JobStatus.PAID && job.status !== JobStatus.PENDING_PAYMENT && (
+        {/* Cleaner Assigned Indicator */}
+        {job.cleanerId && job.status !== JobStatus.PAID && job.status !== JobStatus.PENDING_PAYMENT && (
           <div className="bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20 rounded-lg p-4">
-            <p className="text-xs text-muted-foreground mb-3">Your Cleaner</p>
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center">
                 <User className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <p className="font-semibold">{cleaner.fullName}</p>
-                <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <Phone className="h-3 w-3" />
-                  {cleaner.phoneNumber}
-                </p>
+                <p className="font-semibold">Cleaner Assigned</p>
+                <p className="text-sm text-muted-foreground">Your cleaner is on the way!</p>
               </div>
             </div>
           </div>
@@ -693,14 +785,14 @@ function HistoryJobCard({ job, onRate }: { job: Job; onRate?: () => void }) {
         </div>
 
         {/* Cleaner Info */}
-        {cleaner && job.status === JobStatus.COMPLETED && (
+        {job.cleanerId && job.status === JobStatus.COMPLETED && (
           <div className="flex items-center gap-2 bg-primary/5 rounded-lg p-2">
             <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
               <User className="h-4 w-4 text-primary" />
             </div>
             <div>
-              <p className="text-sm font-medium">{cleaner.fullName}</p>
-              <p className="text-xs text-muted-foreground">Cleaner</p>
+              <p className="text-sm font-medium">Professional Cleaner</p>
+              <p className="text-xs text-muted-foreground">Wash completed successfully</p>
             </div>
           </div>
         )}
