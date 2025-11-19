@@ -282,6 +282,7 @@ export default function CustomerBooking() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
+        className="max-w-md mx-auto w-full"
       >
         <ProgressIndicator currentStep={currentStep} totalSteps={3} steps={STEPS} />
       </motion.div>
