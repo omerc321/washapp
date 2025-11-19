@@ -71,8 +71,9 @@ function Router() {
         <Route path="/register/admin" component={RegisterAdminPage} />
 
         {/* Customer Routes - No auth required */}
-        <Route path="/customer" component={CustomerHome} />
+        <Route path="/customer" component={CustomerBooking} />
         <Route path="/customer/booking" component={CustomerBooking} />
+        <Route path="/customer/home" component={CustomerHome} />
         <Route path="/customer/select-company" component={SelectCompany} />
         <Route path="/customer/checkout" component={Checkout} />
         <Route path="/customer/jobs" component={CustomerJobs} />
@@ -102,8 +103,8 @@ function Router() {
           {() => <ProtectedRoute component={AdminDashboard} allowedRoles={[UserRole.ADMIN]} />}
         </Route>
 
-        {/* Default Route - Customer booking home */}
-        <Route path="/" component={CustomerHome} />
+        {/* Default Route - New customer booking flow */}
+        <Route path="/" component={CustomerBooking} />
 
         {/* 404 */}
         <Route component={NotFound} />
