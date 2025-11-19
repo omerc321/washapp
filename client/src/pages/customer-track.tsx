@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { Car, MapPin, Phone, Building2, Clock, Star, ChevronLeft, AlertCircle, Bell, BellOff } from "lucide-react";
-import { Job, JobStatus } from "@shared/schema";
+import { Car, MapPin, Phone, Building2, Clock, Star, ChevronLeft, AlertCircle, Bell, BellOff, User, Timer, CheckCircle2, Navigation } from "lucide-react";
+import { Job, JobStatus, Cleaner, Company } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import logoUrl from "@assets/IMG_2508_1762619079711.png";
+import { motion } from "framer-motion";
 
 export default function CustomerTrack() {
   const [, params] = useRoute("/customer/track/:plateNumber");
@@ -21,6 +22,7 @@ export default function CustomerTrack() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [rating, setRating] = useState(0);
   const [review, setReview] = useState("");
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   const plateNumber = params?.plateNumber || "";
 
@@ -45,15 +47,20 @@ export default function CustomerTrack() {
     refetchOnReconnect: true,
   });
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const { permission, isSubscribed, soundEnabled, isLoading: pushLoading, isSupported, subscribe, unsubscribe, toggleSound } = usePushNotifications({
     plateNumber,
   });
 
   const { subscribe: wsSubscribe, isConnected } = useWebSocket({
     onMessage: (data) => {
-      console.log('[Customer Track] WebSocket message received:', data);
       if (data.type === 'job_update' && data.job) {
-        console.log('[Customer Track] Job update for:', data.job.carPlateNumber, 'Status:', data.job.status);
         queryClient.invalidateQueries({ queryKey: ["/api/jobs/track", plateNumber] });
         
         const statusMessages: Record<JobStatus, string> = {
@@ -74,20 +81,11 @@ export default function CustomerTrack() {
         }
       }
     },
-    onOpen: () => {
-      console.log('[Customer Track] WebSocket connected');
-    },
-    onClose: () => {
-      console.log('[Customer Track] WebSocket disconnected');
-    },
   });
 
-  // Subscribe to job updates when jobs are loaded
   useEffect(() => {
     if (jobs && jobs.length > 0 && isConnected) {
-      console.log('[Customer Track] Subscribing to', jobs.length, 'jobs');
       jobs.forEach(job => {
-        console.log('[Customer Track] Subscribing to job:', job.id);
         wsSubscribe({ jobId: job.id });
       });
     }
@@ -120,21 +118,6 @@ export default function CustomerTrack() {
     },
   });
 
-  const getStatusBadge = (status: JobStatus) => {
-    const statusConfig = {
-      [JobStatus.PENDING_PAYMENT]: { label: "Pending Payment", variant: "secondary" as const },
-      [JobStatus.PAID]: { label: "Waiting for Cleaner", variant: "secondary" as const },
-      [JobStatus.ASSIGNED]: { label: "Cleaner Assigned", variant: "default" as const },
-      [JobStatus.IN_PROGRESS]: { label: "In Progress", variant: "default" as const },
-      [JobStatus.COMPLETED]: { label: "Completed", variant: "outline" as const },
-      [JobStatus.CANCELLED]: { label: "Cancelled", variant: "destructive" as const },
-      [JobStatus.REFUNDED]: { label: "Refunded", variant: "secondary" as const },
-    };
-
-    const config = statusConfig[status];
-    return <Badge variant={config.variant}>{config.label}</Badge>;
-  };
-
   const currentJob = jobs?.find(
     (job) => job.status !== JobStatus.COMPLETED && job.status !== JobStatus.CANCELLED && job.status !== JobStatus.REFUNDED
   );
@@ -144,22 +127,25 @@ export default function CustomerTrack() {
   );
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header - Clean and minimal */}
-      <div className="border-b bg-background sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-3">
+    <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex flex-col">
+      {/* Header with gradient */}
+      <div className="bg-gradient-to-r from-primary to-primary/80 sticky top-0 z-10 shadow-lg">
+        <div className="max-w-md mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-3">
-            <img src={logoUrl} alt="Washapp.ae" className="h-10 w-auto" data-testid="img-logo" />
-            <div className="flex-1">
-              <h1 className="text-base font-semibold">{plateNumber}</h1>
-              <p className="text-xs text-muted-foreground">
-                Car wash tracking
-              </p>
+            <div className="flex items-center gap-3 flex-1">
+              <img src={logoUrl} alt="Washapp.ae" className="h-12 w-auto" data-testid="img-logo" />
+              <div>
+                <h1 className="text-white text-lg font-bold">{plateNumber}</h1>
+                <p className="text-white/90 text-xs">
+                  Track your car wash
+                </p>
+              </div>
             </div>
             <Button 
               variant="ghost" 
               size="sm"
               onClick={() => setLocation("/")}
+              className="text-white hover:bg-white/20"
               data-testid="button-back"
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
@@ -172,68 +158,81 @@ export default function CustomerTrack() {
       {/* Content */}
       <div className="flex-1 max-w-md mx-auto w-full px-4 py-6 pb-20">
 
-        {/* Push Notification Banner - Only show if supported */}
+        {/* Push Notification Banner */}
         {isSupported && !isSubscribed && permission === 'default' && jobs && jobs.length > 0 && (
-          <Card className="mb-4 border-primary/20 bg-primary/5">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <Bell className="h-5 w-5 text-primary mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Get instant job updates</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Enable notifications to receive real-time alerts about your car wash
-                  </p>
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4"
+          >
+            <Card className="border-primary/30 bg-gradient-to-r from-primary/10 to-primary/5 overflow-hidden">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                    <Bell className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm">Get instant updates</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Enable notifications for real-time job alerts
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={subscribe}
+                    disabled={pushLoading}
+                    className="bg-primary hover:bg-primary/90"
+                    data-testid="button-enable-notifications"
+                  >
+                    {pushLoading ? 'Enabling...' : 'Enable'}
+                  </Button>
                 </div>
-                <Button
-                  size="sm"
-                  onClick={subscribe}
-                  disabled={pushLoading}
-                  data-testid="button-enable-notifications"
-                >
-                  {pushLoading ? 'Enabling...' : 'Enable'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </motion.div>
         )}
 
         {/* Notification Status */}
         {isSubscribed && (
-          <Card className="mb-4 border-green-500/20 bg-green-500/5">
-            <CardContent className="p-3">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <Bell className="h-4 w-4 text-green-600" />
-                    <p className="text-sm text-green-600">Notifications enabled</p>
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4"
+          >
+            <Card className="border-green-500/30 bg-gradient-to-r from-green-50 to-green-50/50 dark:from-green-950/20 dark:to-green-950/10">
+              <CardContent className="p-3">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <Bell className="h-4 w-4 text-green-600 dark:text-green-400" />
+                      <p className="text-sm font-medium text-green-700 dark:text-green-300">Notifications enabled</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={unsubscribe}
+                      disabled={pushLoading}
+                      data-testid="button-disable-notifications"
+                    >
+                      <BellOff className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={unsubscribe}
-                    disabled={pushLoading}
-                    data-testid="button-disable-notifications"
-                  >
-                    <BellOff className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex items-center justify-between gap-3 pt-2 border-t border-green-500/20">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between gap-3 pt-2 border-t border-green-500/20">
                     <span className="text-sm">Sound</span>
+                    <Button
+                      size="sm"
+                      variant={soundEnabled ? "default" : "outline"}
+                      onClick={toggleSound}
+                      disabled={pushLoading}
+                      data-testid="button-toggle-sound"
+                    >
+                      {soundEnabled ? 'On' : 'Off'}
+                    </Button>
                   </div>
-                  <Button
-                    size="sm"
-                    variant={soundEnabled ? "default" : "outline"}
-                    onClick={toggleSound}
-                    disabled={pushLoading}
-                    data-testid="button-toggle-sound"
-                  >
-                    {soundEnabled ? 'On' : 'Off'}
-                  </Button>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </motion.div>
         )}
 
         {isLoading ? (
@@ -245,128 +244,159 @@ export default function CustomerTrack() {
                   <Skeleton className="h-4 w-1/2 mt-2" />
                 </CardHeader>
                 <CardContent>
-                  <Skeleton className="h-20 w-full" />
+                  <Skeleton className="h-32 w-full" />
                 </CardContent>
               </Card>
             ))}
           </div>
         ) : !jobs || jobs.length === 0 ? (
-          <Card>
-            <CardContent className="pt-6 text-center">
-              <Car className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-muted-foreground">
-                No car wash history found for plate number: <strong>{plateNumber}</strong>
-              </p>
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={() => setLocation("/")}
-                data-testid="button-book-wash"
-              >
-                Book Your First Wash
-              </Button>
-            </CardContent>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+          >
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <Car className="h-10 w-10 text-primary" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">No washes yet</h3>
+                <p className="text-muted-foreground text-sm mb-4">
+                  No car wash history found for <strong>{plateNumber}</strong>
+                </p>
+                <Button
+                  onClick={() => setLocation("/")}
+                  className="bg-primary hover:bg-primary/90"
+                  data-testid="button-book-wash"
+                >
+                  Book Your First Wash
+                </Button>
+              </CardContent>
+            </Card>
+          </motion.div>
         ) : (
           <>
             {/* Current Active Job */}
             {currentJob && (
-              <div className="mb-6">
-                <h2 className="text-lg font-semibold mb-3">Current Wash</h2>
-                <JobCard
-                  job={currentJob}
-                  showRatingButton={false}
-                  getStatusBadge={getStatusBadge}
-                />
-              </div>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6"
+              >
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
+                    <Timer className="h-4 w-4 text-primary" />
+                  </div>
+                  Active Wash
+                </h2>
+                <ActiveJobCard job={currentJob} currentTime={currentTime} />
+              </motion.div>
             )}
 
             {/* Completed Jobs History */}
             {completedJobs && completedJobs.length > 0 && (
-              <div>
-                <h2 className="text-lg font-semibold mb-3">History</h2>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+              >
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center">
+                    <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  History
+                </h2>
                 <div className="space-y-4">
-                  {completedJobs.map((job) => (
-                    <JobCard
+                  {completedJobs.map((job, index) => (
+                    <motion.div
                       key={job.id}
-                      job={job}
-                      showRatingButton={job.status === JobStatus.COMPLETED && !job.rating}
-                      getStatusBadge={getStatusBadge}
-                      onRate={() => setSelectedJob(job)}
-                    />
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 + index * 0.05 }}
+                    >
+                      <HistoryJobCard
+                        job={job}
+                        onRate={() => setSelectedJob(job)}
+                      />
+                    </motion.div>
                   ))}
                 </div>
-              </div>
+              </motion.div>
             )}
           </>
         )}
 
         {/* Rating Modal */}
         {selectedJob && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <Card className="w-full max-w-md">
-              <CardHeader>
-                <CardTitle>Rate Your Car Wash</CardTitle>
-                <CardDescription>Job #{selectedJob.id}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Star Rating */}
-                <div className="flex justify-center gap-2">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      type="button"
-                      onClick={() => setRating(star)}
-                      className="focus:outline-none"
-                      data-testid={`button-star-${star}`}
-                    >
-                      <Star
-                        className={`h-8 w-8 ${
-                          star <= rating
-                            ? "fill-yellow-400 text-yellow-400"
-                            : "text-muted-foreground"
-                        }`}
-                      />
-                    </button>
-                  ))}
-                </div>
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="w-full max-w-md"
+            >
+              <Card className="border-primary/20">
+                <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5">
+                  <CardTitle>Rate Your Car Wash</CardTitle>
+                  <CardDescription>Job #{selectedJob.id}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-6">
+                  {/* Star Rating */}
+                  <div className="flex justify-center gap-2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setRating(star)}
+                        className="focus:outline-none transition-transform hover:scale-110"
+                        data-testid={`button-star-${star}`}
+                      >
+                        <Star
+                          className={`h-10 w-10 ${
+                            star <= rating
+                              ? "fill-yellow-400 text-yellow-400"
+                              : "text-muted-foreground"
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
 
-                {/* Review Text */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    Review (Optional)
-                  </label>
-                  <Textarea
-                    placeholder="Tell us about your experience..."
-                    value={review}
-                    onChange={(e) => setReview(e.target.value)}
-                    rows={4}
-                    data-testid="input-review"
-                  />
-                </div>
-              </CardContent>
-              <CardFooter className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSelectedJob(null);
-                    setRating(0);
-                    setReview("");
-                  }}
-                  data-testid="button-cancel-rating"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  className="flex-1"
-                  disabled={rating === 0 || submitRating.isPending}
-                  onClick={() => submitRating.mutate()}
-                  data-testid="button-submit-rating"
-                >
-                  {submitRating.isPending ? "Submitting..." : "Submit Rating"}
-                </Button>
-              </CardFooter>
-            </Card>
+                  {/* Review Text */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      Review (Optional)
+                    </label>
+                    <Textarea
+                      placeholder="Tell us about your experience..."
+                      value={review}
+                      onChange={(e) => setReview(e.target.value)}
+                      rows={4}
+                      data-testid="input-review"
+                    />
+                  </div>
+                </CardContent>
+                <CardFooter className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedJob(null);
+                      setRating(0);
+                      setReview("");
+                    }}
+                    data-testid="button-cancel-rating"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="flex-1 bg-primary hover:bg-primary/90"
+                    disabled={rating === 0 || submitRating.isPending}
+                    onClick={() => submitRating.mutate()}
+                    data-testid="button-submit-rating"
+                  >
+                    {submitRating.isPending ? "Submitting..." : "Submit Rating"}
+                  </Button>
+                </CardFooter>
+              </Card>
+            </motion.div>
           </div>
         )}
       </div>
@@ -374,88 +404,317 @@ export default function CustomerTrack() {
   );
 }
 
-function JobCard({
-  job,
-  showRatingButton,
-  getStatusBadge,
-  onRate,
-}: {
-  job: Job;
-  showRatingButton: boolean;
-  getStatusBadge: (status: JobStatus) => React.ReactNode;
-  onRate?: () => void;
-}) {
+function ActiveJobCard({ job, currentTime }: { job: Job; currentTime: Date }) {
+  const { data: cleaner, isError: cleanerError } = useQuery<Cleaner>({
+    queryKey: ["/api/cleaners", job.cleanerId],
+    queryFn: async () => {
+      const res = await fetch(`/api/cleaners/${job.cleanerId}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!job.cleanerId,
+    retry: false,
+  });
+
+  const { data: company, isError: companyError } = useQuery<Company>({
+    queryKey: ["/api/companies", job.companyId],
+    queryFn: async () => {
+      const res = await fetch(`/api/companies/${job.companyId}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    retry: false,
+  });
+
+  const getProgressStage = (status: JobStatus) => {
+    switch (status) {
+      case JobStatus.PENDING_PAYMENT:
+      case JobStatus.PAID:
+        return 1;
+      case JobStatus.ASSIGNED:
+        return 2;
+      case JobStatus.IN_PROGRESS:
+        return 3;
+      case JobStatus.COMPLETED:
+        return 4;
+      default:
+        return 0;
+    }
+  };
+
+  const stage = getProgressStage(job.status as JobStatus);
+
+  const stages = [
+    { id: 1, label: "Requested", icon: Car },
+    { id: 2, label: "Assigned", icon: User },
+    { id: 3, label: "In Progress", icon: Timer },
+    { id: 4, label: "Completed", icon: CheckCircle2 },
+  ];
+
+  const getTimeRemaining = (targetTime: Date | null) => {
+    if (!targetTime) return null;
+    const diff = new Date(targetTime).getTime() - currentTime.getTime();
+    if (diff <= 0) return "Now";
+    
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60);
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes % 60}m`;
+    }
+    return `${minutes}m`;
+  };
+
   return (
-    <Card data-testid={`job-card-${job.id}`}>
-      <CardHeader>
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <CardTitle className="text-lg">Job #{job.id}</CardTitle>
-            <CardDescription className="mt-1">
-              {new Date(job.createdAt).toLocaleDateString()}
-            </CardDescription>
+    <Card className="border-primary/30 overflow-hidden" data-testid={`job-card-${job.id}`}>
+      {/* Progress Timeline */}
+      <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-6">
+        <div className="relative">
+          {/* Progress Line */}
+          <div className="absolute top-5 left-0 right-0 h-0.5 bg-muted">
+            <div 
+              className="h-full bg-primary transition-all duration-500"
+              style={{ width: `${((stage - 1) / 3) * 100}%` }}
+            />
           </div>
-          {getStatusBadge(job.status as JobStatus)}
+
+          {/* Progress Steps */}
+          <div className="relative flex justify-between">
+            {stages.map((s) => {
+              const Icon = s.icon;
+              const isActive = stage >= s.id;
+              const isCurrent = stage === s.id;
+              
+              return (
+                <div key={s.id} className="flex flex-col items-center gap-2">
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: s.id * 0.1 }}
+                    className={`h-10 w-10 rounded-full flex items-center justify-center transition-all ${
+                      isActive
+                        ? "bg-primary text-white shadow-lg"
+                        : "bg-muted text-muted-foreground"
+                    } ${isCurrent ? "ring-4 ring-primary/30" : ""}`}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </motion.div>
+                  <span className={`text-xs font-medium ${isActive ? "text-foreground" : "text-muted-foreground"}`}>
+                    {s.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
+
+        {/* Estimated Times */}
+        {(job.estimatedStartTime || job.estimatedFinishTime) && (
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            {job.estimatedStartTime && stage < 3 && (
+              <div className="bg-white/50 dark:bg-black/20 rounded-lg p-3 border border-primary/20">
+                <p className="text-xs text-muted-foreground mb-1">Estimated Start</p>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-primary" />
+                  <span className="font-bold text-primary">
+                    {getTimeRemaining(job.estimatedStartTime)}
+                  </span>
+                </div>
+              </div>
+            )}
+            {job.estimatedFinishTime && stage >= 3 && (
+              <div className="bg-white/50 dark:bg-black/20 rounded-lg p-3 border border-primary/20">
+                <p className="text-xs text-muted-foreground mb-1">Estimated Finish</p>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-primary" />
+                  <span className="font-bold text-primary">
+                    {getTimeRemaining(job.estimatedFinishTime)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <CardContent className="space-y-4 pt-6">
         {/* Refund Message */}
         {job.status === JobStatus.REFUNDED && (
-          <div className="bg-muted/50 border border-muted rounded-lg p-3 flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-            <div className="text-sm">
-              <p className="font-medium mb-1">Full Refund Processed</p>
-              <p className="text-muted-foreground">
-                No cleaner accepted your job within 15 minutes. 
-                Your payment of {job.totalAmount} AED has been fully refunded 
-                and will appear on your card within 10 business days.
-              </p>
+          <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center shrink-0">
+                <AlertCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+              </div>
+              <div className="text-sm">
+                <p className="font-bold text-green-900 dark:text-green-100 mb-2">Full Refund Processed</p>
+                <p className="text-green-800 dark:text-green-200">
+                  No cleaner accepted your job within 15 minutes. 
+                  Your payment of <strong>{job.totalAmount} AED</strong> has been fully refunded 
+                  and will appear on your card within 10 business days.
+                </p>
+              </div>
             </div>
           </div>
         )}
 
-        <div className="flex items-start gap-2">
-          <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
-          <div>
+        {/* Cleaner Profile */}
+        {cleaner && job.status !== JobStatus.PAID && job.status !== JobStatus.PENDING_PAYMENT && (
+          <div className="bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20 rounded-lg p-4">
+            <p className="text-xs text-muted-foreground mb-3">Your Cleaner</p>
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center">
+                <User className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold">{cleaner.fullName}</p>
+                <p className="text-sm text-muted-foreground flex items-center gap-1">
+                  <Phone className="h-3 w-3" />
+                  {cleaner.phoneNumber}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Company */}
+        {company && (
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <Building2 className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Company</p>
+              <p className="font-semibold">{company.name}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Location */}
+        <div className="flex items-start gap-3">
+          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <MapPin className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1">
             <p className="text-sm text-muted-foreground">Location</p>
             <p className="font-medium">{job.locationAddress}</p>
+            {job.parkingNumber && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Parking: {job.parkingNumber}
+              </p>
+            )}
           </div>
         </div>
 
-        {job.parkingNumber && (
-          <div className="flex items-start gap-2">
-            <Building2 className="h-4 w-4 mt-0.5 text-muted-foreground" />
-            <div>
-              <p className="text-sm text-muted-foreground">Parking</p>
-              <p className="font-medium">{job.parkingNumber}</p>
-            </div>
+        {/* Phone */}
+        <div className="flex items-start gap-3">
+          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <Phone className="h-5 w-5 text-primary" />
           </div>
-        )}
-
-        <div className="flex items-start gap-2">
-          <Phone className="h-4 w-4 mt-0.5 text-muted-foreground" />
           <div>
             <p className="text-sm text-muted-foreground">Contact</p>
             <p className="font-medium">{job.customerPhone}</p>
           </div>
         </div>
 
-        {job.completedAt && (
-          <div className="flex items-start gap-2">
-            <Clock className="h-4 w-4 mt-0.5 text-muted-foreground" />
+        {/* Price */}
+        <div className="flex items-center justify-between pt-4 border-t">
+          <span className="text-muted-foreground">Total Amount</span>
+          <span className="text-2xl font-bold text-primary">{job.totalAmount} AED</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function HistoryJobCard({ job, onRate }: { job: Job; onRate?: () => void }) {
+  const { data: cleaner, isError: cleanerError } = useQuery<Cleaner>({
+    queryKey: ["/api/cleaners", job.cleanerId],
+    queryFn: async () => {
+      const res = await fetch(`/api/cleaners/${job.cleanerId}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!job.cleanerId,
+    retry: false,
+  });
+
+  const getDuration = () => {
+    if (!job.startedAt || !job.completedAt) return null;
+    const diff = new Date(job.completedAt).getTime() - new Date(job.startedAt).getTime();
+    const minutes = Math.round(diff / 60000);
+    return `${minutes} min`;
+  };
+
+  const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(job.locationLongitude as string) - 0.01},${parseFloat(job.locationLatitude as string) - 0.01},${parseFloat(job.locationLongitude as string) + 0.01},${parseFloat(job.locationLatitude as string) + 0.01}&layer=mapnik&marker=${job.locationLatitude},${job.locationLongitude}`;
+
+  return (
+    <Card className="hover-elevate overflow-hidden" data-testid={`job-card-${job.id}`}>
+      {/* Map Thumbnail */}
+      <div className="relative h-32 bg-muted">
+        <iframe
+          src={mapUrl}
+          className="w-full h-full pointer-events-none"
+          title="Job location"
+        />
+        <div className="absolute top-2 right-2">
+          {job.status === JobStatus.REFUNDED ? (
+            <Badge className="bg-green-600 text-white font-bold shadow-lg">
+              Refunded
+            </Badge>
+          ) : job.status === JobStatus.COMPLETED ? (
+            <Badge className="bg-green-600 text-white font-bold shadow-lg">
+              Completed
+            </Badge>
+          ) : (
+            <Badge variant="destructive">Cancelled</Badge>
+          )}
+        </div>
+      </div>
+
+      <CardContent className="pt-4 space-y-3">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-semibold">Job #{job.id}</p>
+            <p className="text-xs text-muted-foreground">
+              {new Date(job.createdAt).toLocaleDateString(undefined, {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+              })}
+            </p>
+          </div>
+          {getDuration() && (
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Duration</p>
+              <p className="font-semibold text-primary">{getDuration()}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Cleaner Info */}
+        {cleaner && job.status === JobStatus.COMPLETED && (
+          <div className="flex items-center gap-2 bg-primary/5 rounded-lg p-2">
+            <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
+              <User className="h-4 w-4 text-primary" />
+            </div>
             <div>
-              <p className="text-sm text-muted-foreground">Completed</p>
-              <p className="font-medium">
-                {new Date(job.completedAt).toLocaleString()}
-              </p>
+              <p className="text-sm font-medium">{cleaner.fullName}</p>
+              <p className="text-xs text-muted-foreground">Cleaner</p>
             </div>
           </div>
         )}
 
-        {/* Proof Photo - Show after completion */}
+        {/* Location */}
+        <div className="flex items-start gap-2">
+          <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+          <p className="text-sm">{job.locationAddress}</p>
+        </div>
+
+        {/* Proof Photo */}
         {job.status === JobStatus.COMPLETED && job.proofPhotoURL && (
           <div className="pt-2 border-t">
-            <p className="text-sm text-muted-foreground mb-2">Completion Photo</p>
+            <p className="text-xs text-muted-foreground mb-2">Completion Photo</p>
             <img 
               src={job.proofPhotoURL} 
               alt="Completed car wash proof" 
@@ -465,42 +724,42 @@ function JobCard({
           </div>
         )}
 
+        {/* Rating Display */}
         {job.rating && (
-          <div className="flex items-center gap-2 pt-2 border-t">
-            <div className="flex">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <Star
-                  key={star}
-                  className={`h-4 w-4 ${
-                    star <= Number(job.rating)
-                      ? "fill-yellow-400 text-yellow-400"
-                      : "text-muted-foreground"
-                  }`}
-                />
-              ))}
-            </div>
-            <span className="text-sm text-muted-foreground">Your Rating</span>
-          </div>
-        )}
-
-        {job.review && (
           <div className="pt-2 border-t">
-            <p className="text-sm text-muted-foreground mb-1">Your Review</p>
-            <p className="text-sm italic">{job.review}</p>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="flex">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
+                    key={star}
+                    className={`h-4 w-4 ${
+                      star <= Number(job.rating)
+                        ? "fill-yellow-400 text-yellow-400"
+                        : "text-muted-foreground"
+                    }`}
+                  />
+                ))}
+              </div>
+              <span className="text-sm text-muted-foreground">Your Rating</span>
+            </div>
+            {job.review && (
+              <p className="text-sm text-muted-foreground italic mt-2">{job.review}</p>
+            )}
           </div>
         )}
 
+        {/* Price */}
         <div className="flex items-center justify-between pt-2 border-t">
           <span className="text-sm text-muted-foreground">Total Paid</span>
           <span className="text-lg font-bold">{job.totalAmount} AED</span>
         </div>
       </CardContent>
 
-      {showRatingButton && onRate && (
+      {/* Rate Button */}
+      {job.status === JobStatus.COMPLETED && !job.rating && onRate && (
         <CardFooter>
           <Button
-            className="w-full"
-            variant="outline"
+            className="w-full bg-primary hover:bg-primary/90"
             onClick={onRate}
             data-testid={`button-rate-${job.id}`}
           >

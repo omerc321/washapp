@@ -1233,6 +1233,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { jobId } = req.params;
       const { estimatedStartTime, estimatedFinishTime } = req.body;
 
+      // Validate job ID
+      if (!jobId || isNaN(parseInt(jobId))) {
+        return res.status(400).json({ message: "Invalid job ID" });
+      }
+
+      // Validate request body - at least one time should be provided
+      if (!estimatedStartTime && !estimatedFinishTime) {
+        return res.status(400).json({ message: "At least one estimated time must be provided" });
+      }
+
       const job = await storage.getJob(parseInt(jobId));
       if (!job) {
         return res.status(404).json({ message: "Job not found" });
@@ -1240,8 +1250,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Verify the cleaner owns this job
       const cleaner = await storage.getCleanerByUserId(req.user!.id);
-      if (!cleaner || job.cleanerId !== cleaner.id) {
+      if (!cleaner) {
+        return res.status(403).json({ message: "Cleaner profile not found" });
+      }
+      
+      if (job.cleanerId !== cleaner.id) {
         return res.status(403).json({ message: "Not authorized to update this job" });
+      }
+
+      // Validate dates are in the future
+      const now = new Date();
+      if (estimatedStartTime && new Date(estimatedStartTime) < now) {
+        return res.status(400).json({ message: "Estimated start time must be in the future" });
+      }
+      if (estimatedFinishTime && new Date(estimatedFinishTime) < now) {
+        return res.status(400).json({ message: "Estimated finish time must be in the future" });
       }
 
       await storage.updateJob(parseInt(jobId), {
