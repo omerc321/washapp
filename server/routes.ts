@@ -1227,6 +1227,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update estimated times for job
+  app.patch("/api/cleaner/update-estimated-times/:jobId", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
+    try {
+      const { jobId } = req.params;
+      const { estimatedStartTime, estimatedFinishTime } = req.body;
+
+      const job = await storage.getJob(parseInt(jobId));
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      // Verify the cleaner owns this job
+      const cleaner = await storage.getCleanerByUserId(req.user!.id);
+      if (!cleaner || job.cleanerId !== cleaner.id) {
+        return res.status(403).json({ message: "Not authorized to update this job" });
+      }
+
+      await storage.updateJob(parseInt(jobId), {
+        estimatedStartTime: estimatedStartTime ? new Date(estimatedStartTime) : undefined,
+        estimatedFinishTime: estimatedFinishTime ? new Date(estimatedFinishTime) : undefined,
+      });
+
+      const updatedJob = await storage.getJob(parseInt(jobId));
+      
+      // Broadcast update via WebSocket
+      if (updatedJob) {
+        broadcastJobUpdate(updatedJob);
+      }
+
+      res.json({ success: true, job: updatedJob });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Complete job with proof
   app.post("/api/cleaner/complete-job/:jobId", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
     try {
