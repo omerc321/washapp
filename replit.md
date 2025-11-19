@@ -11,7 +11,7 @@ I prefer simple language and clear explanations. I want iterative development wi
 ### UI/UX Decisions
 -   **Design**: Mobile-first responsive design, optimized for potential app store wrapping.
 -   **Theme**: Modern vibrant interface with bright blue primary color (220 95% 50%), gradient accents, and dark mode support with theme toggle.
--   **Navigation**: Role-based bottom navigation.
+-   **Navigation**: Role-based bottom navigation with login button in top-right for staff access (company admin, cleaner, platform admin).
 -   **Mapping**: Interactive OpenStreetMap integration with Leaflet for location selection, geolocation support, and Nominatim reverse geocoding.
 -   **Booking Flow**: Modern 3-step wizard (Car Details → Location & Company → Payment) with persistent progress indicator, framer-motion animations, and mobile-first design. Reuses existing checkout component to avoid code duplication.
 

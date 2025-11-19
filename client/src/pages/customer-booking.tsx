@@ -5,8 +5,9 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Car, Phone, MapPin, CreditCard, Building2, ChevronLeft, Loader2, Check } from "lucide-react";
+import { Car, Phone, MapPin, CreditCard, Building2, ChevronLeft, Loader2, Check, LogIn } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 import LocationPicker from "@/components/location-picker";
 import ProgressIndicator from "@/components/progress-indicator";
 import logoUrl from "@assets/IMG_2508_1762619079711.png";
@@ -215,7 +216,17 @@ export default function CustomerBooking() {
               <ChevronLeft className="h-5 w-5" />
             </Button>
             <img src={logoUrl} alt="Washapp.ae" className="h-10 w-auto" data-testid="img-logo" />
-            <div className="w-10" /> {/* Spacer for balance */}
+            <Link href="/login">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="hover-elevate active-elevate-2"
+                data-testid="button-login"
+              >
+                <LogIn className="h-4 w-4 mr-2" />
+                Login
+              </Button>
+            </Link>
           </div>
         </div>
       </motion.div>
@@ -573,7 +584,7 @@ function Step2LocationCompany({
                             )}
                           </div>
                           <p className="text-sm text-muted-foreground mt-1">
-                            {company.totalCleaners || 0} cleaner{company.totalCleaners !== 1 ? 's' : ''} available
+                            {company.onDutyCleanersCount || 0} cleaner{company.onDutyCleanersCount !== 1 ? 's' : ''} on duty
                           </p>
                         </div>
                         <div className="text-right">

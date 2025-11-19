@@ -7,8 +7,9 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Car, MapPin, DollarSign, Building2, Phone } from "lucide-react";
+import { Car, MapPin, DollarSign, Building2, Phone, LogIn } from "lucide-react";
 import logoUrl from "@assets/IMG_2508_1762619079711.png";
+import { Link } from "wouter";
 
 if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
   throw new Error('Missing required Stripe key: VITE_STRIPE_PUBLIC_KEY');
@@ -374,14 +375,17 @@ export default function Checkout() {
                 Review and complete
               </p>
             </div>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => setLocation("/customer/select-company")}
-              data-testid="button-back"
-            >
-              Back
-            </Button>
+            <Link href="/login">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="hover-elevate active-elevate-2"
+                data-testid="button-login"
+              >
+                <LogIn className="h-4 w-4 mr-1" />
+                Login
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
