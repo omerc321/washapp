@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Car, Phone, MapPin, CreditCard, Building2, ChevronLeft, Loader2, Check, LogIn } from "lucide-react";
+import { Car, Phone, MapPin, CreditCard, Building2, ChevronLeft, Loader2, Check, LogIn, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import LocationPicker from "@/components/location-picker";
@@ -230,6 +230,52 @@ export default function CustomerBooking() {
           </div>
         </div>
       </motion.div>
+
+      {/* Track Your Wash Section */}
+      {currentStep === 1 && (
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.1 }}
+          className="max-w-md mx-auto w-full px-4 pt-4"
+        >
+          <Card className="border-primary/20 hover-elevate">
+            <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <motion.div
+                    animate={{ 
+                      scale: [1, 1.1, 1],
+                      rotate: [0, 5, -5, 0]
+                    }}
+                    transition={{ 
+                      duration: 2,
+                      repeat: Infinity,
+                      repeatDelay: 1
+                    }}
+                    className="h-12 w-12 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/30"
+                  >
+                    <Search className="h-6 w-6 text-white" />
+                  </motion.div>
+                  <div>
+                    <h3 className="font-bold text-lg">Track Your Wash</h3>
+                    <p className="text-sm text-muted-foreground">Already booked? Track your service</p>
+                  </div>
+                </div>
+                <Link href="/customer/track">
+                  <Button
+                    variant="default"
+                    className="bg-primary"
+                    data-testid="button-track-wash"
+                  >
+                    Track
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Progress Indicator */}
       <motion.div
