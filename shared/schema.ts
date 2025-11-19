@@ -236,6 +236,8 @@ export const jobs = pgTable("jobs", {
   acceptedAt: timestamp("accepted_at"),
   startedAt: timestamp("started_at"),
   completedAt: timestamp("completed_at"),
+  estimatedStartTime: timestamp("estimated_start_time"),
+  estimatedFinishTime: timestamp("estimated_finish_time"),
   
   // Completion proof
   proofPhotoURL: text("proof_photo_url"),
