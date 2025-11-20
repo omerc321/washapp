@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Car, MapPin, Phone, Building2, Clock, Star, ChevronLeft, AlertCircle, Bell, BellOff, User, Timer, CheckCircle2, Navigation } from "lucide-react";
 import { Job, JobStatus, Cleaner, Company } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -16,6 +17,30 @@ import { useWebSocket } from "@/hooks/use-websocket";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import logoUrl from "@assets/IMG_2508_1762619079711.png";
 import { motion } from "framer-motion";
+
+// UAE Emirates list
+const UAE_EMIRATES = [
+  "Abu Dhabi",
+  "Dubai",
+  "Sharjah",
+  "Ajman",
+  "Umm Al Quwain",
+  "Ras Al Khaimah",
+  "Fujairah"
+];
+
+// Plate codes: A-Z, AA-MM, 1-50
+const PLATE_CODES = [
+  // Single letters A-Z
+  ...Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)),
+  // Double letters AA-MM
+  ...Array.from({ length: 13 }, (_, i) => {
+    const char = String.fromCharCode(65 + i);
+    return char + char;
+  }),
+  // Numbers 1-50
+  ...Array.from({ length: 50 }, (_, i) => (i + 1).toString())
+];
 
 // Extended Cleaner type with user information (phone number, name, email)
 type CleanerWithContact = Cleaner & {
@@ -32,27 +57,32 @@ export default function CustomerTrack() {
   const [rating, setRating] = useState(0);
   const [review, setReview] = useState("");
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [plateInput, setPlateInput] = useState("");
+  
+  // Three-field car plate state
+  const [plateEmirate, setPlateEmirate] = useState("");
+  const [plateCode, setPlateCode] = useState("");
+  const [plateNumber, setPlateNumber] = useState("");
 
-  const plateNumber = params?.plateNumber || "";
+  const fullPlateNumber = params?.plateNumber || "";
 
   const handleTrackSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!plateInput.trim()) {
+    if (!plateEmirate || !plateCode || !plateNumber.trim()) {
       toast({
-        title: "Plate Number Required",
-        description: "Please enter your car plate number",
+        title: "Car Plate Required",
+        description: "Please complete all car plate fields (emirate, code, and number)",
         variant: "destructive",
       });
       return;
     }
-    setLocation(`/customer/track/${plateInput.trim().toUpperCase()}`);
+    const combinedPlate = `${plateEmirate} ${plateCode} ${plateNumber.trim().toUpperCase()}`;
+    setLocation(`/customer/track/${encodeURIComponent(combinedPlate)}`);
   };
 
   const { data: jobs, isLoading } = useQuery<Job[]>({
-    queryKey: ["/api/jobs/track", plateNumber],
+    queryKey: ["/api/jobs/track", fullPlateNumber],
     queryFn: async () => {
-      const res = await fetch(`/api/jobs/track/${plateNumber}`, {
+      const res = await fetch(`/api/jobs/track/${fullPlateNumber}`, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache',
@@ -62,7 +92,7 @@ export default function CustomerTrack() {
       if (!res.ok) throw new Error("Failed to fetch jobs");
       return res.json();
     },
-    enabled: !!plateNumber,
+    enabled: !!fullPlateNumber,
     staleTime: 0,
     gcTime: 0,
     refetchOnMount: true,
@@ -78,13 +108,13 @@ export default function CustomerTrack() {
   }, []);
 
   const { permission, isSubscribed, soundEnabled, isLoading: pushLoading, isSupported, subscribe, unsubscribe, toggleSound } = usePushNotifications({
-    plateNumber,
+    plateNumber: fullPlateNumber,
   });
 
   const { subscribe: wsSubscribe, isConnected } = useWebSocket({
     onMessage: (data) => {
       if (data.type === 'job_update' && data.job) {
-        queryClient.invalidateQueries({ queryKey: ["/api/jobs/track", plateNumber] });
+        queryClient.invalidateQueries({ queryKey: ["/api/jobs/track", fullPlateNumber] });
         
         const statusMessages: Record<JobStatus, string> = {
           [JobStatus.ASSIGNED]: "A cleaner has been assigned to your job!",
@@ -96,7 +126,7 @@ export default function CustomerTrack() {
           [JobStatus.PENDING_PAYMENT]: "Waiting for payment",
         };
 
-        if (data.job.carPlateNumber === plateNumber && statusMessages[data.job.status as JobStatus]) {
+        if (data.job.carPlateNumber === fullPlateNumber && statusMessages[data.job.status as JobStatus]) {
           toast({
             title: "Job Update",
             description: statusMessages[data.job.status as JobStatus],
@@ -127,7 +157,7 @@ export default function CustomerTrack() {
         title: "Rating Submitted",
         description: "Thank you for your feedback!",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs/track", plateNumber] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/track", fullPlateNumber] });
       setSelectedJob(null);
       setRating(0);
       setReview("");
@@ -169,9 +199,9 @@ export default function CustomerTrack() {
             <div className="flex items-center gap-3 flex-1">
               <img src={logoUrl} alt="Washapp.ae" className="h-12 w-auto" data-testid="img-logo" />
               <div>
-                <h1 className="text-white text-lg font-bold">{plateNumber || "Track Your Wash"}</h1>
+                <h1 className="text-white text-lg font-bold">{fullPlateNumber || "Track Your Wash"}</h1>
                 <p className="text-white/90 text-xs">
-                  {plateNumber ? "Track your car wash" : "Enter your plate number"}
+                  {fullPlateNumber ? "Track your car wash" : "Enter your plate details"}
                 </p>
               </div>
             </div>
@@ -193,7 +223,7 @@ export default function CustomerTrack() {
       <div className="flex-1 max-w-md mx-auto w-full px-4 py-6 pb-20">
 
         {/* Plate Number Input Form - shown when no plate number in URL */}
-        {!plateNumber && (
+        {!fullPlateNumber && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -207,24 +237,67 @@ export default function CustomerTrack() {
                   </div>
                   <div>
                     <CardTitle className="text-xl">Track Your Wash</CardTitle>
-                    <CardDescription>Enter your car plate number to track your service</CardDescription>
+                    <CardDescription>Enter your car plate details to track your service</CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleTrackSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="plateNumber">Car Plate Number</Label>
-                    <Input
-                      id="plateNumber"
-                      type="text"
-                      placeholder="ABC123"
-                      value={plateInput}
-                      onChange={(e) => setPlateInput(e.target.value.toUpperCase())}
-                      className="text-lg font-bold text-center"
-                      data-testid="input-plate-number"
-                      autoFocus
-                    />
+                <form onSubmit={handleTrackSubmit} className="space-y-5">
+                  <div>
+                    <Label className="text-base font-medium mb-3 block">
+                      Car Plate Details
+                    </Label>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <Label htmlFor="plateEmirate" className="text-sm mb-1.5 block text-muted-foreground">
+                          Emirate
+                        </Label>
+                        <Select value={plateEmirate} onValueChange={setPlateEmirate}>
+                          <SelectTrigger id="plateEmirate" className="h-12" data-testid="select-emirate">
+                            <SelectValue placeholder="Select" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {UAE_EMIRATES.map((emirate) => (
+                              <SelectItem key={emirate} value={emirate}>
+                                {emirate}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="plateCode" className="text-sm mb-1.5 block text-muted-foreground">
+                          Code
+                        </Label>
+                        <Select value={plateCode} onValueChange={setPlateCode}>
+                          <SelectTrigger id="plateCode" className="h-12" data-testid="select-code">
+                            <SelectValue placeholder="A-Z" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PLATE_CODES.map((code) => (
+                              <SelectItem key={code} value={code}>
+                                {code}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="plateNumber" className="text-sm mb-1.5 block text-muted-foreground">
+                          Number
+                        </Label>
+                        <Input
+                          id="plateNumber"
+                          data-testid="input-plate-number"
+                          placeholder="12345"
+                          value={plateNumber}
+                          onChange={(e) => setPlateNumber(e.target.value)}
+                          className="h-12 text-lg"
+                        />
+                      </div>
+                    </div>
                   </div>
                   <Button
                     type="submit"
@@ -361,7 +434,7 @@ export default function CustomerTrack() {
           </div>
         )}
         
-        {!isLoading && plateNumber && (!jobs || jobs.length === 0) && (
+        {!isLoading && fullPlateNumber && (!jobs || jobs.length === 0) && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -373,7 +446,7 @@ export default function CustomerTrack() {
                 </div>
                 <h3 className="text-lg font-semibold mb-2">No washes yet</h3>
                 <p className="text-muted-foreground text-sm mb-4">
-                  No car wash history found for <strong>{plateNumber}</strong>
+                  No car wash history found for <strong>{fullPlateNumber}</strong>
                 </p>
                 <Button
                   onClick={() => setLocation("/")}
@@ -387,7 +460,7 @@ export default function CustomerTrack() {
           </motion.div>
         )}
         
-        {!isLoading && plateNumber && jobs && jobs.length > 0 && (
+        {!isLoading && fullPlateNumber && jobs && jobs.length > 0 && (
           <>
             {/* Current Active Job */}
             {currentJob && (
