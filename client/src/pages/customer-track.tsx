@@ -17,6 +17,13 @@ import { usePushNotifications } from "@/hooks/use-push-notifications";
 import logoUrl from "@assets/IMG_2508_1762619079711.png";
 import { motion } from "framer-motion";
 
+// Extended Cleaner type with user information (phone number, name, email)
+type CleanerWithContact = Cleaner & {
+  phoneNumber?: string;
+  displayName?: string;
+  email?: string;
+};
+
 export default function CustomerTrack() {
   const [, params] = useRoute("/customer/track/:plateNumber");
   const [, setLocation] = useLocation();
@@ -384,7 +391,7 @@ export default function CustomerTrack() {
                   </div>
                   Active Wash
                 </h2>
-                <ActiveJobCard job={currentJob} currentTime={currentTime} />
+                <ActiveJobCard job={currentJob} currentTime={currentTime} onRate={() => setSelectedJob(currentJob)} />
               </motion.div>
             )}
 
@@ -500,8 +507,8 @@ export default function CustomerTrack() {
   );
 }
 
-function ActiveJobCard({ job, currentTime }: { job: Job; currentTime: Date }) {
-  const { data: cleaner, isError: cleanerError } = useQuery<Cleaner>({
+function ActiveJobCard({ job, currentTime, onRate }: { job: Job; currentTime: Date; onRate?: () => void }) {
+  const { data: cleaner, isError: cleanerError } = useQuery<CleanerWithContact>({
     queryKey: ["/api/cleaners", job.cleanerId],
     queryFn: async () => {
       const res = await fetch(`/api/cleaners/${job.cleanerId}`);
@@ -703,10 +710,66 @@ function ActiveJobCard({ job, currentTime }: { job: Job; currentTime: Date }) {
             <Phone className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">Contact</p>
+            <p className="text-sm text-muted-foreground">Your Phone</p>
             <p className="font-medium">{job.customerPhone}</p>
           </div>
         </div>
+
+        {/* Cleaner Phone */}
+        {cleaner?.phoneNumber && (
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <Phone className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Cleaner Phone</p>
+              <a 
+                href={`tel:${cleaner.phoneNumber}`} 
+                className="font-medium text-primary hover:underline"
+                data-testid="link-cleaner-phone"
+              >
+                {cleaner.phoneNumber}
+              </a>
+            </div>
+          </div>
+        )}
+
+        {/* Completion Photo */}
+        {job.status === JobStatus.COMPLETED && job.proofPhotoURL && (
+          <div className="pt-2 border-t">
+            <p className="text-sm text-muted-foreground mb-2">Completion Photo</p>
+            <img 
+              src={job.proofPhotoURL} 
+              alt="Completed car wash proof" 
+              className="w-full h-auto rounded-lg border"
+              data-testid={`img-proof-${job.id}`}
+            />
+          </div>
+        )}
+
+        {/* Rating Display */}
+        {job.rating && (
+          <div className="pt-2 border-t">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="flex">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
+                    key={star}
+                    className={`h-4 w-4 ${
+                      star <= Number(job.rating)
+                        ? "fill-yellow-400 text-yellow-400"
+                        : "text-muted-foreground"
+                    }`}
+                  />
+                ))}
+              </div>
+              <span className="text-sm text-muted-foreground">Your Rating</span>
+            </div>
+            {job.review && (
+              <p className="text-sm text-muted-foreground italic mt-2">{job.review}</p>
+            )}
+          </div>
+        )}
 
         {/* Price */}
         <div className="flex items-center justify-between pt-4 border-t">
@@ -714,12 +777,26 @@ function ActiveJobCard({ job, currentTime }: { job: Job; currentTime: Date }) {
           <span className="text-2xl font-bold text-primary">{job.totalAmount} AED</span>
         </div>
       </CardContent>
+
+      {/* Rate Button */}
+      {job.status === JobStatus.COMPLETED && !job.rating && onRate && (
+        <CardFooter>
+          <Button
+            className="w-full bg-primary hover:bg-primary/90"
+            onClick={onRate}
+            data-testid={`button-rate-${job.id}`}
+          >
+            <Star className="h-4 w-4 mr-2" />
+            Rate This Wash
+          </Button>
+        </CardFooter>
+      )}
     </Card>
   );
 }
 
 function HistoryJobCard({ job, onRate }: { job: Job; onRate?: () => void }) {
-  const { data: cleaner, isError: cleanerError } = useQuery<Cleaner>({
+  const { data: cleaner, isError: cleanerError } = useQuery<CleanerWithContact>({
     queryKey: ["/api/cleaners", job.cleanerId],
     queryFn: async () => {
       const res = await fetch(`/api/cleaners/${job.cleanerId}`);
@@ -786,14 +863,28 @@ function HistoryJobCard({ job, onRate }: { job: Job; onRate?: () => void }) {
 
         {/* Cleaner Info */}
         {job.cleanerId && job.status === JobStatus.COMPLETED && (
-          <div className="flex items-center gap-2 bg-primary/5 rounded-lg p-2">
-            <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
-              <User className="h-4 w-4 text-primary" />
+          <div className="bg-primary/5 rounded-lg p-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
+                <User className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">Professional Cleaner</p>
+                <p className="text-xs text-muted-foreground">Wash completed successfully</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium">Professional Cleaner</p>
-              <p className="text-xs text-muted-foreground">Wash completed successfully</p>
-            </div>
+            {cleaner?.phoneNumber && (
+              <div className="flex items-center gap-2 pl-10">
+                <Phone className="h-3 w-3 text-muted-foreground" />
+                <a 
+                  href={`tel:${cleaner.phoneNumber}`} 
+                  className="text-sm text-primary hover:underline"
+                  data-testid="link-cleaner-phone-history"
+                >
+                  {cleaner.phoneNumber}
+                </a>
+              </div>
+            )}
           </div>
         )}
 

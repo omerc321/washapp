@@ -448,6 +448,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get cleaner by ID (public endpoint for customer tracking)
+  app.get("/api/cleaners/:id", async (req: Request, res: Response) => {
+    try {
+      const cleanerId = parseInt(req.params.id);
+      if (isNaN(cleanerId)) {
+        return res.status(400).json({ message: "Invalid cleaner ID" });
+      }
+
+      const cleaner = await storage.getCleaner(cleanerId);
+      if (!cleaner) {
+        return res.status(404).json({ message: "Cleaner not found" });
+      }
+
+      // Get user info to include phone number and name
+      const user = await storage.getUser(cleaner.userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Return cleaner info with phone number
+      res.json({
+        ...cleaner,
+        phoneNumber: user.phoneNumber,
+        displayName: user.displayName,
+        email: user.email,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Lookup cleaner by email with geofence validation (public endpoint for checkout validation)
   app.get("/api/cleaners/lookup", async (req: Request, res: Response) => {
     try {
