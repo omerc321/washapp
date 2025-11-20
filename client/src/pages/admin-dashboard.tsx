@@ -477,6 +477,10 @@ function FinancialsTab() {
 
 function AnalyticsTab() {
   const { toast } = useToast();
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+  const [selectedCompanyForApproval, setSelectedCompanyForApproval] = useState<Company | null>(null);
+  const [platformFee, setPlatformFee] = useState("3.00");
+  
   const { data: analytics, isLoading } = useQuery<AdminAnalytics>({
     queryKey: ["/api/admin/analytics"],
   });
@@ -486,12 +490,17 @@ function AnalyticsTab() {
   });
 
   const approveMutation = useMutation({
-    mutationFn: async (companyId: number) => {
-      return await apiRequest("POST", `/api/admin/approve-company/${companyId}`);
+    mutationFn: async (data: { companyId: number; platformFee: number }) => {
+      return await apiRequest("POST", `/api/admin/approve-company/${data.companyId}`, {
+        platformFee: data.platformFee,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/pending-companies"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics"] });
+      setApprovalDialogOpen(false);
+      setSelectedCompanyForApproval(null);
+      setPlatformFee("3.00");
       toast({
         title: "Company Approved",
         description: "The company has been approved and is now active.",
@@ -609,7 +618,11 @@ function AnalyticsTab() {
                       <Button
                         size="sm"
                         variant="default"
-                        onClick={() => approveMutation.mutate(company.id)}
+                        onClick={() => {
+                          setSelectedCompanyForApproval(company);
+                          setPlatformFee("3.00");
+                          setApprovalDialogOpen(true);
+                        }}
                         disabled={approveMutation.isPending || rejectMutation.isPending}
                         data-testid={`button-approve-${company.id}`}
                       >
@@ -636,6 +649,60 @@ function AnalyticsTab() {
           )}
         </CardContent>
       </Card>
+      
+      {/* Approval Dialog with Platform Fee */}
+      <Dialog open={approvalDialogOpen} onOpenChange={setApprovalDialogOpen}>
+        <DialogContent data-testid="dialog-approve-company">
+          <DialogHeader>
+            <DialogTitle>Approve Company</DialogTitle>
+            <DialogDescription>
+              Set the platform fee for {selectedCompanyForApproval?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="platformFee">Platform Fee (AED)</Label>
+              <Input
+                id="platformFee"
+                type="number"
+                step="0.01"
+                min="0"
+                value={platformFee}
+                onChange={(e) => setPlatformFee(e.target.value)}
+                placeholder="3.00"
+                data-testid="input-platform-fee"
+              />
+              <p className="text-sm text-muted-foreground">
+                This fee will be charged to customers for each wash booking.
+              </p>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => setApprovalDialogOpen(false)}
+                disabled={approveMutation.isPending}
+                data-testid="button-cancel-approval"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (selectedCompanyForApproval) {
+                    approveMutation.mutate({
+                      companyId: selectedCompanyForApproval.id,
+                      platformFee: parseFloat(platformFee),
+                    });
+                  }
+                }}
+                disabled={approveMutation.isPending || !platformFee || parseFloat(platformFee) < 0}
+                data-testid="button-confirm-approval"
+              >
+                {approveMutation.isPending ? "Approving..." : "Approve Company"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

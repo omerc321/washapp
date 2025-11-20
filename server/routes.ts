@@ -2306,7 +2306,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/approve-company/:companyId", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
     try {
       const { companyId } = req.params;
-      await storage.approveCompany(parseInt(companyId));
+      const { platformFee } = req.body;
+      await storage.approveCompany(parseInt(companyId), platformFee);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
