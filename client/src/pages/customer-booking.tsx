@@ -675,8 +675,11 @@ function Step2LocationCompany({
                           </p>
                         </div>
                         <div className="text-right">
+                          <p className="text-sm text-muted-foreground">
+                            {company.pricePerWash} + 3 AED fee
+                          </p>
                           <p className="text-2xl font-bold text-primary">
-                            {company.pricePerWash} AED
+                            {Number(company.pricePerWash) + 3} AED
                           </p>
                         </div>
                       </div>
