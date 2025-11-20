@@ -938,12 +938,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (job.rating) {
         return res.status(400).json({ message: "Job has already been rated" });
       }
+
+      if (!job.cleanerId) {
+        return res.status(400).json({ message: "Job has no assigned cleaner" });
+      }
       
+      // Update job with rating
       await storage.updateJob(jobId, {
         rating: parseFloat(rating).toString(),
         review: review || null,
         ratedAt: new Date(),
       });
+
+      // Update cleaner's aggregate rating
+      const cleaner = await storage.getCleaner(job.cleanerId);
+      if (cleaner) {
+        // Get all rated jobs for this cleaner
+        const cleanerJobs = await storage.getJobsByCleaner(job.cleanerId);
+        const ratedJobs = cleanerJobs.filter(j => j.rating);
+        
+        // Calculate new average rating
+        const totalRatings = ratedJobs.length;
+        const averageRating = ratedJobs.reduce((sum, j) => sum + parseFloat(j.rating!), 0) / totalRatings;
+        
+        // Update cleaner's rating
+        await storage.updateCleaner(job.cleanerId, {
+          rating: averageRating.toFixed(2),
+          totalRatings,
+        });
+      }
       
       res.json({ message: "Rating submitted successfully" });
     } catch (error: any) {
