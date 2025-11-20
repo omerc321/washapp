@@ -5,7 +5,8 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Car, Phone, MapPin, CreditCard, Building2, ChevronLeft, Loader2, Check, LogIn, Search } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Car, Phone, MapPin, CreditCard, Building2, ChevronLeft, Loader2, Check, LogIn, Search, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import LocationPicker from "@/components/location-picker";
@@ -14,6 +15,30 @@ import logoUrl from "@assets/IMG_2508_1762619079711.png";
 import type { CompanyWithCleaners } from "@shared/schema";
 
 const STEPS = ["Car Details", "Location & Company", "Payment"];
+
+// UAE Emirates
+const UAE_EMIRATES = [
+  "Abu Dhabi",
+  "Dubai",
+  "Sharjah",
+  "Ajman",
+  "Umm Al Quwain",
+  "Ras Al Khaimah",
+  "Fujairah"
+];
+
+// Generate plate codes: A-Z, AA-MM, 1-50
+const PLATE_CODES = [
+  // Single letters A-Z
+  ...Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)),
+  // Double letters AA-MM
+  ...Array.from({ length: 13 }, (_, i) => {
+    const char = String.fromCharCode(65 + i);
+    return char + char;
+  }),
+  // Numbers 1-50
+  ...Array.from({ length: 50 }, (_, i) => (i + 1).toString())
+];
 
 export default function CustomerBooking() {
   const [, setLocation] = useLocation();
@@ -25,8 +50,11 @@ export default function CustomerBooking() {
   // Step 1: Car Details
   const [formData, setFormData] = useState({
     carPlateNumber: "",
+    carPlateEmirate: "",
+    carPlateCode: "",
     parkingNumber: "",
     customerPhone: "",
+    customerEmail: "",
     requestedCleanerEmail: "",
   });
   
@@ -90,10 +118,10 @@ export default function CustomerBooking() {
   };
 
   const handleStep1Submit = () => {
-    if (!formData.carPlateNumber) {
+    if (!formData.carPlateEmirate || !formData.carPlateCode || !formData.carPlateNumber) {
       toast({
         title: "Car Plate Required",
-        description: "Please enter your car plate number",
+        description: "Please complete all car plate fields (emirate, code, and number)",
         variant: "destructive",
       });
       return;
@@ -102,6 +130,14 @@ export default function CustomerBooking() {
       toast({
         title: "Phone Required",
         description: "Please enter your phone number",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (formData.customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.customerEmail)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address",
         variant: "destructive",
       });
       return;
@@ -412,36 +448,77 @@ function Step1CarDetails({
       </div>
 
       <Card className="p-6 space-y-5 border-2 hover-elevate">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2 sm:col-span-1">
-            <Label htmlFor="carPlateNumber" className="text-base font-medium mb-2 block">
-              Car Plate *
-            </Label>
-            <Input
-              id="carPlateNumber"
-              data-testid="input-plate-number"
-              placeholder="ABC-1234"
-              value={formData.carPlateNumber}
-              onChange={(e) => setFormData({ ...formData, carPlateNumber: e.target.value.toUpperCase() })}
-              required
-              className="h-12 text-lg"
-              autoFocus
-            />
+        <div>
+          <Label className="text-base font-medium mb-3 block">
+            Car Plate Details *
+          </Label>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <Label htmlFor="carPlateEmirate" className="text-sm mb-1.5 block text-muted-foreground">
+                Emirate
+              </Label>
+              <Select value={formData.carPlateEmirate} onValueChange={(value) => setFormData({ ...formData, carPlateEmirate: value })}>
+                <SelectTrigger id="carPlateEmirate" className="h-12" data-testid="select-emirate">
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  {UAE_EMIRATES.map((emirate) => (
+                    <SelectItem key={emirate} value={emirate}>
+                      {emirate}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label htmlFor="carPlateCode" className="text-sm mb-1.5 block text-muted-foreground">
+                Code
+              </Label>
+              <Select value={formData.carPlateCode} onValueChange={(value) => setFormData({ ...formData, carPlateCode: value })}>
+                <SelectTrigger id="carPlateCode" className="h-12" data-testid="select-code">
+                  <SelectValue placeholder="A-Z" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PLATE_CODES.map((code) => (
+                    <SelectItem key={code} value={code}>
+                      {code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label htmlFor="carPlateNumber" className="text-sm mb-1.5 block text-muted-foreground">
+                Number
+              </Label>
+              <Input
+                id="carPlateNumber"
+                data-testid="input-plate-number"
+                placeholder="12345"
+                value={formData.carPlateNumber}
+                onChange={(e) => setFormData({ ...formData, carPlateNumber: e.target.value })}
+                required
+                className="h-12 text-lg"
+                autoFocus
+              />
+            </div>
           </div>
-          
-          <div className="col-span-2 sm:col-span-1">
-            <Label htmlFor="parkingNumber" className="text-base font-medium mb-2 block">
-              Parking <span className="text-muted-foreground text-xs font-normal">(Optional)</span>
-            </Label>
-            <Input
-              id="parkingNumber"
-              data-testid="input-parking"
-              placeholder="P2-45"
-              value={formData.parkingNumber}
-              onChange={(e) => setFormData({ ...formData, parkingNumber: e.target.value })}
-              className="h-12 text-lg"
-            />
-          </div>
+        </div>
+        
+        <div>
+          <Label htmlFor="parkingNumber" className="text-base font-medium mb-2 block">
+            Parking <span className="text-muted-foreground text-xs font-normal">(Optional)</span>
+          </Label>
+          <Input
+            id="parkingNumber"
+            data-testid="input-parking"
+            placeholder="P2-45"
+            value={formData.parkingNumber}
+            onChange={(e) => setFormData({ ...formData, parkingNumber: e.target.value })}
+            className="h-12 text-lg"
+          />
         </div>
 
         <div>
@@ -463,6 +540,27 @@ function Step1CarDetails({
           </div>
           <p className="text-sm text-muted-foreground mt-2">
             We'll share this with your cleaner
+          </p>
+        </div>
+
+        <div>
+          <Label htmlFor="customerEmail" className="text-base font-medium mb-2 block">
+            Email <span className="text-muted-foreground text-xs font-normal">(Optional)</span>
+          </Label>
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              id="customerEmail"
+              data-testid="input-customer-email"
+              type="email"
+              placeholder="your.email@example.com"
+              value={formData.customerEmail || ""}
+              onChange={(e) => setFormData({ ...formData, customerEmail: e.target.value })}
+              className="h-12 text-lg pl-11"
+            />
+          </div>
+          <p className="text-sm text-muted-foreground mt-2">
+            Receive wash status updates and receipt via email
           </p>
         </div>
 
