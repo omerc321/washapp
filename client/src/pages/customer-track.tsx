@@ -141,13 +141,22 @@ export default function CustomerTrack() {
     },
   });
 
-  const currentJob = jobs?.find(
-    (job) => job.status !== JobStatus.CANCELLED && job.status !== JobStatus.REFUNDED
+  // Split jobs into active and history
+  const activeJobs = jobs?.filter(
+    (job) => job.status === JobStatus.PAID || 
+             job.status === JobStatus.ASSIGNED || 
+             job.status === JobStatus.IN_PROGRESS ||
+             job.status === JobStatus.PENDING_PAYMENT
   );
 
-  const completedJobs = jobs?.filter((job) => 
-    job.status === JobStatus.CANCELLED || job.status === JobStatus.REFUNDED
+  const historyJobs = jobs?.filter((job) => 
+    job.status === JobStatus.COMPLETED || 
+    job.status === JobStatus.CANCELLED || 
+    job.status === JobStatus.REFUNDED
   );
+
+  // Get the most recent active job to show in "Active Wash" section
+  const currentJob = activeJobs?.[0];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex flex-col">
@@ -396,7 +405,7 @@ export default function CustomerTrack() {
             )}
 
             {/* Completed Jobs History */}
-            {completedJobs && completedJobs.length > 0 && (
+            {historyJobs && historyJobs.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -409,7 +418,7 @@ export default function CustomerTrack() {
                   History
                 </h2>
                 <div className="space-y-4">
-                  {completedJobs.map((job, index) => (
+                  {historyJobs.map((job, index) => (
                     <motion.div
                       key={job.id}
                       initial={{ opacity: 0, y: 20 }}
