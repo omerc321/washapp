@@ -75,6 +75,10 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
   
+  // Ensure admin account exists with correct credentials
+  const { ensureAdminExists } = await import("./utils/ensureAdmin");
+  await ensureAdminExists();
+  
   // Setup WebSocket server for real-time updates
   const { setupWebSocket } = await import("./websocket");
   setupWebSocket(server);
