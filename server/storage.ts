@@ -378,6 +378,7 @@ export class DatabaseStorage implements IStorage {
         c.name,
         c.description,
         c.price_per_wash,
+        c.platform_fee,
         c.total_jobs_completed,
         c.total_revenue,
         c.rating,
@@ -390,7 +391,7 @@ export class DatabaseStorage implements IStorage {
         AND cl.status = 'on_duty'
         AND cl.last_location_update > NOW() - INTERVAL '10 minutes'
       WHERE c.is_active = 1
-      GROUP BY c.id, c.name, c.description, c.price_per_wash, c.total_jobs_completed, 
+      GROUP BY c.id, c.name, c.description, c.price_per_wash, c.platform_fee, c.total_jobs_completed, 
                c.total_revenue, c.rating, cg.id, cg.polygon
     `;
     
@@ -433,6 +434,7 @@ export class DatabaseStorage implements IStorage {
             name: row.name,
             description: row.description,
             pricePerWash: row.price_per_wash,
+            platformFee: row.platform_fee || "3.00",
             adminId: 0,
             tradeLicenseNumber: null,
             tradeLicenseDocumentURL: null,
@@ -1856,6 +1858,7 @@ export class DatabaseStorage implements IStorage {
       name: row.name,
       description: row.description,
       pricePerWash: row.price_per_wash,
+      platformFee: row.platform_fee || "3.00",
       adminId: row.admin_id,
       tradeLicenseNumber: row.trade_license_number,
       tradeLicenseDocumentURL: row.trade_license_document_url,

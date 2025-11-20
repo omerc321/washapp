@@ -17,9 +17,9 @@ export interface FeeCalculation {
   taxAmount: number;           // Legacy: Total tax (baseTax + tipTax + platformFeeTax)
 }
 
-export async function calculateJobFees(baseAmount: number, tipAmount: number = 0): Promise<FeeCalculation> {
+export async function calculateJobFees(baseAmount: number, tipAmount: number = 0, platformFee: number = 3.00): Promise<FeeCalculation> {
   const taxRate = 0.05; // 5% tax
-  const platformFeeAmount = 3.00; // Flat 3 AED platform fee
+  const platformFeeAmount = platformFee; // Company-specific platform fee
   const platformRevenueRate = 0.05; // Platform gets 5% of platform fee
   const stripePercentRate = 0.029; // 2.9%
   const stripeFixedFee = 1.00; // 1 AED
@@ -77,14 +77,15 @@ export async function createJobFinancialRecord(
   cleanerId: number | null,
   baseAmount: number,
   tipAmount: number,
-  paidAt: Date
+  paidAt: Date,
+  platformFee: number = 3.00
 ): Promise<void> {
   const existing = await storage.getJobFinancialsByJobId(jobId);
   if (existing) {
     return;
   }
 
-  const fees = await calculateJobFees(baseAmount, tipAmount);
+  const fees = await calculateJobFees(baseAmount, tipAmount, platformFee);
   
   const financialRecord: InsertJobFinancials = {
     jobId,

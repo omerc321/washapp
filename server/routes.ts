@@ -731,6 +731,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const basePrice = Number(jobData.price);
       const requestedCleanerEmail = jobData.requestedCleanerEmail;
       
+      // Get company to retrieve platform fee
+      const company = await storage.getCompany(parseInt(jobData.companyId));
+      if (!company) {
+        return res.status(400).json({ message: "Invalid company" });
+      }
+      const platformFee = Number(company.platformFee || 3.00);
+      
       // Security: Validate requested cleaner belongs to selected company
       if (requestedCleanerEmail) {
         const user = await storage.getUserByEmail(requestedCleanerEmail);
@@ -748,8 +755,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Calculate fees and total amount
-      const fees = await calculateJobFees(basePrice, tipAmount);
+      // Calculate fees and total amount with company-specific platform fee
+      const fees = await calculateJobFees(basePrice, tipAmount, platformFee);
       
       // Create payment intent with total amount (including tip)
       const paymentIntent = await stripe.paymentIntents.create({
@@ -825,8 +832,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use the stored base price from the job (not from client)
       const basePrice = Number(job.price);
       
+      // Get company to retrieve platform fee
+      const company = await storage.getCompany(job.companyId);
+      if (!company) {
+        return res.status(400).json({ message: "Company not found" });
+      }
+      const platformFee = Number(company.platformFee || 3.00);
+      
       // Recalculate fees with new tip amount
-      const fees = await calculateJobFees(basePrice, tip);
+      const fees = await calculateJobFees(basePrice, tip, platformFee);
       
       // Update the Stripe PaymentIntent with new amount
       const paymentIntent = await stripe.paymentIntents.update(paymentIntentId, {
@@ -953,6 +967,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           }
           
+          // Get company to retrieve platform fee
+          const company = await storage.getCompany(job.companyId);
+          const platformFee = company ? Number(company.platformFee || 3.00) : 3.00;
+          
           // Create financial record for this job
           await createJobFinancialRecord(
             job.id,
@@ -960,7 +978,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             assignedCleanerId, // Pass cleaner ID if directly assigned
             Number(job.price),
             Number(job.tipAmount || 0),
-            new Date()
+            new Date(),
+            platformFee
           );
           
           // Create transaction record for customer payment
@@ -978,7 +997,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Broadcast update to relevant parties
           const updatedJob = await storage.getJob(job.id);
           if (updatedJob) {
-            const company = await storage.getCompany(updatedJob.companyId);
             
             // Send push notification based on final status
             if (finalStatus === JobStatus.ASSIGNED && assignedCleanerId) {
@@ -1057,6 +1075,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: JobStatus.PAID,
       });
       
+      // Get company to retrieve platform fee
+      const company = await storage.getCompany(job.companyId);
+      if (!company) {
+        return res.status(400).json({ message: "Company not found" });
+      }
+      const platformFee = Number(company.platformFee || 3.00);
+      
       // Create financial record for this job
       await createJobFinancialRecord(
         job.id,
@@ -1064,7 +1089,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         job.cleanerId, // Pass actual cleaner if assigned
         Number(job.price),
         Number(job.tipAmount || 0),
-        new Date()
+        new Date(),
+        platformFee
       );
       
       // Broadcast update to all on-duty cleaners
