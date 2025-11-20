@@ -212,11 +212,14 @@ export const jobs = pgTable("jobs", {
   
   // Car and location details
   carPlateNumber: varchar("car_plate_number", { length: 50 }).notNull(),
+  carPlateEmirate: varchar("car_plate_emirate", { length: 50 }),
+  carPlateCode: varchar("car_plate_code", { length: 10 }),
   locationAddress: text("location_address").notNull(),
   locationLatitude: numeric("location_latitude", { precision: 10, scale: 8 }).notNull(),
   locationLongitude: numeric("location_longitude", { precision: 11, scale: 8 }).notNull(),
   parkingNumber: varchar("parking_number", { length: 50 }),
   customerPhone: varchar("customer_phone", { length: 50 }).notNull(),
+  customerEmail: varchar("customer_email", { length: 255 }),
   
   // Payment and pricing
   price: numeric("price", { precision: 10, scale: 2 }).notNull(),
@@ -228,6 +231,8 @@ export const jobs = pgTable("jobs", {
   paymentMethod: paymentMethodEnum("payment_method").default("card"),
   refundedAt: timestamp("refunded_at"),
   refundReason: text("refund_reason"),
+  receiptNumber: varchar("receipt_number", { length: 50 }).unique(),
+  receiptGeneratedAt: timestamp("receipt_generated_at"),
   
   // Job status and timing
   status: jobStatusEnum("status").notNull().default("pending_payment"),
@@ -323,6 +328,16 @@ export const pushSubscriptionsRelations = relations(pushSubscriptions, ({ one })
     references: [customers.id],
   }),
 }));
+
+// Platform Settings Table (company details for receipts)
+export const platformSettings = pgTable("platform_settings", {
+  id: serial("id").primaryKey(),
+  companyName: varchar("company_name", { length: 255 }).notNull().default("Washapp.ae"),
+  companyAddress: text("company_address").notNull().default("Dubai, United Arab Emirates"),
+  vatRegistrationNumber: varchar("vat_registration_number", { length: 100 }).notNull().default(""),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
 
 // Fee Settings Table (platform and payment processing fees)
 export const feeSettings = pgTable("fee_settings", {
@@ -581,6 +596,17 @@ export const selectPushSubscriptionSchema = createSelectSchema(pushSubscriptions
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
 
+export const insertPlatformSettingsSchema = createInsertSchema(platformSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const selectPlatformSettingsSchema = createSelectSchema(platformSettings);
+
+export type PlatformSetting = typeof platformSettings.$inferSelect;
+export type InsertPlatformSetting = z.infer<typeof insertPlatformSettingsSchema>;
+
 export const insertFeeSettingsSchema = createInsertSchema(feeSettings).omit({
   id: true,
   createdAt: true,
@@ -625,11 +651,14 @@ export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 // Additional validation schemas
 export const createJobSchema = z.object({
   carPlateNumber: z.string().min(1, "Plate number is required"),
+  carPlateEmirate: z.string().optional(),
+  carPlateCode: z.string().optional(),
   locationAddress: z.string().min(1, "Location is required"),
   locationLatitude: z.number(),
   locationLongitude: z.number(),
   parkingNumber: z.string().optional(),
   customerPhone: z.string().min(10, "Valid phone number required"),
+  customerEmail: z.string().email("Valid email required").optional(),
   companyId: z.number(),
 });
 
