@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card } from "@/components/ui/card";
@@ -20,6 +20,7 @@ export default function CustomerBooking() {
   const { toast } = useToast();
   
   const [currentStep, setCurrentStep] = useState(1);
+  const checkoutTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Step 1: Car Details
   const [formData, setFormData] = useState({
@@ -42,6 +43,15 @@ export default function CustomerBooking() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isNavigatingToPayment, setIsNavigatingToPayment] = useState(false);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (checkoutTimeoutRef.current) {
+        clearTimeout(checkoutTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Auto-load map on step 2
   useEffect(() => {
@@ -153,8 +163,13 @@ export default function CustomerBooking() {
       // Show Step 3 transition before navigating to checkout
       setCurrentStep(3);
       
+      // Clear any existing timeout before setting a new one
+      if (checkoutTimeoutRef.current) {
+        clearTimeout(checkoutTimeoutRef.current);
+      }
+      
       // Navigate to checkout after brief animation
-      setTimeout(() => {
+      checkoutTimeoutRef.current = setTimeout(() => {
         setLocation("/customer/checkout");
       }, 1500);
     } catch (error: any) {
@@ -174,6 +189,16 @@ export default function CustomerBooking() {
   };
 
   const goBack = () => {
+    // Clear any pending checkout redirect
+    if (checkoutTimeoutRef.current) {
+      clearTimeout(checkoutTimeoutRef.current);
+      checkoutTimeoutRef.current = null;
+    }
+    
+    // Reset navigation state
+    setIsNavigatingToPayment(false);
+    
+    // Navigate back
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     } else {
@@ -198,90 +223,29 @@ export default function CustomerBooking() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex flex-col">
-      {/* Header */}
+      {/* Back Button */}
       <motion.div
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="bg-card/80 backdrop-blur-lg border-b sticky top-0 z-50"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="max-w-md mx-auto w-full px-4 pt-4"
       >
-        <div className="max-w-md mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={goBack}
-              data-testid="button-back"
-              className="hover-elevate active-elevate-2"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            <img src={logoUrl} alt="Washapp.ae" className="h-10 w-auto" data-testid="img-logo" />
-            <Link href="/login">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="hover-elevate active-elevate-2"
-                data-testid="button-login"
-              >
-                <LogIn className="h-4 w-4 mr-2" />
-                Login
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Track Your Wash Section */}
-      {currentStep === 1 && (
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="max-w-md mx-auto w-full px-4 pt-4"
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={goBack}
+          data-testid="button-back"
+          className="hover-elevate active-elevate-2"
         >
-          <Card className="border-primary/20 hover-elevate">
-            <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <motion.div
-                    animate={{ 
-                      scale: [1, 1.1, 1],
-                      rotate: [0, 5, -5, 0]
-                    }}
-                    transition={{ 
-                      duration: 2,
-                      repeat: Infinity,
-                      repeatDelay: 1
-                    }}
-                    className="h-12 w-12 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/30"
-                  >
-                    <Search className="h-6 w-6 text-white" />
-                  </motion.div>
-                  <div>
-                    <h3 className="font-bold text-lg">Track Your Wash</h3>
-                    <p className="text-sm text-muted-foreground">Already booked? Track your service</p>
-                  </div>
-                </div>
-                <Link href="/customer/track">
-                  <Button
-                    variant="default"
-                    className="bg-primary"
-                    data-testid="button-track-wash"
-                  >
-                    Track
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </Card>
-        </motion.div>
-      )}
+          <ChevronLeft className="h-4 w-4 mr-1" />
+          Back
+        </Button>
+      </motion.div>
 
       {/* Progress Indicator */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
+        transition={{ delay: 0.1 }}
         className="max-w-md mx-auto w-full"
       >
         <ProgressIndicator currentStep={currentStep} totalSteps={3} steps={STEPS} />
@@ -426,9 +390,22 @@ function Step1CarDetails({
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", delay: 0.1 }}
-          className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 mx-auto flex items-center justify-center mb-4 shadow-lg shadow-blue-500/30"
+          className="mx-auto mb-4"
         >
-          <Car className="w-8 h-8 text-white" />
+          <motion.img 
+            src={logoUrl} 
+            alt="Washapp.ae" 
+            className="h-20 w-auto mx-auto"
+            animate={{ 
+              scale: [1, 1.05, 1],
+            }}
+            transition={{ 
+              duration: 2,
+              repeat: Infinity,
+              repeatDelay: 1
+            }}
+            data-testid="img-logo-animation"
+          />
         </motion.div>
         <h2 className="text-2xl font-bold">Car Details</h2>
         <p className="text-muted-foreground">Tell us about your vehicle</p>
@@ -505,6 +482,69 @@ function Step1CarDetails({
           <p className="text-sm text-muted-foreground mt-2">
             If on-duty and within 50m, they'll be auto-assigned
           </p>
+        </div>
+      </Card>
+
+      {/* Track Your Wash Section */}
+      <Card className="border-primary/20 hover-elevate">
+        <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <motion.div
+                animate={{ 
+                  scale: [1, 1.1, 1],
+                  rotate: [0, 5, -5, 0]
+                }}
+                transition={{ 
+                  duration: 2,
+                  repeat: Infinity,
+                  repeatDelay: 1
+                }}
+                className="h-12 w-12 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/30"
+              >
+                <Search className="h-6 w-6 text-white" />
+              </motion.div>
+              <div>
+                <h3 className="font-bold text-lg">Track Your Wash</h3>
+                <p className="text-sm text-muted-foreground">Already booked? Track your service</p>
+              </div>
+            </div>
+            <Link href="/customer/track">
+              <Button
+                variant="default"
+                className="bg-primary"
+                data-testid="button-track-wash"
+              >
+                Track
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </Card>
+
+      {/* Login Section */}
+      <Card className="border-primary/20 hover-elevate">
+        <div className="bg-gradient-to-r from-accent/10 to-accent/5 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-accent to-accent/80 flex items-center justify-center shadow-lg shadow-accent/30">
+                <LogIn className="h-6 w-6 text-accent-foreground" />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg">Staff Login</h3>
+                <p className="text-sm text-muted-foreground">For company & cleaner access</p>
+              </div>
+            </div>
+            <Link href="/login">
+              <Button
+                variant="outline"
+                className="hover-elevate active-elevate-2"
+                data-testid="button-login"
+              >
+                Login
+              </Button>
+            </Link>
+          </div>
         </div>
       </Card>
     </motion.div>
