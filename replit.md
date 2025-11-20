@@ -27,6 +27,7 @@ I prefer simple language and clear explanations. I want iterative development wi
 -   **Location**: Geofence polygon matching using ray-casting algorithm for point-in-polygon checks. Companies can define multiple named service areas.
 -   **Security**: Session-based authentication, CSRF protection, role-based access control, Stripe webhook signature verification.
 -   **PWA**: Progressive Web App implementation with service worker for offline capabilities, web app manifest for installability, and install prompt UI. Users can install the app on their mobile devices for an app-like experience.
+-   **Performance Optimization**: Consolidated API endpoints reduce HTTP roundtrips. Cleaner dashboard uses single `/api/cleaner/dashboard` endpoint that fetches profile, shift status, and jobs in parallel (Promise.all) instead of 4 separate requests. Polling only active when cleaner is on duty. Mutations use single invalidation pattern (no double refetch).
 
 ### Feature Specifications
 -   **Customer Booking Flow**: Modern 3-step wizard at `/customer/booking`:
