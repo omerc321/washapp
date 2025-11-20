@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Car, MapPin, Phone, Building2, Upload, CheckCircle2, Clock, Navigation, History, Timer, User, MessageCircle, Banknote, DollarSign } from "lucide-react";
+import { Car, MapPin, Phone, Building2, Upload, CheckCircle2, Clock, Navigation, History, Timer, User, MessageCircle, Banknote, DollarSign, Star } from "lucide-react";
 import { Job, Cleaner, CleanerStatus, JobStatus } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -274,17 +274,30 @@ export default function CleanerDashboard() {
                   {isOnDuty ? "● On Duty" : "○ Off Duty"}
                 </p>
               </div>
-              <Link href="/cleaner/shift-history">
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className={`${isOnDuty ? 'text-white hover:bg-white/20' : ''}`}
-                  data-testid="button-shift-history"
-                >
-                  <History className="h-4 w-4 mr-2" />
-                  <span className="text-xs">Shift History</span>
-                </Button>
-              </Link>
+              <div className="flex flex-col items-end gap-1">
+                {/* Star Rating */}
+                <div className={`flex items-center gap-1 ${isOnDuty ? 'text-white' : 'text-foreground'}`}>
+                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                  <span className="text-sm font-bold">
+                    {cleaner?.rating ? Number(cleaner.rating).toFixed(1) : "0.0"}
+                  </span>
+                  <span className={`text-xs ${isOnDuty ? 'text-white/70' : 'text-muted-foreground'}`}>
+                    ({cleaner?.totalRatings || 0})
+                  </span>
+                </div>
+                {/* Shift History Button */}
+                <Link href="/cleaner/shift-history">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className={`h-7 ${isOnDuty ? 'text-white hover:bg-white/20' : ''}`}
+                    data-testid="button-shift-history"
+                  >
+                    <History className="h-3 w-3 mr-1" />
+                    <span className="text-xs">Shift History</span>
+                  </Button>
+                </Link>
+              </div>
             </div>
 
             {/* Shift Control Button */}
