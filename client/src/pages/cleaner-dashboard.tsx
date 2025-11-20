@@ -263,7 +263,7 @@ export default function CleanerDashboard() {
           animate={{ opacity: 1, y: 0 }}
           className={`sticky top-0 z-10 ${isOnDuty ? 'bg-gradient-to-r from-green-500 to-green-600' : 'bg-gradient-to-r from-muted to-muted/80'} shadow-lg`}
         >
-          <div className="p-3 space-y-2">
+          <div className="p-3 pr-16 space-y-2">
             {/* Header Info */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex-1 min-w-0">
@@ -281,7 +281,8 @@ export default function CleanerDashboard() {
                   className={`${isOnDuty ? 'text-white hover:bg-white/20' : ''}`}
                   data-testid="button-shift-history"
                 >
-                  <History className="h-4 w-4" />
+                  <History className="h-4 w-4 mr-2" />
+                  <span className="text-xs">Shift History</span>
                 </Button>
               </Link>
             </div>
