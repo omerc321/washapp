@@ -142,13 +142,15 @@ export default function CustomerTrack() {
   });
 
   // Split jobs into active and history
+  // Active: Only show jobs that have been paid and are in progress
   const activeJobs = jobs?.filter(
     (job) => job.status === JobStatus.PAID || 
              job.status === JobStatus.ASSIGNED || 
-             job.status === JobStatus.IN_PROGRESS ||
-             job.status === JobStatus.PENDING_PAYMENT
+             job.status === JobStatus.IN_PROGRESS
   );
 
+  // History: Show all completed, cancelled, refunded jobs
+  // Note: PENDING_PAYMENT jobs are excluded entirely (incomplete bookings)
   const historyJobs = jobs?.filter((job) => 
     job.status === JobStatus.COMPLETED || 
     job.status === JobStatus.CANCELLED || 
