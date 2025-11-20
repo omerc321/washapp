@@ -58,6 +58,7 @@ export const companies = pgTable("companies", {
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   pricePerWash: numeric("price_per_wash", { precision: 10, scale: 2 }).notNull(),
+  platformFee: numeric("platform_fee", { precision: 10, scale: 2 }).notNull().default("3.00"),
   adminId: integer("admin_id").notNull(),
   tradeLicenseNumber: varchar("trade_license_number", { length: 100 }),
   tradeLicenseDocumentURL: text("trade_license_document_url"),
