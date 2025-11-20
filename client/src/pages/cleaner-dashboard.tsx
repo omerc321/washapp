@@ -21,36 +21,36 @@ export default function CleanerDashboard() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingJobId, setUploadingJobId] = useState<string | null>(null);
 
-  const { data: cleaner, isLoading: loadingCleaner } = useQuery<Cleaner>({
-    queryKey: ["/api/cleaner/profile"],
+  // Consolidated dashboard query - fetches all data in one call
+  const { data: dashboardData, isLoading: loadingDashboard } = useQuery<{
+    cleaner: Cleaner;
+    activeShift: any;
+    myJobs: Job[];
+    availableJobs: Job[];
+  }>({
+    queryKey: ["/api/cleaner/dashboard"],
     enabled: !!currentUser,
-    staleTime: 0,
-  });
-
-  const { data: availableJobs = [], isLoading: loadingJobs } = useQuery<Job[]>({
-    queryKey: ["/api/cleaner/available-jobs"],
-    enabled: !!cleaner,
     refetchOnWindowFocus: true,
-    refetchInterval: 30000,
+    // Only poll for available jobs when on duty
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      return data?.cleaner?.status === CleanerStatus.ON_DUTY ? 30000 : false;
+    },
     staleTime: 0,
   });
 
-  const { data: activeJobs = [] } = useQuery<Job[]>({
-    queryKey: ["/api/cleaner/my-jobs"],
-    enabled: !!cleaner,
-  });
-
-  const { data: shiftData } = useQuery<{ activeShift: any; cleaner: Cleaner }>({
-    queryKey: ["/api/cleaner/shift-status"],
-    enabled: !!cleaner,
-    staleTime: 0,
-  });
+  // Derive individual pieces of data from dashboard
+  const cleaner = dashboardData?.cleaner;
+  const shiftData = dashboardData ? { activeShift: dashboardData.activeShift, cleaner: dashboardData.cleaner } : undefined;
+  const activeJobs = dashboardData?.myJobs || [];
+  const availableJobs = dashboardData?.availableJobs || [];
+  const loadingCleaner = loadingDashboard;
+  const loadingJobs = loadingDashboard;
 
   useWebSocket({
     onMessage: (data) => {
       if (data.type === 'job_update' && cleaner) {
-        queryClient.invalidateQueries({ queryKey: ["/api/cleaner/available-jobs"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/cleaner/my-jobs"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/cleaner/dashboard"] });
         
         if (data.job && data.job.status === JobStatus.PAID) {
           toast({
@@ -66,11 +66,8 @@ export default function CleanerDashboard() {
     mutationFn: async () => {
       return await apiRequest("POST", "/api/cleaner/start-shift", {});
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/cleaner/shift-status"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/cleaner/profile"] });
-      await queryClient.refetchQueries({ queryKey: ["/api/cleaner/shift-status"] });
-      await queryClient.refetchQueries({ queryKey: ["/api/cleaner/profile"] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/dashboard"] });
       toast({
         title: "Shift Started",
         description: "You are now on duty",
@@ -82,11 +79,8 @@ export default function CleanerDashboard() {
     mutationFn: async () => {
       return await apiRequest("POST", "/api/cleaner/end-shift", {});
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/cleaner/shift-status"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/cleaner/profile"] });
-      await queryClient.refetchQueries({ queryKey: ["/api/cleaner/shift-status"] });
-      await queryClient.refetchQueries({ queryKey: ["/api/cleaner/profile"] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/dashboard"] });
       toast({
         title: "Shift Ended",
         description: "You are now off duty",
@@ -100,9 +94,8 @@ export default function CleanerDashboard() {
         status
       });
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/cleaner/profile"] });
-      await queryClient.refetchQueries({ queryKey: ["/api/cleaner/profile"] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/dashboard"] });
       toast({
         title: "Status Updated",
         description: "Your availability status has been updated",
@@ -117,8 +110,7 @@ export default function CleanerDashboard() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/available-jobs"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/my-jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/dashboard"] });
       toast({
         title: "Job Accepted",
         description: "You have accepted the job",
@@ -131,7 +123,7 @@ export default function CleanerDashboard() {
       return await apiRequest("POST", `/api/cleaner/start-job/${jobId}`, {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/my-jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/dashboard"] });
     },
   });
 
@@ -143,7 +135,7 @@ export default function CleanerDashboard() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/my-jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/dashboard"] });
       setSelectedFile(null);
       setUploadingJobId(null);
       toast({
