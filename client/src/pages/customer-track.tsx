@@ -135,11 +135,11 @@ export default function CustomerTrack() {
   });
 
   const currentJob = jobs?.find(
-    (job) => job.status !== JobStatus.COMPLETED && job.status !== JobStatus.CANCELLED && job.status !== JobStatus.REFUNDED
+    (job) => job.status !== JobStatus.CANCELLED && job.status !== JobStatus.REFUNDED
   );
 
   const completedJobs = jobs?.filter((job) => 
-    job.status === JobStatus.COMPLETED || job.status === JobStatus.CANCELLED || job.status === JobStatus.REFUNDED
+    job.status === JobStatus.CANCELLED || job.status === JobStatus.REFUNDED
   );
 
   return (
