@@ -44,15 +44,26 @@ export async function getUncachableResendClient() {
   };
 }
 
-export async function sendEmail(to: string, subject: string, html: string) {
+export async function sendEmail(
+  to: string, 
+  subject: string, 
+  html: string, 
+  attachments?: Array<{ filename: string; path: string }>
+) {
   try {
     const { client, fromEmail } = await getUncachableResendClient();
-    await client.emails.send({
+    const emailData: any = {
       from: fromEmail,
       to: [to],
       subject,
       html,
-    });
+    };
+    
+    if (attachments && attachments.length > 0) {
+      emailData.attachments = attachments;
+    }
+    
+    await client.emails.send(emailData);
   } catch (error) {
     console.error('Failed to send email:', error);
     // Don't throw - emails are not critical

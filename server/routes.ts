@@ -15,6 +15,7 @@ import { sendEmail } from "./lib/resend";
 import { broadcastJobUpdate } from "./websocket";
 import { createJobFinancialRecord, calculateJobFees } from "./financialUtils";
 import { PushNotificationService } from "./push-service";
+import { generateReceipt, generateReceiptNumber } from "./utils/receiptGenerator";
 import { 
   JobStatus, 
   CleanerStatus, 
@@ -81,6 +82,186 @@ function isPointInPolygon(lat: number, lon: number, polygon: Array<[number, numb
   }
   
   return inside;
+}
+
+// Helper function: Generate email HTML for job status updates
+function generateJobStatusEmailHTML(params: {
+  carPlateNumber: string;
+  status: string;
+  jobId: number;
+  companyName: string;
+  cleanerName?: string;
+  completedAt?: Date;
+}): string {
+  const { carPlateNumber, status, jobId, companyName, cleanerName, completedAt } = params;
+
+  const statusMessages: Record<string, { title: string; message: string; color: string }> = {
+    paid: {
+      title: '✅ Payment Confirmed',
+      message: 'Your payment has been received. We\'re finding a cleaner for you!',
+      color: '#10B981'
+    },
+    assigned: {
+      title: '👨‍🔧 Cleaner Assigned',
+      message: cleanerName
+        ? `${cleanerName} has been assigned to your car wash.`
+        : 'A cleaner has been assigned to your car wash.',
+      color: '#3B82F6'
+    },
+    in_progress: {
+      title: '🚿 Wash in Progress',
+      message: cleanerName
+        ? `${cleanerName} is now washing your car.`
+        : 'Your car wash is in progress.',
+      color: '#8B5CF6'
+    },
+    completed: {
+      title: '✨ Wash Completed',
+      message: 'Your car wash is complete! Thank you for using Washapp.ae. Your receipt is attached.',
+      color: '#059669'
+    },
+    refunded: {
+      title: '💰 Refund Processed',
+      message: 'Your payment has been refunded. We apologize for any inconvenience.',
+      color: '#DC2626'
+    }
+  };
+
+  const statusInfo = statusMessages[status] || {
+    title: 'Job Update',
+    message: `Your car wash status has been updated to: ${status}`,
+    color: '#6B7280'
+  };
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${statusInfo.title}</title>
+    </head>
+    <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 40px 20px;">
+        <tr>
+          <td align="center">
+            <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+              <tr>
+                <td style="background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%); padding: 40px 30px; text-align: center;">
+                  <h1 style="margin: 0; color: #ffffff; font-size: 32px; font-weight: bold;">Washapp.ae</h1>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 30px 30px 20px 30px; text-align: center;">
+                  <div style="display: inline-block; background-color: ${statusInfo.color}; color: #ffffff; padding: 12px 24px; border-radius: 24px; font-size: 18px; font-weight: 600;">
+                    ${statusInfo.title}
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 0 30px 30px 30px; text-align: center;">
+                  <p style="margin: 0; font-size: 16px; color: #4b5563; line-height: 1.6;">
+                    ${statusInfo.message}
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 0 30px 30px 30px;">
+                  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9fafb; border-radius: 8px; padding: 20px;">
+                    <tr>
+                      <td style="padding: 8px 0;">
+                        <span style="color: #6b7280; font-size: 14px;">Job ID:</span>
+                        <span style="color: #111827; font-size: 14px; font-weight: 600; float: right;">#${jobId}</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 8px 0; border-top: 1px solid #e5e7eb;">
+                        <span style="color: #6b7280; font-size: 14px;">Car Plate:</span>
+                        <span style="color: #111827; font-size: 14px; font-weight: 600; float: right;">${carPlateNumber}</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 8px 0; border-top: 1px solid #e5e7eb;">
+                        <span style="color: #6b7280; font-size: 14px;">Company:</span>
+                        <span style="color: #111827; font-size: 14px; font-weight: 600; float: right;">${companyName}</span>
+                      </td>
+                    </tr>
+                    ${completedAt ? `
+                    <tr>
+                      <td style="padding: 8px 0; border-top: 1px solid #e5e7eb;">
+                        <span style="color: #6b7280; font-size: 14px;">Completed At:</span>
+                        <span style="color: #111827; font-size: 14px; font-weight: 600; float: right;">${new Date(completedAt).toLocaleString('en-AE')}</span>
+                      </td>
+                    </tr>
+                    ` : ''}
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
+                  <p style="margin: 0; font-size: 14px; color: #6b7280;">
+                    Thank you for choosing Washapp.ae
+                  </p>
+                  <p style="margin: 10px 0 0 0; font-size: 12px; color: #9ca3af;">
+                    This is an automated email. Please do not reply.
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+}
+
+// Helper function: Send job status email notification
+async function sendJobStatusEmail(job: Job, company: Company, status: string, cleanerName?: string) {
+  if (!job.customerEmail) {
+    return; // Skip if no email provided
+  }
+
+  try {
+    const fullPlateNumber = job.carPlateEmirate && job.carPlateCode
+      ? `${job.carPlateEmirate} ${job.carPlateCode} ${job.carPlateNumber}`
+      : job.carPlateNumber;
+
+    const emailHTML = generateJobStatusEmailHTML({
+      carPlateNumber: fullPlateNumber,
+      status,
+      jobId: job.id,
+      companyName: company.name,
+      cleanerName,
+      completedAt: job.completedAt || undefined,
+    });
+
+    const statusTitles: Record<string, string> = {
+      paid: 'Payment Confirmed',
+      assigned: 'Cleaner Assigned',
+      in_progress: 'Wash in Progress',
+      completed: 'Wash Completed',
+      refunded: 'Refund Processed'
+    };
+
+    const subject = `${statusTitles[status] || 'Job Update'} - ${fullPlateNumber}`;
+
+    // If completed, attach the receipt
+    let attachments = undefined;
+    if (status === 'completed' && job.receiptNumber) {
+      const receiptPath = path.join(process.cwd(), 'uploads', 'receipts', `receipt-${job.receiptNumber}.pdf`);
+      attachments = [
+        {
+          filename: `receipt-${job.receiptNumber}.pdf`,
+          path: receiptPath,
+        }
+      ];
+    }
+
+    await sendEmail(job.customerEmail, subject, emailHTML, attachments);
+  } catch (error) {
+    console.error('Failed to send job status email:', error);
+  }
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -588,11 +769,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customerId: jobData.customerId ? parseInt(jobData.customerId) : undefined,
         companyId: parseInt(jobData.companyId),
         carPlateNumber: jobData.carPlateNumber,
+        carPlateEmirate: jobData.carPlateEmirate || null,
+        carPlateCode: jobData.carPlateCode || null,
         locationAddress: jobData.locationAddress,
         locationLatitude: jobData.locationLatitude,
         locationLongitude: jobData.locationLongitude,
         parkingNumber: jobData.parkingNumber,
         customerPhone: jobData.customerPhone,
+        customerEmail: jobData.customerEmail || null,
         price: basePrice.toString(),
         tipAmount: tipAmount.toString(),
         totalAmount: fees.totalAmount.toString(),
@@ -794,6 +978,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Broadcast update to relevant parties
           const updatedJob = await storage.getJob(job.id);
           if (updatedJob) {
+            const company = await storage.getCompany(updatedJob.companyId);
+            
             // Send push notification based on final status
             if (finalStatus === JobStatus.ASSIGNED && assignedCleanerId) {
               // Notify customer that cleaner is assigned
@@ -806,6 +992,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 customerId: updatedJob.customerId || undefined,
               }).catch(err => console.error('Push notification failed:', err));
               
+              // Send email notification if customer provided email
+              if (company) {
+                sendJobStatusEmail(updatedJob, company, 'assigned', cleanerUser?.displayName).catch(err => 
+                  console.error('Email notification failed:', err)
+                );
+              }
+              
               // Only broadcast to the assigned cleaner
               broadcastJobUpdate(updatedJob);
             } else {
@@ -814,6 +1007,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 carPlateNumber: updatedJob.carPlateNumber,
                 customerId: updatedJob.customerId || undefined,
               }).catch(err => console.error('Push notification failed:', err));
+              
+              // Send email notification if customer provided email
+              if (company) {
+                sendJobStatusEmail(updatedJob, company, 'paid').catch(err => 
+                  console.error('Email notification failed:', err)
+                );
+              }
               
               // Broadcast to all on-duty cleaners (pool mode)
               broadcastJobUpdate(updatedJob);
@@ -1411,21 +1611,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Job not found" });
       }
 
+      const receiptNumber = generateReceiptNumber();
+      const completedAt = new Date();
+      
       await storage.updateJob(parseInt(jobId), {
         status: JobStatus.COMPLETED,
-        completedAt: new Date(),
+        completedAt,
         proofPhotoURL,
+        receiptNumber,
+        receiptGeneratedAt: completedAt,
       });
       
       const completedJob = await storage.getJob(parseInt(jobId));
       
-      // Send push notification
+      // Generate receipt PDF
       if (completedJob) {
+        try {
+          const platformSettings = await storage.getAllPlatformSettings();
+          const settings = platformSettings[0] || {
+            id: 1,
+            companyName: 'Washapp.ae',
+            companyAddress: 'Dubai, United Arab Emirates',
+            vatRegistrationNumber: '',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+
+          const fullPlateNumber = completedJob.carPlateEmirate && completedJob.carPlateCode
+            ? `${completedJob.carPlateEmirate} ${completedJob.carPlateCode} ${completedJob.carPlateNumber}`
+            : completedJob.carPlateNumber;
+
+          const servicePrice = Number(completedJob.price);
+          const platformFee = 3; // 3 AED platform fee
+          const serviceCost = servicePrice + platformFee;
+          const vatPercentage = 5;
+          const vatAmount = serviceCost * (vatPercentage / 100);
+          const totalAmount = serviceCost + vatAmount;
+
+          await generateReceipt({
+            receiptData: {
+              receiptNumber,
+              jobId: completedJob.id,
+              carPlateNumber: fullPlateNumber,
+              carPlateEmirate: completedJob.carPlateEmirate || undefined,
+              carPlateCode: completedJob.carPlateCode || undefined,
+              customerPhone: completedJob.customerPhone,
+              customerEmail: completedJob.customerEmail || undefined,
+              locationAddress: completedJob.locationAddress,
+              servicePrice,
+              platformFee,
+              vatPercentage,
+              totalAmount: Number(completedJob.totalAmount),
+              paymentMethod: completedJob.paymentMethod || 'card',
+              completedAt,
+            },
+            platformSettings: settings,
+          });
+        } catch (receiptError) {
+          console.error('Failed to generate receipt:', receiptError);
+        }
+        
+        // Send push notification
         PushNotificationService.notifyJobStatusChange(parseInt(jobId), JobStatus.COMPLETED, {
           carPlateNumber: completedJob.carPlateNumber,
           cleanerName: req.user?.displayName,
           customerId: completedJob.customerId || undefined,
         }).catch(err => console.error('Push notification failed:', err));
+        
+        // Send email notification with receipt
+        const company = await storage.getCompany(completedJob.companyId);
+        if (company) {
+          sendJobStatusEmail(completedJob, company, 'completed', req.user?.displayName).catch(err =>
+            console.error('Email notification failed:', err)
+          );
+        }
         
         // Broadcast job completion
         broadcastJobUpdate(completedJob);

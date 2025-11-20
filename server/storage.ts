@@ -9,6 +9,7 @@ import {
   cleanerShifts,
   deviceTokens,
   pushSubscriptions,
+  platformSettings,
   feeSettings,
   jobFinancials,
   companyWithdrawals,
@@ -31,6 +32,8 @@ import {
   type InsertShiftSession,
   type CleanerShift,
   type InsertCleanerShift,
+  type PlatformSetting,
+  type InsertPlatformSetting,
   type FeeSetting,
   type InsertFeeSetting,
   type JobFinancials,
@@ -176,6 +179,10 @@ export interface IStorage {
   // Transaction operations
   getCompanyTransactions(companyId: number): Promise<Transaction[]>;
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
+  
+  // Platform settings operations
+  getAllPlatformSettings(): Promise<PlatformSetting[]>;
+  updatePlatformSettings(id: number, updates: Partial<InsertPlatformSetting>): Promise<void>;
   
   // Financial aggregations
   getCompanyFinancialSummary(companyId: number): Promise<{
@@ -1425,6 +1432,22 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     return result;
+  }
+
+  // ===== PLATFORM SETTINGS OPERATIONS =====
+  
+  async getAllPlatformSettings(): Promise<PlatformSetting[]> {
+    return await db.select().from(platformSettings);
+  }
+
+  async updatePlatformSettings(id: number, updates: Partial<InsertPlatformSetting>): Promise<void> {
+    await db
+      .update(platformSettings)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(platformSettings.id, id));
   }
 
   // ===== FINANCIAL AGGREGATIONS =====
