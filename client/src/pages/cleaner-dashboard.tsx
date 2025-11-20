@@ -257,84 +257,50 @@ export default function CleanerDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background pb-20">
       <div className="max-w-2xl mx-auto">
-        {/* Vibrant Header */}
+        {/* Compact Header */}
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className={`sticky top-0 z-10 ${isOnDuty ? 'bg-gradient-to-r from-green-500 to-green-600' : 'bg-gradient-to-r from-muted to-muted/80'} shadow-lg`}
         >
-          <div className="p-4 space-y-4">
+          <div className="p-3 space-y-2">
             {/* Header Info */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className={`text-xl font-bold ${isOnDuty ? 'text-white' : 'text-foreground'}`}>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <h1 className={`text-base font-bold truncate ${isOnDuty ? 'text-white' : 'text-foreground'}`}>
                   {currentUser?.displayName}
                 </h1>
-                <p className={`text-sm ${isOnDuty ? 'text-white/90' : 'text-muted-foreground'}`}>
-                  Cleaner Dashboard
-                </p>
-              </div>
-              <motion.div
-                animate={{ scale: isOnDuty ? [1, 1.05, 1] : 1 }}
-                transition={{ repeat: isOnDuty ? Infinity : 0, duration: 2 }}
-              >
-                <Badge 
-                  variant={isOnDuty ? "default" : "secondary"}
-                  className={`text-sm px-4 py-2 ${isOnDuty ? 'bg-white text-green-600 shadow-lg' : ''}`}
-                >
+                <p className={`text-xs ${isOnDuty ? 'text-white/90' : 'text-muted-foreground'}`}>
                   {isOnDuty ? "● On Duty" : "○ Off Duty"}
-                </Badge>
-              </motion.div>
-            </div>
-
-            {/* Availability Toggle */}
-            <div className={`flex items-center justify-between p-3 rounded-lg ${isOnDuty ? 'bg-white/10' : 'bg-background/50'}`}>
-              <div>
-                <p className={`font-medium ${isOnDuty ? 'text-white' : 'text-foreground'}`}>
-                  Availability Status
-                </p>
-                <p className={`text-xs ${isOnDuty ? 'text-white/70' : 'text-muted-foreground'}`}>
-                  {cleaner.status === CleanerStatus.ON_DUTY ? 'Accepting jobs' : 'Not accepting jobs'}
                 </p>
               </div>
-              <Button
-                size="lg"
-                variant={cleaner.status === CleanerStatus.ON_DUTY ? "outline" : "default"}
-                onClick={() => {
-                  const newStatus = cleaner.status === CleanerStatus.ON_DUTY 
-                    ? CleanerStatus.OFF_DUTY 
-                    : CleanerStatus.ON_DUTY;
-                  toggleAvailability.mutate(newStatus);
-                }}
-                disabled={toggleAvailability.isPending}
-                className={`min-h-12 px-6 ${
-                  cleaner.status === CleanerStatus.ON_DUTY 
-                    ? 'bg-white/90 hover:bg-white text-green-600 border-2 border-white/50' 
-                    : 'bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg'
-                }`}
-                data-testid="button-toggle-availability"
-              >
-                <span className="font-bold">
-                  {cleaner.status === CleanerStatus.ON_DUTY ? 'Go Off Duty' : 'Go On Duty'}
-                </span>
-              </Button>
+              <Link href="/cleaner/shift-history">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className={`${isOnDuty ? 'text-white hover:bg-white/20' : ''}`}
+                  data-testid="button-shift-history"
+                >
+                  <History className="h-4 w-4" />
+                </Button>
+              </Link>
             </div>
 
-            {/* Shift Control - Large Button */}
+            {/* Shift Control Button */}
             {shiftData?.activeShift ? (
               <Button
                 variant="outline"
                 size="lg"
                 onClick={() => endShift.mutate()}
                 disabled={endShift.isPending}
-                className="w-full bg-white/90 hover:bg-white border-2 text-green-600 border-white/50 min-h-14"
+                className="w-full bg-white/90 hover:bg-white border-2 text-green-600 border-white/50 min-h-12"
                 data-testid="button-stop-shift"
               >
-                <Clock className="h-5 w-5 mr-2" />
-                <div className="flex flex-col items-start flex-1">
+                <Clock className="h-4 w-4 mr-2" />
+                <div className="flex items-center justify-between flex-1">
                   <span className="font-bold">Stop Shift</span>
                   <span className="text-xs opacity-80">
-                    Started {new Date(shiftData.activeShift.startedAt).toLocaleTimeString()}
+                    {new Date(shiftData.activeShift.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
               </Button>
@@ -343,26 +309,13 @@ export default function CleanerDashboard() {
                 size="lg"
                 onClick={() => startShift.mutate()}
                 disabled={startShift.isPending}
-                className="w-full bg-gradient-to-r from-primary to-primary/80 text-white min-h-14 shadow-lg hover:shadow-xl"
+                className="w-full bg-gradient-to-r from-primary to-primary/80 text-white min-h-12 shadow-lg hover:shadow-xl"
                 data-testid="button-start-shift"
               >
-                <Clock className="h-5 w-5 mr-2" />
-                <span className="font-bold text-lg">Start Shift</span>
+                <Clock className="h-4 w-4 mr-2" />
+                <span className="font-bold">Start Shift</span>
               </Button>
             )}
-
-            {/* Shift History Link */}
-            <Link href="/cleaner/shift-history">
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className={`w-full ${isOnDuty ? 'text-white hover:bg-white/20' : ''}`}
-                data-testid="button-shift-history"
-              >
-                <History className="mr-2 h-4 w-4" />
-                View Shift History
-              </Button>
-            </Link>
           </div>
         </motion.div>
 

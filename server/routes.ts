@@ -998,6 +998,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { latitude, longitude } = req.body;
       const shift = await storage.startShift(cleaner.id, latitude, longitude);
+      
+      // Automatically set cleaner status to ON_DUTY when starting shift
+      await storage.updateCleaner(cleaner.id, { status: CleanerStatus.ON_DUTY });
+      
       res.json(shift);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -1014,6 +1018,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { latitude, longitude } = req.body;
       await storage.endShift(cleaner.id, latitude, longitude);
+      
+      // Automatically set cleaner status to OFF_DUTY when ending shift
+      await storage.updateCleaner(cleaner.id, { status: CleanerStatus.OFF_DUTY });
+      
       res.json({ message: "Shift ended successfully" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
