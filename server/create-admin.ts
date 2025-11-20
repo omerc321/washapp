@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 
 async function createAdmin() {
   const email = "omer.eldirdieri@gmail.com";
-  const password = "12345678";
+  const password = "Network#123";
   const displayName = "Omer Eldirdieri";
   
   // Hash password
