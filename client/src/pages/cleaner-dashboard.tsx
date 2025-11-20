@@ -1,21 +1,19 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
+import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Car, MapPin, Phone, Building2, Upload, CheckCircle2, Clock, Navigation, History } from "lucide-react";
+import { Car, MapPin, Phone, Building2, Upload, CheckCircle2, Clock, Navigation, History, Timer, User, MessageCircle, Banknote, DollarSign } from "lucide-react";
 import { Job, Cleaner, CleanerStatus, JobStatus } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { Input } from "@/components/ui/input";
-import { formatDistanceToNow, format } from "date-fns";
 
 export default function CleanerDashboard() {
   const { currentUser } = useAuth();
@@ -23,14 +21,12 @@ export default function CleanerDashboard() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingJobId, setUploadingJobId] = useState<string | null>(null);
 
-  // Get cleaner profile
   const { data: cleaner, isLoading: loadingCleaner } = useQuery<Cleaner>({
     queryKey: ["/api/cleaner/profile"],
     enabled: !!currentUser,
     staleTime: 0,
   });
 
-  // Get available jobs
   const { data: availableJobs = [], isLoading: loadingJobs } = useQuery<Job[]>({
     queryKey: ["/api/cleaner/available-jobs"],
     enabled: !!cleaner,
@@ -39,20 +35,17 @@ export default function CleanerDashboard() {
     staleTime: 0,
   });
 
-  // Get my active jobs
   const { data: activeJobs = [] } = useQuery<Job[]>({
     queryKey: ["/api/cleaner/my-jobs"],
     enabled: !!cleaner,
   });
 
-  // Get shift status
   const { data: shiftData } = useQuery<{ activeShift: any; cleaner: Cleaner }>({
     queryKey: ["/api/cleaner/shift-status"],
     enabled: !!cleaner,
     staleTime: 0,
   });
 
-  // WebSocket for real-time job updates
   useWebSocket({
     onMessage: (data) => {
       if (data.type === 'job_update' && cleaner) {
@@ -69,7 +62,6 @@ export default function CleanerDashboard() {
     },
   });
 
-  // Start shift mutation
   const startShift = useMutation({
     mutationFn: async () => {
       return await apiRequest("POST", "/api/cleaner/start-shift", {});
@@ -86,7 +78,6 @@ export default function CleanerDashboard() {
     },
   });
 
-  // End shift mutation
   const endShift = useMutation({
     mutationFn: async () => {
       return await apiRequest("POST", "/api/cleaner/end-shift", {});
@@ -103,12 +94,10 @@ export default function CleanerDashboard() {
     },
   });
 
-  // Toggle availability mutation
   const toggleAvailability = useMutation({
     mutationFn: async (status: CleanerStatus) => {
       return await apiRequest("POST", "/api/cleaner/toggle-status", { 
-        status,
-        userId: currentUser?.id 
+        status
       });
     },
     onSuccess: async () => {
@@ -121,7 +110,6 @@ export default function CleanerDashboard() {
     },
   });
 
-  // Accept job mutation
   const acceptJob = useMutation({
     mutationFn: async (jobId: string) => {
       return await apiRequest("POST", `/api/cleaner/accept-job/${jobId}`, {
@@ -138,7 +126,6 @@ export default function CleanerDashboard() {
     },
   });
 
-  // Start job mutation
   const startJob = useMutation({
     mutationFn: async (jobId: string) => {
       return await apiRequest("POST", `/api/cleaner/start-job/${jobId}`, {});
@@ -148,7 +135,6 @@ export default function CleanerDashboard() {
     },
   });
 
-  // Complete job mutation
   const completeJob = useMutation({
     mutationFn: async ({ jobId, photoURL }: { jobId: string; photoURL: string }) => {
       return await apiRequest("POST", `/api/cleaner/complete-job/${jobId}`, { 
@@ -167,7 +153,6 @@ export default function CleanerDashboard() {
     },
   });
 
-  // Update location mutation
   const updateLocation = useMutation({
     mutationFn: async ({ latitude, longitude }: { latitude: number; longitude: number }) => {
       return await apiRequest("POST", "/api/cleaner/update-location", {
@@ -177,7 +162,6 @@ export default function CleanerDashboard() {
     },
   });
 
-  // Periodic location tracking (every 5 minutes)
   const locationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const updateCurrentLocation = () => {
@@ -202,7 +186,6 @@ export default function CleanerDashboard() {
   useEffect(() => {
     const isOnDuty = shiftData?.activeShift || cleaner?.status === CleanerStatus.ON_DUTY;
 
-    // Clear any existing interval first
     if (locationIntervalRef.current) {
       clearInterval(locationIntervalRef.current);
       locationIntervalRef.current = null;
@@ -235,7 +218,6 @@ export default function CleanerDashboard() {
     if (!selectedFile) return;
 
     try {
-      // Upload file first
       const formData = new FormData();
       formData.append('proofPhoto', selectedFile);
       
@@ -250,7 +232,6 @@ export default function CleanerDashboard() {
       
       const { url } = await uploadRes.json();
       
-      // Then complete the job with the uploaded photo URL
       completeJob.mutate({ jobId, photoURL: url });
     } catch (error) {
       toast({
@@ -279,247 +260,504 @@ export default function CleanerDashboard() {
     );
   }
 
+  const isOnDuty = shiftData?.activeShift || cleaner.status === CleanerStatus.ON_DUTY;
+
   return (
-    <div className="min-h-screen bg-background p-4 pb-20">
+    <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background pb-20">
       <div className="max-w-2xl mx-auto">
-        {/* Header with Availability Toggle */}
-        <Card className="mb-6">
-          <CardHeader>
+        {/* Vibrant Header */}
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`sticky top-0 z-10 ${isOnDuty ? 'bg-gradient-to-r from-green-500 to-green-600' : 'bg-gradient-to-r from-muted to-muted/80'} shadow-lg`}
+        >
+          <div className="p-4 space-y-4">
+            {/* Header Info */}
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Cleaner Dashboard</CardTitle>
-                <CardDescription>{currentUser?.displayName}</CardDescription>
+                <h1 className={`text-xl font-bold ${isOnDuty ? 'text-white' : 'text-foreground'}`}>
+                  {currentUser?.displayName}
+                </h1>
+                <p className={`text-sm ${isOnDuty ? 'text-white/90' : 'text-muted-foreground'}`}>
+                  Cleaner Dashboard
+                </p>
               </div>
-              <Badge variant={cleaner.status === CleanerStatus.ON_DUTY ? "default" : "secondary"}>
-                {cleaner.status === CleanerStatus.ON_DUTY ? "On Duty" : "Off Duty"}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Shift Status */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Clock className={shiftData?.activeShift ? "text-green-500" : "text-muted-foreground"} />
-                <div>
-                  <p className="text-sm font-medium">
-                    {shiftData?.activeShift ? "On Shift" : "No Active Shift"}
-                  </p>
-                  {shiftData?.activeShift && (
-                    <p className="text-xs text-muted-foreground">
-                      Started {new Date(shiftData.activeShift.startedAt).toLocaleTimeString()}
-                    </p>
-                  )}
-                </div>
-              </div>
-              {shiftData?.activeShift ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => endShift.mutate()}
-                  disabled={endShift.isPending}
-                  data-testid="button-stop-shift"
+              <motion.div
+                animate={{ scale: isOnDuty ? [1, 1.05, 1] : 1 }}
+                transition={{ repeat: isOnDuty ? Infinity : 0, duration: 2 }}
+              >
+                <Badge 
+                  variant={isOnDuty ? "default" : "secondary"}
+                  className={`text-sm px-4 py-2 ${isOnDuty ? 'bg-white text-green-600 shadow-lg' : ''}`}
                 >
-                  Stop Shift
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  onClick={() => startShift.mutate()}
-                  disabled={startShift.isPending}
-                  data-testid="button-start-shift"
-                >
-                  Start Shift
-                </Button>
-              )}
+                  {isOnDuty ? "● On Duty" : "○ Off Duty"}
+                </Badge>
+              </motion.div>
             </div>
 
-            {/* Shift History Button */}
-            <div className="pt-2 border-t">
-              <Link href="/cleaner/shift-history">
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  data-testid="button-shift-history"
-                >
-                  <History className="mr-2 h-4 w-4" />
-                  View Shift History
-                </Button>
-              </Link>
+            {/* Availability Toggle */}
+            <div className={`flex items-center justify-between p-3 rounded-lg ${isOnDuty ? 'bg-white/10' : 'bg-background/50'}`}>
+              <div>
+                <p className={`font-medium ${isOnDuty ? 'text-white' : 'text-foreground'}`}>
+                  Availability Status
+                </p>
+                <p className={`text-xs ${isOnDuty ? 'text-white/70' : 'text-muted-foreground'}`}>
+                  {cleaner.status === CleanerStatus.ON_DUTY ? 'Accepting jobs' : 'Not accepting jobs'}
+                </p>
+              </div>
+              <Button
+                size="lg"
+                variant={cleaner.status === CleanerStatus.ON_DUTY ? "outline" : "default"}
+                onClick={() => {
+                  const newStatus = cleaner.status === CleanerStatus.ON_DUTY 
+                    ? CleanerStatus.OFF_DUTY 
+                    : CleanerStatus.ON_DUTY;
+                  toggleAvailability.mutate(newStatus);
+                }}
+                disabled={toggleAvailability.isPending}
+                className={`min-h-12 px-6 ${
+                  cleaner.status === CleanerStatus.ON_DUTY 
+                    ? 'bg-white/90 hover:bg-white text-green-600 border-2 border-white/50' 
+                    : 'bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg'
+                }`}
+                data-testid="button-toggle-availability"
+              >
+                <span className="font-bold">
+                  {cleaner.status === CleanerStatus.ON_DUTY ? 'Go Off Duty' : 'Go On Duty'}
+                </span>
+              </Button>
             </div>
-          </CardContent>
-        </Card>
+
+            {/* Shift Control - Large Button */}
+            {shiftData?.activeShift ? (
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => endShift.mutate()}
+                disabled={endShift.isPending}
+                className="w-full bg-white/90 hover:bg-white border-2 text-green-600 border-white/50 min-h-14"
+                data-testid="button-stop-shift"
+              >
+                <Clock className="h-5 w-5 mr-2" />
+                <div className="flex flex-col items-start flex-1">
+                  <span className="font-bold">Stop Shift</span>
+                  <span className="text-xs opacity-80">
+                    Started {new Date(shiftData.activeShift.startedAt).toLocaleTimeString()}
+                  </span>
+                </div>
+              </Button>
+            ) : (
+              <Button
+                size="lg"
+                onClick={() => startShift.mutate()}
+                disabled={startShift.isPending}
+                className="w-full bg-gradient-to-r from-primary to-primary/80 text-white min-h-14 shadow-lg hover:shadow-xl"
+                data-testid="button-start-shift"
+              >
+                <Clock className="h-5 w-5 mr-2" />
+                <span className="font-bold text-lg">Start Shift</span>
+              </Button>
+            )}
+
+            {/* Shift History Link */}
+            <Link href="/cleaner/shift-history">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className={`w-full ${isOnDuty ? 'text-white hover:bg-white/20' : ''}`}
+                data-testid="button-shift-history"
+              >
+                <History className="mr-2 h-4 w-4" />
+                View Shift History
+              </Button>
+            </Link>
+          </div>
+        </motion.div>
 
         {/* Jobs Tabs */}
-        <Tabs defaultValue="available" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="available" data-testid="tab-available">
-              Available ({availableJobs.length})
-            </TabsTrigger>
-            <TabsTrigger value="active" data-testid="tab-active">
-              My Jobs ({activeJobs.length})
-            </TabsTrigger>
-          </TabsList>
+        <div className="p-4">
+          <Tabs defaultValue="available" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 h-12">
+              <TabsTrigger value="available" className="text-base" data-testid="tab-available">
+                Available <Badge variant="secondary" className="ml-2">{availableJobs.length}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="active" className="text-base" data-testid="tab-active">
+                My Jobs <Badge variant="secondary" className="ml-2">{activeJobs.length}</Badge>
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Available Jobs */}
-          <TabsContent value="available" className="space-y-4 mt-4">
-            {loadingJobs ? (
-              <>
-                {[1, 2].map((i) => (
-                  <Card key={i}>
-                    <CardHeader>
-                      <Skeleton className="h-6 w-1/2" />
-                    </CardHeader>
-                    <CardContent>
-                      <Skeleton className="h-4 w-full mb-2" />
-                      <Skeleton className="h-4 w-3/4" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </>
-            ) : availableJobs.length === 0 ? (
-              <Card className="p-8 text-center">
-                <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No available jobs at the moment</p>
-              </Card>
-            ) : (
-              availableJobs.map((job) => (
-                <JobCard
-                  key={job.id}
-                  job={job}
-                  action={
-                    <Button
-                      className="w-full"
-                      onClick={() => acceptJob.mutate(String(job.id))}
-                      disabled={acceptJob.isPending}
-                      data-testid={`button-accept-${job.id}`}
-                    >
-                      Accept Job
-                    </Button>
-                  }
-                />
-              ))
-            )}
-          </TabsContent>
-
-          {/* Active Jobs */}
-          <TabsContent value="active" className="space-y-4 mt-4">
-            {activeJobs.length === 0 ? (
-              <Card className="p-8 text-center">
-                <CheckCircle2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No active jobs</p>
-              </Card>
-            ) : (
-              activeJobs.map((job) => (
-                <JobCard
-                  key={job.id}
-                  job={job}
-                  action={
-                    job.status === JobStatus.ASSIGNED ? (
-                      <Button
-                        className="w-full"
-                        onClick={() => startJob.mutate(String(job.id))}
-                        data-testid={`button-start-${job.id}`}
+            {/* Available Jobs */}
+            <TabsContent value="available" className="space-y-4 mt-4">
+              <AnimatePresence mode="popLayout">
+                {loadingJobs ? (
+                  <>
+                    {[1, 2].map((i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
                       >
-                        Start Job
-                      </Button>
-                    ) : job.status === JobStatus.IN_PROGRESS ? (
-                      <div className="space-y-3">
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => handleFileSelect(e, String(job.id))}
-                          data-testid={`input-photo-${job.id}`}
-                        />
-                        <Button
-                          className="w-full"
-                          onClick={() => handleUploadProof(String(job.id))}
-                          disabled={!selectedFile || uploadingJobId !== String(job.id) || completeJob.isPending}
-                          data-testid={`button-complete-${job.id}`}
-                        >
-                          <Upload className="h-4 w-4 mr-2" />
-                          Upload Proof & Complete
-                        </Button>
-                      </div>
-                    ) : (
-                      <Badge variant="outline">Completed</Badge>
-                    )
-                  }
-                />
-              ))
-            )}
-          </TabsContent>
-        </Tabs>
+                        <Card>
+                          <CardHeader>
+                            <Skeleton className="h-6 w-1/2" />
+                          </CardHeader>
+                          <CardContent>
+                            <Skeleton className="h-4 w-full mb-2" />
+                            <Skeleton className="h-4 w-3/4" />
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </>
+                ) : availableJobs.length === 0 ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <Card className="p-8 text-center border-dashed">
+                      <Clock className="h-16 w-16 mx-auto text-muted-foreground mb-4 opacity-50" />
+                      <p className="text-muted-foreground font-medium">No available jobs at the moment</p>
+                      <p className="text-sm text-muted-foreground mt-2">New jobs will appear here automatically</p>
+                    </Card>
+                  </motion.div>
+                ) : (
+                  availableJobs.map((job, index) => (
+                    <motion.div
+                      key={job.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      transition={{ delay: index * 0.1 }}
+                      layout
+                    >
+                      <JobCard
+                        job={job}
+                        action={
+                          <Button
+                            size="lg"
+                            className="w-full min-h-14 bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg hover:shadow-xl"
+                            onClick={() => acceptJob.mutate(String(job.id))}
+                            disabled={acceptJob.isPending}
+                            data-testid={`button-accept-${job.id}`}
+                          >
+                            <CheckCircle2 className="h-5 w-5 mr-2" />
+                            <span className="font-bold text-lg">Accept Job</span>
+                          </Button>
+                        }
+                      />
+                    </motion.div>
+                  ))
+                )}
+              </AnimatePresence>
+            </TabsContent>
+
+            {/* Active Jobs */}
+            <TabsContent value="active" className="space-y-4 mt-4">
+              <AnimatePresence mode="popLayout">
+                {activeJobs.length === 0 ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <Card className="p-8 text-center border-dashed">
+                      <CheckCircle2 className="h-16 w-16 mx-auto text-muted-foreground mb-4 opacity-50" />
+                      <p className="text-muted-foreground font-medium">No active jobs</p>
+                      <p className="text-sm text-muted-foreground mt-2">Accepted jobs will appear here</p>
+                    </Card>
+                  </motion.div>
+                ) : (
+                  activeJobs.map((job, index) => (
+                    <motion.div
+                      key={job.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      transition={{ delay: index * 0.1 }}
+                      layout
+                    >
+                      <JobCard
+                        job={job}
+                        action={
+                          job.status === JobStatus.ASSIGNED ? (
+                            <Button
+                              size="lg"
+                              className="w-full min-h-14 bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg hover:shadow-xl"
+                              onClick={() => startJob.mutate(String(job.id))}
+                              data-testid={`button-start-${job.id}`}
+                            >
+                              <Timer className="h-5 w-5 mr-2" />
+                              <span className="font-bold text-lg">Start Cleaning</span>
+                            </Button>
+                          ) : job.status === JobStatus.IN_PROGRESS ? (
+                            <div className="space-y-3">
+                              <Input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                onChange={(e) => handleFileSelect(e, String(job.id))}
+                                className="min-h-12"
+                                data-testid={`input-photo-${job.id}`}
+                              />
+                              <Button
+                                size="lg"
+                                className="w-full min-h-14 bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg hover:shadow-xl"
+                                onClick={() => handleUploadProof(String(job.id))}
+                                disabled={!selectedFile || uploadingJobId !== String(job.id) || completeJob.isPending}
+                                data-testid={`button-complete-${job.id}`}
+                              >
+                                <Upload className="h-5 w-5 mr-2" />
+                                <span className="font-bold text-lg">Upload & Complete</span>
+                              </Button>
+                            </div>
+                          ) : (
+                            <Badge variant="outline" className="w-full py-3 text-base justify-center">
+                              <CheckCircle2 className="h-4 w-4 mr-2" />
+                              Completed
+                            </Badge>
+                          )
+                        }
+                      />
+                    </motion.div>
+                  ))
+                )}
+              </AnimatePresence>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </div>
   );
 }
 
 function JobCard({ job, action }: { job: Job; action: React.ReactNode }) {
+  const getProgressStage = (status: JobStatus) => {
+    switch (status) {
+      case JobStatus.PAID:
+        return 1;
+      case JobStatus.ASSIGNED:
+        return 2;
+      case JobStatus.IN_PROGRESS:
+        return 3;
+      case JobStatus.COMPLETED:
+        return 4;
+      default:
+        return 0;
+    }
+  };
+
+  const getStatusColor = (status: JobStatus) => {
+    switch (status) {
+      case JobStatus.PAID:
+        return "bg-blue-500";
+      case JobStatus.ASSIGNED:
+        return "bg-yellow-500";
+      case JobStatus.IN_PROGRESS:
+        return "bg-orange-500";
+      case JobStatus.COMPLETED:
+        return "bg-green-500";
+      default:
+        return "bg-muted";
+    }
+  };
+
+  const getStatusLabel = (status: JobStatus) => {
+    switch (status) {
+      case JobStatus.PAID:
+        return "New Job";
+      case JobStatus.ASSIGNED:
+        return "Assigned";
+      case JobStatus.IN_PROGRESS:
+        return "In Progress";
+      case JobStatus.COMPLETED:
+        return "Completed";
+      default:
+        return status;
+    }
+  };
+
+  const stage = getProgressStage(job.status as JobStatus);
+  const stages = [
+    { id: 1, label: "New", icon: Car },
+    { id: 2, label: "Assigned", icon: User },
+    { id: 3, label: "Cleaning", icon: Timer },
+    { id: 4, label: "Done", icon: CheckCircle2 },
+  ];
+
+  const formatPhoneForWhatsApp = (phone: string) => {
+    const cleaned = phone.replace(/\D/g, '');
+    return cleaned.startsWith('971') ? cleaned : `971${cleaned}`;
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <CardTitle className="text-lg">Job #{job.id}</CardTitle>
-            <CardDescription>
-              <Badge variant="outline" className="mt-1">
-                ${job.price}
-              </Badge>
-            </CardDescription>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-start gap-2">
-          <Car className="h-4 w-4 mt-0.5 text-muted-foreground" />
-          <div>
-            <p className="text-sm text-muted-foreground">Plate Number</p>
-            <p className="font-medium">{job.carPlateNumber}</p>
-          </div>
-        </div>
-
-        <div className="flex items-start gap-2">
-          <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
-          <div className="flex-1">
-            <p className="text-sm text-muted-foreground">Location</p>
-            <p className="font-medium">{job.locationAddress}</p>
-            {job.locationLatitude && job.locationLongitude && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-2"
-                onClick={() => {
-                  const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${job.locationLatitude},${job.locationLongitude}`;
-                  window.open(googleMapsUrl, "_blank");
-                }}
-                data-testid={`button-navigate-${job.id}`}
-              >
-                <Navigation className="h-3 w-3 mr-1" />
-                Open in Google Maps
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {job.parkingNumber && (
-          <div className="flex items-start gap-2">
-            <Building2 className="h-4 w-4 mt-0.5 text-muted-foreground" />
+    <Card className="overflow-hidden border-primary/20 shadow-lg">
+      {/* Payout Banner - Most Prominent */}
+      <div className="bg-gradient-to-r from-primary to-primary/80 p-6 text-white">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-14 w-14 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
+              <DollarSign className="h-7 w-7" />
+            </div>
             <div>
-              <p className="text-sm text-muted-foreground">Parking</p>
-              <p className="font-medium">{job.parkingNumber}</p>
+              <p className="text-sm opacity-90">Your Earnings</p>
+              <motion.p 
+                initial={{ scale: 0.8 }}
+                animate={{ scale: 1 }}
+                className="text-4xl font-bold"
+              >
+                {job.price} AED
+              </motion.p>
+            </div>
+          </div>
+          <Badge 
+            className={`${getStatusColor(job.status as JobStatus)} text-white border-0 px-3 py-2 text-sm shadow-lg`}
+          >
+            {getStatusLabel(job.status as JobStatus)}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Progress Indicator */}
+      <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-4">
+        <div className="relative">
+          <div className="absolute top-5 left-0 right-0 h-1 bg-muted rounded-full">
+            <motion.div 
+              initial={{ width: 0 }}
+              animate={{ width: `${((stage - 1) / 3) * 100}%` }}
+              transition={{ duration: 0.5 }}
+              className="h-full bg-primary rounded-full"
+            />
+          </div>
+
+          <div className="relative flex justify-between">
+            {stages.map((s) => {
+              const Icon = s.icon;
+              const isActive = stage >= s.id;
+              const isCurrent = stage === s.id;
+              
+              return (
+                <div key={s.id} className="flex flex-col items-center gap-2">
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: s.id * 0.1 }}
+                    className={`h-10 w-10 rounded-full flex items-center justify-center transition-all ${
+                      isActive
+                        ? "bg-primary text-white shadow-lg"
+                        : "bg-muted text-muted-foreground"
+                    } ${isCurrent ? "ring-4 ring-primary/30 scale-110" : ""}`}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </motion.div>
+                  <span className={`text-xs font-medium ${isActive ? "text-foreground" : "text-muted-foreground"}`}>
+                    {s.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <CardContent className="space-y-4 pt-6">
+        {/* Car Info */}
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+            <Car className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs text-muted-foreground">Car Plate</p>
+            <p className="font-bold text-lg">{job.carPlateNumber}</p>
+          </div>
+        </div>
+
+        {/* Location with Navigation */}
+        <div className="space-y-2">
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <MapPin className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground">Location</p>
+              <p className="font-medium">{job.locationAddress}</p>
+            </div>
+          </div>
+          {job.locationLatitude && job.locationLongitude && (
+            <Button
+              size="lg"
+              variant="outline"
+              className="w-full min-h-12 border-2 border-primary/20 hover:bg-primary/5"
+              onClick={() => {
+                const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${job.locationLatitude},${job.locationLongitude}`;
+                window.open(googleMapsUrl, "_blank");
+              }}
+              data-testid={`button-navigate-${job.id}`}
+            >
+              <Navigation className="h-5 w-5 mr-2 text-primary" />
+              <span className="font-bold">Navigate with Google Maps</span>
+            </Button>
+          )}
+        </div>
+
+        {/* Parking */}
+        {job.parkingNumber && (
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <Building2 className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground">Parking Number</p>
+              <p className="font-bold text-lg">{job.parkingNumber}</p>
             </div>
           </div>
         )}
 
-        <div className="flex items-start gap-2">
-          <Phone className="h-4 w-4 mt-0.5 text-muted-foreground" />
-          <div>
-            <p className="text-sm text-muted-foreground">Customer Phone</p>
-            <p className="font-medium">{job.customerPhone}</p>
+        {/* Customer Contact */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <Phone className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground">Customer Phone</p>
+              <p className="font-bold">{job.customerPhone}</p>
+            </div>
+          </div>
+          
+          {/* Contact Buttons */}
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              size="lg"
+              variant="outline"
+              className="min-h-12 border-2 border-primary/20 hover:bg-primary/5"
+              onClick={() => {
+                window.location.href = `tel:${job.customerPhone}`;
+              }}
+              data-testid={`button-call-${job.id}`}
+            >
+              <Phone className="h-4 w-4 mr-2" />
+              <span className="font-bold">Call</span>
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="min-h-12 border-2 border-green-500/20 hover:bg-green-500/5"
+              onClick={() => {
+                const whatsappNumber = formatPhoneForWhatsApp(job.customerPhone);
+                const message = encodeURIComponent(`Hi, I'm your car cleaner for ${job.carPlateNumber}. I'll be there soon!`);
+                window.open(`https://wa.me/${whatsappNumber}?text=${message}`, "_blank");
+              }}
+              data-testid={`button-whatsapp-${job.id}`}
+            >
+              <MessageCircle className="h-4 w-4 mr-2 text-green-600" />
+              <span className="font-bold text-green-600">WhatsApp</span>
+            </Button>
           </div>
         </div>
       </CardContent>
-      <CardFooter>{action}</CardFooter>
+      
+      <CardFooter className="bg-muted/30 p-4">
+        {action}
+      </CardFooter>
     </Card>
   );
 }
