@@ -922,6 +922,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===== CLEANER ROUTES =====
 
+  // Consolidated dashboard endpoint - combines profile, shift, and jobs in one call
+  app.get("/api/cleaner/dashboard", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
+    try {
+      res.set('Cache-Control', 'no-store, must-revalidate');
+      res.set('Pragma', 'no-cache');
+
+      const cleaner = await storage.getCleanerByUserId(req.user!.id);
+      if (!cleaner) {
+        return res.status(404).json({ message: "Cleaner profile not found" });
+      }
+
+      // Fetch all data in parallel
+      const [activeShift, myJobs, availableJobsData] = await Promise.all([
+        storage.getActiveShift(cleaner.id),
+        storage.getJobsByCleaner(cleaner.id),
+        (async () => {
+          const allJobs = await storage.getJobsByCompany(cleaner.companyId, JobStatus.PAID);
+          const assignedToAll = await storage.isCleanerAssignedToAllGeofences(cleaner.id);
+          
+          if (assignedToAll) {
+            return allJobs;
+          }
+          
+          const assignedGeofences = await storage.getCleanerGeofenceAssignments(cleaner.id);
+          if (assignedGeofences.length === 0) {
+            return [];
+          }
+          
+          return allJobs.filter(job => {
+            const lat = Number(job.locationLatitude);
+            const lon = Number(job.locationLongitude);
+            return assignedGeofences.some(geofence => {
+              const polygon = geofence.polygon as Array<[number, number]>;
+              if (!polygon || !Array.isArray(polygon) || polygon.length < 3) {
+                return false;
+              }
+              return isPointInPolygon(lat, lon, polygon);
+            });
+          });
+        })(),
+      ]);
+
+      res.json({
+        cleaner,
+        activeShift,
+        myJobs,
+        availableJobs: availableJobsData,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Get cleaner profile
   app.get("/api/cleaner/profile", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
     try {
