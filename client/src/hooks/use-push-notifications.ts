@@ -130,6 +130,10 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
       });
 
       setIsSubscribed(true);
+      
+      // Sync sound preference from backend after subscribing
+      await fetchSoundPreference();
+      
       toast({
         title: 'Notifications Enabled',
         description: "You'll receive updates about your jobs",
@@ -147,7 +151,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}) 
       setIsLoading(false);
       return false;
     }
-  }, [options.plateNumber, soundEnabled, toast]);
+  }, [options.plateNumber, soundEnabled, toast, fetchSoundPreference]);
 
   const unsubscribe = useCallback(async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {

@@ -299,11 +299,10 @@ export class PushNotificationService {
   }): Promise<void> {
     try {
       // Validate coordinates server-side to prevent abuse
-      if (!context.locationLat || !context.locationLng ||
-          typeof context.locationLat !== 'number' || typeof context.locationLng !== 'number' ||
+      // Use Number.isFinite to allow 0.0 while rejecting null/undefined/NaN
+      if (!Number.isFinite(context.locationLat) || !Number.isFinite(context.locationLng) ||
           context.locationLat < -90 || context.locationLat > 90 ||
-          context.locationLng < -180 || context.locationLng > 180 ||
-          isNaN(context.locationLat) || isNaN(context.locationLng)) {
+          context.locationLng < -180 || context.locationLng > 180) {
         console.error('[Push] Invalid job coordinates - rejecting notification broadcast:', {
           jobId,
           lat: context.locationLat,
