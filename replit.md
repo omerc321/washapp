@@ -41,7 +41,7 @@ I prefer simple language and clear explanations. I want iterative development wi
 -   **Customer Flow**: Anonymous booking with car plate entry, map-based location selection, geofence-based company matching, Stripe payment in AED (company price + 3 AED platform fee clearly displayed in booking flow), and job tracking (Paid → Assigned → In Progress → Completed). Completed jobs remain in active tracker with full progress indicator before moving to history.
 -   **Cleaner Flow**: Invitation-based registration, streamlined shift-based status (starting shift automatically sets ON_DUTY, ending shift sets OFF_DUTY), job acceptance, "Open in Google Maps" navigation to job location, and photo-based job completion. Compact header design with 40% reduced height. Periodic location tracking for on-duty cleaners. Cleaners can only see and accept jobs within their assigned service areas.
 -   **Company Admin Flow**: Registration (requires admin approval), multiple named geofence management with location search and GPS positioning, cleaner invitation management with service area assignment (all areas or specific areas), detailed financial reports (revenue breakdown, withdrawals, cleaner filtering, Excel export), cleaner service area management post-registration, and company settings management.
--   **Admin Flow**: Platform-wide analytics, company approval/rejection, financial oversight with drill-down, manual withdrawal processing, and transaction history management. Admins can view all company transactions and create payment transactions that reduce company balances.
+-   **Admin Flow**: Platform-wide analytics, company approval/rejection with fee package selection (custom/package1/package2), financial oversight with drill-down, manual withdrawal processing, and transaction history management. Admins can view all company transactions, create payment transactions that reduce company balances, and update company fee structures anytime.
 -   **Job Acceptance**: Stripe payment triggers PENDING_PAYMENT, webhook confirmation to PAID, job becomes available to on-duty cleaners within both the company's geofence area AND the cleaner's assigned service areas, manual acceptance (first-come-first-served), and WebSocket updates.
 -   **Geofence Validation**: All customer interactions (company browsing, cleaner email lookup) validate that the customer's location is within the company's service areas. Requests outside all geofences are rejected with clear error messages.
 -   **Cleaner Geofence Assignment**: Companies can assign cleaners to specific service areas during invitation or post-registration. Each cleaner can be assigned to "all service areas" or specific named service areas. Jobs are filtered by cleaner's assigned areas using point-in-polygon validation. Assignments automatically transfer from invitation to cleaner record during registration.
@@ -49,7 +49,13 @@ I prefer simple language and clear explanations. I want iterative development wi
 ### System Design Choices
 -   **Data Models**: Comprehensive models for Users, Companies, Cleaners, Cleaner Invitations, Cleaner Geofence Assignments, Jobs, Job Financials, Company Withdrawals, Fee Settings, and Transactions.
 -   **Currency**: All transactions in AED (United Arab Emirates Dirham) with "AED" displayed.
--   **Fee Structure**: 5% tax + 3 AED flat platform fee + 2.9% + 1 AED Stripe payment processing fees.
+-   **Fee Structure**: Flexible three-tier package system:
+    -   **Custom Package**: Any platform fee > 0 AED set by admin + 5% VAT on (car wash + platform fee)
+    -   **Package 1**: 2 AED base + 5% of car wash price + 5% VAT on (car wash + calculated fee)
+    -   **Package 2**: Offline payment mode - car wash price + 5% VAT only (no platform fees)
+    -   Example (Package 1, 15 AED wash): 2 + (15 × 0.05) = 2.75 AED fee → 17.75 subtotal → 0.89 VAT → 18.64 total
+    -   Stripe fees (2.9% + 1 AED) are calculated on final total amount
+    -   Admin can change fee package and amounts anytime via `/api/admin/company/:id/fee-structure`
 -   **Transaction Tracking**: All payments, refunds, and withdrawals tracked with unique reference numbers. Note: Dual-ledger architecture - withdrawals tracked in companyWithdrawals table, payment transactions tracked in transactions table. These are separate with no overlap to prevent double-counting.
 -   **Auto-Refund**: Jobs not accepted within 15 minutes are automatically refunded with Stripe refund processing.
 -   **Payment Options**: Card, Apple Pay, and Google Pay via Stripe Payment Request Button.
