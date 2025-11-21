@@ -36,6 +36,9 @@ function FinancialsTab() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDescription, setPaymentDescription] = useState("");
+  const [feeStructureDialogOpen, setFeeStructureDialogOpen] = useState(false);
+  const [editFeePackageType, setEditFeePackageType] = useState("custom");
+  const [editPlatformFee, setEditPlatformFee] = useState("3.00");
 
   const { data: companies, isLoading: loadingCompanies } = useQuery<CompanyFinancialSummary[]>({
     queryKey: ["/api/admin/financials/companies"],
@@ -101,13 +104,58 @@ function FinancialsTab() {
     },
   });
 
+  const updateFeeStructureMutation = useMutation({
+    mutationFn: async (data: { platformFee: number; feePackageType: string }) => {
+      return await apiRequest("PATCH", `/api/admin/company/${selectedCompany}/fee-structure`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/financials/companies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/financials/company", selectedCompany] });
+      setFeeStructureDialogOpen(false);
+      setEditPlatformFee("3.00");
+      setEditFeePackageType("custom");
+      toast({
+        title: "Fee Structure Updated",
+        description: "The company's fee structure has been updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   if (selectedCompany && companyDetails) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" onClick={() => setSelectedCompany(null)} data-testid="button-back-to-companies">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Companies
-        </Button>
+        <div className="flex justify-between items-center">
+          <Button variant="ghost" onClick={() => setSelectedCompany(null)} data-testid="button-back-to-companies">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Companies
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              const company = companies?.find(c => c.companyId === selectedCompany);
+              if (company) {
+                // Fetch company details to get current fee structure
+                fetch(`/api/companies/${selectedCompany}`)
+                  .then(res => res.json())
+                  .then(data => {
+                    setEditFeePackageType(data.feePackageType || "custom");
+                    setEditPlatformFee(data.platformFee || "3.00");
+                    setFeeStructureDialogOpen(true);
+                  });
+              }
+            }}
+            data-testid="button-edit-fee-structure"
+          >
+            Edit Fee Structure
+          </Button>
+        </div>
 
         <div className="grid gap-4 md:grid-cols-4">
           <Card data-testid="card-total-revenue">
@@ -414,6 +462,89 @@ function FinancialsTab() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={feeStructureDialogOpen} onOpenChange={setFeeStructureDialogOpen}>
+          <DialogContent data-testid="dialog-edit-fee-structure">
+            <DialogHeader>
+              <DialogTitle>Edit Fee Structure</DialogTitle>
+              <DialogDescription>
+                Update the company's pricing package and platform fee
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-feePackageType">Fee Package</Label>
+                <Select value={editFeePackageType} onValueChange={setEditFeePackageType}>
+                  <SelectTrigger data-testid="select-edit-fee-package">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="custom">Custom Fee</SelectItem>
+                    <SelectItem value="package1">Package 1 (2 AED + 5% of wash)</SelectItem>
+                    <SelectItem value="package2">Package 2 (Offline - No platform fees)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground">
+                  {editFeePackageType === "custom" && "Set a custom platform fee per wash"}
+                  {editFeePackageType === "package1" && "2 AED base + 5% of car wash price + 5% VAT"}
+                  {editFeePackageType === "package2" && "Offline mode - Car wash price + VAT only (no platform fees)"}
+                </p>
+              </div>
+
+              {editFeePackageType === "custom" && (
+                <div className="space-y-2">
+                  <Label htmlFor="edit-platformFee">Custom Platform Fee (AED per wash)</Label>
+                  <Input
+                    id="edit-platformFee"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={editPlatformFee}
+                    onChange={(e) => setEditPlatformFee(e.target.value)}
+                    placeholder="3.00"
+                    data-testid="input-edit-platform-fee"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Flat fee charged to customers per wash (in addition to company's base price and 5% VAT).
+                  </p>
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setFeeStructureDialogOpen(false)}
+                  disabled={updateFeeStructureMutation.isPending}
+                  data-testid="button-cancel-fee-structure"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    let feeToApply = 0;
+                    if (editFeePackageType === "custom") {
+                      feeToApply = parseFloat(editPlatformFee);
+                    } else if (editFeePackageType === "package1") {
+                      feeToApply = 2;
+                    }
+                    
+                    updateFeeStructureMutation.mutate({
+                      platformFee: feeToApply,
+                      feePackageType: editFeePackageType,
+                    });
+                  }}
+                  disabled={
+                    updateFeeStructureMutation.isPending || 
+                    (editFeePackageType === "custom" && (!editPlatformFee || parseFloat(editPlatformFee) <= 0))
+                  }
+                  data-testid="button-confirm-fee-structure"
+                >
+                  {updateFeeStructureMutation.isPending ? "Updating..." : "Update Fee Structure"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -480,6 +611,7 @@ function AnalyticsTab() {
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [selectedCompanyForApproval, setSelectedCompanyForApproval] = useState<Company | null>(null);
   const [platformFee, setPlatformFee] = useState("3.00");
+  const [feePackageType, setFeePackageType] = useState("custom");
   
   const { data: analytics, isLoading } = useQuery<AdminAnalytics>({
     queryKey: ["/api/admin/analytics"],
@@ -490,9 +622,10 @@ function AnalyticsTab() {
   });
 
   const approveMutation = useMutation({
-    mutationFn: async (data: { companyId: number; platformFee: number }) => {
+    mutationFn: async (data: { companyId: number; platformFee: number; feePackageType: string }) => {
       return await apiRequest("POST", `/api/admin/approve-company/${data.companyId}`, {
         platformFee: data.platformFee,
+        feePackageType: data.feePackageType,
       });
     },
     onSuccess: () => {
@@ -501,6 +634,7 @@ function AnalyticsTab() {
       setApprovalDialogOpen(false);
       setSelectedCompanyForApproval(null);
       setPlatformFee("3.00");
+      setFeePackageType("custom");
       toast({
         title: "Company Approved",
         description: "The company has been approved and is now active.",
@@ -625,6 +759,7 @@ function AnalyticsTab() {
                         onClick={() => {
                           setSelectedCompanyForApproval(company);
                           setPlatformFee("3.00");
+                          setFeePackageType("custom");
                           setApprovalDialogOpen(true);
                         }}
                         disabled={approveMutation.isPending || rejectMutation.isPending}
@@ -695,29 +830,40 @@ function AnalyticsTab() {
               </div>
             </div>
             
-            {selectedCompanyForApproval?.packageType === 'pay_per_wash' ? (
+            <div className="space-y-2">
+              <Label htmlFor="feePackageType">Fee Package</Label>
+              <Select value={feePackageType} onValueChange={setFeePackageType}>
+                <SelectTrigger data-testid="select-fee-package">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="custom">Custom Fee</SelectItem>
+                  <SelectItem value="package1">Package 1 (2 AED + 5% of wash)</SelectItem>
+                  <SelectItem value="package2">Package 2 (Offline - No platform fees)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                {feePackageType === "custom" && "Set a custom platform fee per wash"}
+                {feePackageType === "package1" && "2 AED base + 5% of car wash price + 5% VAT"}
+                {feePackageType === "package2" && "Offline mode - Car wash price + VAT only (no platform fees)"}
+              </p>
+            </div>
+
+            {feePackageType === "custom" && (
               <div className="space-y-2">
-                <Label htmlFor="platformFee">Platform Fee (AED per wash)</Label>
+                <Label htmlFor="platformFee">Custom Platform Fee (AED per wash)</Label>
                 <Input
                   id="platformFee"
                   type="number"
                   step="0.01"
-                  min="0"
+                  min="0.01"
                   value={platformFee}
                   onChange={(e) => setPlatformFee(e.target.value)}
                   placeholder="3.00"
                   data-testid="input-platform-fee"
                 />
                 <p className="text-sm text-muted-foreground">
-                  Flat fee charged to customers per wash (in addition to company's base price and taxes).
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Subscription Package</p>
-                <p className="text-sm text-blue-700 dark:text-blue-300">
-                  This company will pay a monthly subscription fee instead of per-wash platform fees. 
-                  Only payment processing fees (2.9% + 1 AED) will apply to customer payments.
+                  Flat fee charged to customers per wash (in addition to company's base price and 5% VAT).
                 </p>
               </div>
             )}
@@ -733,20 +879,23 @@ function AnalyticsTab() {
               <Button
                 onClick={() => {
                   if (selectedCompanyForApproval) {
-                    const feeToApply = selectedCompanyForApproval.packageType === 'subscription' 
-                      ? 0 
-                      : parseFloat(platformFee);
+                    let feeToApply = 0;
+                    if (feePackageType === "custom") {
+                      feeToApply = parseFloat(platformFee);
+                    } else if (feePackageType === "package1") {
+                      feeToApply = 2; // Base fee for package1, actual calculation done by fee-calculator
+                    }
                     
                     approveMutation.mutate({
                       companyId: selectedCompanyForApproval.id,
                       platformFee: feeToApply,
+                      feePackageType,
                     });
                   }
                 }}
                 disabled={
                   approveMutation.isPending || 
-                  (selectedCompanyForApproval?.packageType === 'pay_per_wash' && 
-                   (!platformFee || parseFloat(platformFee) < 0))
+                  (feePackageType === "custom" && (!platformFee || parseFloat(platformFee) <= 0))
                 }
                 data-testid="button-confirm-approval"
               >
