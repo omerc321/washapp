@@ -268,6 +268,108 @@ export class PushNotificationService {
     }
   }
 
+  static async notifyOnDutyCleaners(jobId: number, companyId: number, context: {
+    carPlateNumber: string;
+    locationAddress: string;
+    price: number;
+    locationLat: number;
+    locationLng: number;
+  }): Promise<void> {
+    try {
+      const { db } = await import('./db');
+      const { cleaners, users } = await import('@shared/schema');
+      const { eq, and } = await import('drizzle-orm');
+      
+      // Get all on-duty cleaners for this company
+      const onDutyCleaners = await db
+        .select({
+          id: cleaners.id,
+          userId: cleaners.userId,
+          displayName: users.displayName,
+        })
+        .from(cleaners)
+        .innerJoin(users, eq(cleaners.userId, users.id))
+        .where(
+          and(
+            eq(cleaners.companyId, companyId),
+            eq(cleaners.status, 'on_duty')
+          )
+        );
+
+      console.log(`[Push] Found ${onDutyCleaners.length} on-duty cleaners for company #${companyId}`);
+
+      // Filter cleaners by geofence assignment in parallel to avoid N+1 queries
+      const eligibilityChecks = await Promise.allSettled(
+        onDutyCleaners.map(async (cleaner) => {
+          try {
+            const isAssignedToAll = await storage.isCleanerAssignedToAllGeofences(cleaner.id);
+            if (isAssignedToAll) {
+              return { cleaner, eligible: true };
+            }
+
+            // Check if cleaner is assigned to the geofence containing this job location
+            const assignments = await storage.getCleanerGeofenceAssignments(cleaner.id);
+            const isInGeofence = assignments.some(geofence => {
+              if (!geofence.polygon) return false;
+              return this.isPointInPolygon(
+                context.locationLat,
+                context.locationLng,
+                geofence.polygon
+              );
+            });
+
+            return { cleaner, eligible: isInGeofence };
+          } catch (error) {
+            console.error(`[Push] Error checking eligibility for cleaner #${cleaner.id}:`, error);
+            return { cleaner, eligible: false };
+          }
+        })
+      );
+
+      // Extract eligible cleaners from results
+      const eligibleCleaners = eligibilityChecks
+        .filter(result => result.status === 'fulfilled' && result.value.eligible)
+        .map(result => (result as PromiseFulfilledResult<{ cleaner: any; eligible: boolean }>).value.cleaner);
+
+      console.log(`[Push] ${eligibleCleaners.length}/${onDutyCleaners.length} cleaners are eligible for this job`);
+
+      // Send notifications to eligible cleaners
+      const payload: PushNotificationPayload = {
+        title: 'New Job Available!',
+        body: `Car wash needed for ${context.carPlateNumber}`,
+        icon: '/icon-192.png',
+        tag: `new-job-${jobId}`,
+        data: { jobId, type: 'new_job', url: '/cleaner' },
+        requireInteraction: true,
+      };
+
+      const notificationPromises = eligibleCleaners.map(cleaner => 
+        this.sendToUser(cleaner.userId, payload)
+      );
+
+      await Promise.allSettled(notificationPromises);
+      
+      if (eligibleCleaners.length > 0) {
+        console.log(`[Push] Sent new job notifications to ${eligibleCleaners.length} cleaners`);
+      }
+    } catch (error) {
+      console.error('[Push] Error notifying on-duty cleaners:', error);
+    }
+  }
+
+  private static isPointInPolygon(lat: number, lng: number, polygon: Array<[number, number]>): boolean {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const xi = polygon[i][0], yi = polygon[i][1];
+      const xj = polygon[j][0], yj = polygon[j][1];
+      
+      const intersect = ((yi > lng) !== (yj > lng))
+        && (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
   static async notifyCleanerShiftChange(userId: number, onDuty: boolean): Promise<void> {
     const payload: PushNotificationPayload = {
       title: onDuty ? "You're On Duty" : 'Shift Ended',

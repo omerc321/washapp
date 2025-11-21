@@ -1048,6 +1048,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               
               // Broadcast to all on-duty cleaners (pool mode)
               broadcastJobUpdate(updatedJob);
+              
+              // Send push notifications to all eligible on-duty cleaners
+              PushNotificationService.notifyOnDutyCleaners(updatedJob.id, updatedJob.companyId, {
+                carPlateNumber: updatedJob.carPlateNumber,
+                locationAddress: updatedJob.locationAddress || 'Location provided',
+                price: Number(updatedJob.price),
+                locationLat: Number(updatedJob.locationLatitude),
+                locationLng: Number(updatedJob.locationLongitude),
+              }).catch(err => console.error('Push notification to cleaners failed:', err));
             }
           }
         }

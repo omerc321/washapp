@@ -7,19 +7,34 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Car, MapPin, Phone, Building2, Upload, CheckCircle2, Clock, Navigation, History, Timer, User, MessageCircle, Banknote, DollarSign, Star } from "lucide-react";
+import { Car, MapPin, Phone, Building2, Upload, CheckCircle2, Clock, Navigation, History, Timer, User, MessageCircle, Banknote, DollarSign, Star, Bell, BellOff, Volume2, VolumeX } from "lucide-react";
 import { Job, Cleaner, CleanerStatus, JobStatus } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { Input } from "@/components/ui/input";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 export default function CleanerDashboard() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingJobId, setUploadingJobId] = useState<string | null>(null);
+  
+  // Push notifications for cleaners
+  const {
+    permission,
+    isSubscribed,
+    soundEnabled,
+    isLoading: notificationLoading,
+    isSupported,
+    subscribe,
+    unsubscribe,
+    toggleSound,
+  } = usePushNotifications({ userId: currentUser?.id });
 
   // Consolidated dashboard query - fetches all data in one call
   const { data: dashboardData, isLoading: loadingDashboard } = useQuery<{
@@ -332,6 +347,71 @@ export default function CleanerDashboard() {
             )}
           </div>
         </motion.div>
+
+        {/* Notification Settings */}
+        {isSupported && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="p-4 pb-0"
+          >
+            <Card className="border-2">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {isSubscribed ? (
+                      <Bell className="h-5 w-5 text-primary" />
+                    ) : (
+                      <BellOff className="h-5 w-5 text-muted-foreground" />
+                    )}
+                    <CardTitle className="text-base">Job Notifications</CardTitle>
+                  </div>
+                  <Switch
+                    checked={isSubscribed}
+                    onCheckedChange={async (checked) => {
+                      if (checked) {
+                        await subscribe();
+                      } else {
+                        await unsubscribe();
+                      }
+                    }}
+                    disabled={notificationLoading}
+                    data-testid="switch-notifications"
+                  />
+                </div>
+                <CardDescription className="text-xs">
+                  {isSubscribed
+                    ? "You'll receive notifications when new jobs are available"
+                    : "Enable to get instant alerts for new jobs"}
+                </CardDescription>
+              </CardHeader>
+              {isSubscribed && (
+                <CardContent className="pt-0">
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-2">
+                      {soundEnabled ? (
+                        <Volume2 className="h-4 w-4 text-primary" />
+                      ) : (
+                        <VolumeX className="h-4 w-4 text-muted-foreground" />
+                      )}
+                      <Label htmlFor="sound-toggle" className="text-sm cursor-pointer">
+                        Notification Sound
+                      </Label>
+                    </div>
+                    <Switch
+                      id="sound-toggle"
+                      checked={soundEnabled}
+                      onCheckedChange={toggleSound}
+                      disabled={notificationLoading}
+                      data-testid="switch-sound"
+                    />
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+          </motion.div>
+        )}
 
         {/* Jobs Tabs */}
         <div className="p-4">

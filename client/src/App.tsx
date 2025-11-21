@@ -8,7 +8,6 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BottomNav } from "@/components/bottom-nav";
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
-import { useVersionCheck } from "@/hooks/useVersionCheck";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
 import RegisterCleanerPage from "@/pages/register-cleaner";
@@ -118,8 +117,6 @@ function Router() {
 }
 
 function App() {
-  useVersionCheck();
-  
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
