@@ -1015,10 +1015,10 @@ export class DatabaseStorage implements IStorage {
       ));
     
     return {
-      totalCompanies: totalCompaniesResult.count,
-      totalCleaners: totalCleanersResult.count,
-      activeJobs: activeJobsResult.count,
-      completedJobs: completedJobsResult.count,
+      totalCompanies: parseInt(String(totalCompaniesResult.count), 10),
+      totalCleaners: parseInt(String(totalCleanersResult.count), 10),
+      activeJobs: parseInt(String(activeJobsResult.count), 10),
+      completedJobs: parseInt(String(completedJobsResult.count), 10),
       totalRevenue: parseFloat(totalRevenueResult.grossRevenue || "0"),
       totalNetRevenue: parseFloat(totalRevenueResult.netRevenue || "0"),
       revenueThisMonth: parseFloat(revenueThisMonthResult.grossRevenue || "0"),
@@ -1127,12 +1127,12 @@ export class DatabaseStorage implements IStorage {
     });
     
     return {
-      totalJobsCompleted: totalJobsCompletedResult.count,
+      totalJobsCompleted: parseInt(String(totalJobsCompletedResult.count), 10),
       totalRevenue: parseFloat(totalRevenueResult.grossRevenue || "0"),
       totalNetEarnings: parseFloat(totalRevenueResult.netRevenue || "0"),
       averageRating: parseFloat(company?.rating as any) || 0,
-      activeCleaners: activeCleanersResult.count,
-      jobsThisMonth: jobsThisMonthResult.count,
+      activeCleaners: parseInt(String(activeCleanersResult.count), 10),
+      jobsThisMonth: parseInt(String(jobsThisMonthResult.count), 10),
       revenueThisMonth: parseFloat(revenueThisMonthResult.grossRevenue || "0"),
       netEarningsThisMonth: parseFloat(revenueThisMonthResult.netRevenue || "0"),
       shiftRoster,
