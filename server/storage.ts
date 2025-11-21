@@ -274,6 +274,8 @@ export class DatabaseStorage implements IStorage {
     pricePerWash: number;
     tradeLicenseNumber?: string;
     tradeLicenseDocumentURL?: string;
+    packageType?: string;
+    subscriptionCleanerSlots?: number;
   }): Promise<{ user: User; company: Company }> {
     const client = await pool.connect();
     
@@ -292,10 +294,19 @@ export class DatabaseStorage implements IStorage {
       
       // Create company
       const companyResult = await client.query(
-        `INSERT INTO companies (name, description, price_per_wash, admin_id, trade_license_number, trade_license_document_url, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        `INSERT INTO companies (name, description, price_per_wash, admin_id, trade_license_number, trade_license_document_url, package_type, subscription_cleaner_slots, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
          RETURNING *`,
-        [data.companyName, data.companyDescription, data.pricePerWash, user.id, data.tradeLicenseNumber, data.tradeLicenseDocumentURL]
+        [
+          data.companyName, 
+          data.companyDescription, 
+          data.pricePerWash, 
+          user.id, 
+          data.tradeLicenseNumber, 
+          data.tradeLicenseDocumentURL,
+          data.packageType || 'pay_per_wash',
+          data.subscriptionCleanerSlots
+        ]
       );
       const company = companyResult.rows[0];
       
@@ -379,6 +390,8 @@ export class DatabaseStorage implements IStorage {
         c.description,
         c.price_per_wash,
         c.platform_fee,
+        c.package_type,
+        c.subscription_cleaner_slots,
         c.total_jobs_completed,
         c.total_revenue,
         c.rating,
@@ -391,7 +404,7 @@ export class DatabaseStorage implements IStorage {
         AND cl.status = 'on_duty'
         AND cl.last_location_update > NOW() - INTERVAL '10 minutes'
       WHERE c.is_active = 1
-      GROUP BY c.id, c.name, c.description, c.price_per_wash, c.platform_fee, c.total_jobs_completed, 
+      GROUP BY c.id, c.name, c.description, c.price_per_wash, c.platform_fee, c.package_type, c.subscription_cleaner_slots, c.total_jobs_completed, 
                c.total_revenue, c.rating, cg.id, cg.polygon
     `;
     
@@ -435,6 +448,8 @@ export class DatabaseStorage implements IStorage {
             description: row.description,
             pricePerWash: row.price_per_wash,
             platformFee: row.platform_fee || "3.00",
+            packageType: row.package_type || 'pay_per_wash',
+            subscriptionCleanerSlots: row.subscription_cleaner_slots,
             adminId: 0,
             tradeLicenseNumber: null,
             tradeLicenseDocumentURL: null,
@@ -1859,6 +1874,8 @@ export class DatabaseStorage implements IStorage {
       description: row.description,
       pricePerWash: row.price_per_wash,
       platformFee: row.platform_fee || "3.00",
+      packageType: row.package_type || 'pay_per_wash',
+      subscriptionCleanerSlots: row.subscription_cleaner_slots,
       adminId: row.admin_id,
       tradeLicenseNumber: row.trade_license_number,
       tradeLicenseDocumentURL: row.trade_license_document_url,

@@ -29,6 +29,8 @@ export interface RegisterCompanyData {
   pricePerWash: string;
   tradeLicenseNumber?: string;
   tradeLicenseDocumentURL?: string;
+  packageType?: string;
+  subscriptionCleanerSlots?: number;
 }
 
 export interface RegisterCleanerData {

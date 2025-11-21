@@ -439,7 +439,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         companyDescription, 
         pricePerWash,
         tradeLicenseNumber,
-        tradeLicenseDocumentURL
+        tradeLicenseDocumentURL,
+        packageType,
+        subscriptionCleanerSlots
       } = req.body;
       
       // Check if user already exists
@@ -459,6 +461,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pricePerWash: parseFloat(pricePerWash),
         tradeLicenseNumber,
         tradeLicenseDocumentURL,
+        packageType,
+        subscriptionCleanerSlots,
       });
       
       // Log in the user

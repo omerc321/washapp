@@ -7,13 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
-import { Loader2 } from "lucide-react";
+import { Loader2, Check } from "lucide-react";
 import logoUrl from "@assets/IMG_2508_1762619079711.png";
+import { CompanyPackageType } from "@shared/schema";
 
 export default function RegisterCompanyPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { registerCompany } = useAuth();
+  const [packageType, setPackageType] = useState<string>(CompanyPackageType.PAY_PER_WASH);
+  const [cleanerCount, setCleanerCount] = useState("");
   const [formData, setFormData] = useState({
     // Admin details
     email: "",
@@ -28,6 +31,16 @@ export default function RegisterCompanyPage() {
   });
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  
+  const calculateMonthlyFee = () => {
+    if (packageType !== CompanyPackageType.SUBSCRIPTION || !cleanerCount) return 0;
+    const count = parseInt(cleanerCount);
+    if (isNaN(count) || count <= 0) return 0;
+    const slots = Math.ceil(count / 10) * 10;
+    return (slots / 10) * 500;
+  };
+  
+  const monthlyFee = calculateMonthlyFee();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,6 +76,10 @@ export default function RegisterCompanyPage() {
         pricePerWash: formData.pricePerWash,
         tradeLicenseNumber: formData.tradeLicenseNumber || undefined,
         tradeLicenseDocumentURL,
+        packageType,
+        subscriptionCleanerSlots: packageType === CompanyPackageType.SUBSCRIPTION && cleanerCount 
+          ? Math.ceil(parseInt(cleanerCount) / 10) * 10 
+          : undefined,
       });
       
       setLocation("/company");
@@ -87,6 +104,85 @@ export default function RegisterCompanyPage() {
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
+            <div className="border-b pb-4">
+              <h3 className="font-semibold mb-3">Choose Your Package</h3>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPackageType(CompanyPackageType.PAY_PER_WASH);
+                      setCleanerCount("");
+                    }}
+                    className={`relative p-4 rounded-lg border-2 text-left transition-all ${
+                      packageType === CompanyPackageType.PAY_PER_WASH
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover-elevate"
+                    }`}
+                    data-testid="button-package-per-wash"
+                  >
+                    {packageType === CompanyPackageType.PAY_PER_WASH && (
+                      <div className="absolute top-3 right-3">
+                        <Check className="h-5 w-5 text-primary" />
+                      </div>
+                    )}
+                    <div className="font-medium mb-1">Pay Per Wash</div>
+                    <div className="text-sm text-muted-foreground">
+                      2 AED + 5% of total charge per wash
+                    </div>
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={() => setPackageType(CompanyPackageType.SUBSCRIPTION)}
+                    className={`relative p-4 rounded-lg border-2 text-left transition-all ${
+                      packageType === CompanyPackageType.SUBSCRIPTION
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover-elevate"
+                    }`}
+                    data-testid="button-package-subscription"
+                  >
+                    {packageType === CompanyPackageType.SUBSCRIPTION && (
+                      <div className="absolute top-3 right-3">
+                        <Check className="h-5 w-5 text-primary" />
+                      </div>
+                    )}
+                    <div className="font-medium mb-1">Monthly Subscription</div>
+                    <div className="text-sm text-muted-foreground">
+                      500 AED per 10 cleaners/month + payment processing (1 AED + 2.9% per wash)
+                    </div>
+                  </button>
+                </div>
+                
+                {packageType === CompanyPackageType.SUBSCRIPTION && (
+                  <div className="space-y-2">
+                    <Label htmlFor="cleanerCount">Number of Cleaners</Label>
+                    <Input
+                      id="cleanerCount"
+                      type="number"
+                      min="1"
+                      placeholder="Enter number of cleaners"
+                      value={cleanerCount}
+                      onChange={(e) => setCleanerCount(e.target.value)}
+                      required
+                      data-testid="input-cleaner-count"
+                    />
+                    {monthlyFee > 0 && (
+                      <div className="p-3 bg-muted rounded-md">
+                        <div className="text-sm font-medium">
+                          Monthly Fee: {monthlyFee} AED
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Cleaner slots: {Math.ceil(parseInt(cleanerCount) / 10) * 10} (rounded up to nearest 10)
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            
             <div className="border-b pb-4">
               <h3 className="font-semibold mb-3">Company Details</h3>
               
