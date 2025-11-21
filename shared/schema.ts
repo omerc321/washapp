@@ -13,6 +13,7 @@ export const withdrawalStatusEnum = pgEnum("withdrawal_status", ["pending", "com
 export const transactionTypeEnum = pgEnum("transaction_type", ["customer_payment", "admin_payment", "refund", "withdrawal"]);
 export const transactionDirectionEnum = pgEnum("transaction_direction", ["credit", "debit"]);
 export const assignmentModeEnum = pgEnum("assignment_mode", ["pool", "direct"]);
+export const companyPackageTypeEnum = pgEnum("company_package_type", ["pay_per_wash", "subscription"]);
 
 // Users Table
 export const users = pgTable("users", {
@@ -59,6 +60,8 @@ export const companies = pgTable("companies", {
   description: text("description"),
   pricePerWash: numeric("price_per_wash", { precision: 10, scale: 2 }).notNull(),
   platformFee: numeric("platform_fee", { precision: 10, scale: 2 }).notNull().default("3.00"),
+  packageType: companyPackageTypeEnum("package_type").notNull().default("pay_per_wash"),
+  subscriptionCleanerSlots: integer("subscription_cleaner_slots"),
   adminId: integer("admin_id").notNull(),
   tradeLicenseNumber: varchar("trade_license_number", { length: 100 }),
   tradeLicenseDocumentURL: text("trade_license_document_url"),
@@ -79,6 +82,10 @@ export const companiesRelations = relations(companies, ({ one, many }) => ({
   cleaners: many(cleaners),
   jobs: many(jobs),
   geofences: many(companyGeofences),
+  subscription: one(companySubscriptions, {
+    fields: [companies.id],
+    references: [companySubscriptions.companyId],
+  }),
 }));
 
 // Company Geofences Table
@@ -93,6 +100,27 @@ export const companyGeofences = pgTable("company_geofences", {
 export const companyGeofencesRelations = relations(companyGeofences, ({ one }) => ({
   company: one(companies, {
     fields: [companyGeofences.companyId],
+    references: [companies.id],
+  }),
+}));
+
+// Company Subscriptions Table
+export const companySubscriptions = pgTable("company_subscriptions", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().unique().references(() => companies.id, { onDelete: "cascade" }),
+  cleanerSlots: integer("cleaner_slots").notNull(),
+  monthlyFee: numeric("monthly_fee", { precision: 10, scale: 2 }).notNull(),
+  billingCycleStart: timestamp("billing_cycle_start").notNull(),
+  billingCycleEnd: timestamp("billing_cycle_end").notNull(),
+  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
+  status: varchar("status", { length: 50 }).notNull().default("active"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const companySubscriptionsRelations = relations(companySubscriptions, ({ one }) => ({
+  company: one(companies, {
+    fields: [companySubscriptions.companyId],
     references: [companies.id],
   }),
 }));
@@ -514,6 +542,14 @@ export const insertCompanyGeofenceSchema = createInsertSchema(companyGeofences).
 
 export const selectCompanyGeofenceSchema = createSelectSchema(companyGeofences);
 
+export const insertCompanySubscriptionSchema = createInsertSchema(companySubscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const selectCompanySubscriptionSchema = createSelectSchema(companySubscriptions);
+
 export const insertCleanerGeofenceAssignmentSchema = createInsertSchema(cleanerGeofenceAssignments).omit({
   id: true,
   createdAt: true,
@@ -546,6 +582,9 @@ export type InsertCleanerInvitation = z.infer<typeof insertCleanerInvitationSche
 
 export type CompanyGeofence = typeof companyGeofences.$inferSelect;
 export type InsertCompanyGeofence = z.infer<typeof insertCompanyGeofenceSchema>;
+
+export type CompanySubscription = typeof companySubscriptions.$inferSelect;
+export type InsertCompanySubscription = z.infer<typeof insertCompanySubscriptionSchema>;
 
 export type CleanerGeofenceAssignment = typeof cleanerGeofenceAssignments.$inferSelect;
 export type InsertCleanerGeofenceAssignment = z.infer<typeof insertCleanerGeofenceAssignmentSchema>;
@@ -750,4 +789,9 @@ export enum CleanerStatus {
   ON_DUTY = "on_duty",
   OFF_DUTY = "off_duty",
   BUSY = "busy"
+}
+
+export enum CompanyPackageType {
+  PAY_PER_WASH = "pay_per_wash",
+  SUBSCRIPTION = "subscription"
 }
