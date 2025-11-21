@@ -1928,6 +1928,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Phone number already invited" });
       }
 
+      // Check cleaner limit for subscription packages
+      const company = await storage.getCompany(req.user.companyId);
+      if (!company) {
+        return res.status(404).json({ message: "Company not found" });
+      }
+
+      if (company.packageType === 'subscription' && company.subscriptionCleanerSlots) {
+        const activeCleaners = await storage.getCompanyCleaners(req.user.companyId);
+        const activeCount = activeCleaners.filter(c => c.isActive === 1).length;
+        const pendingInvitations = await storage.getCompanyInvitations(req.user.companyId);
+        const pendingCount = pendingInvitations.filter(inv => inv.status === 'pending').length;
+        const totalCount = activeCount + pendingCount;
+
+        if (totalCount >= company.subscriptionCleanerSlots) {
+          return res.status(400).json({ 
+            message: `Cleaner limit reached. Your subscription allows ${company.subscriptionCleanerSlots} cleaners. You currently have ${activeCount} active cleaners and ${pendingCount} pending invitations. Please upgrade your subscription to invite more cleaners.`
+          });
+        }
+      }
+
       // Validate geofence IDs if provided
       if (geofenceIds && Array.isArray(geofenceIds) && geofenceIds.length > 0) {
         const companyGeofences = await storage.getCompanyGeofences(req.user.companyId);

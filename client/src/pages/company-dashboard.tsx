@@ -591,6 +591,63 @@ export default function CompanyDashboard() {
           </Alert>
         )}
 
+        {/* Subscription Package Info */}
+        {company && company.isActive === 1 && company.packageType === 'subscription' && (
+          <Card className="mb-6" data-testid="card-subscription-info">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center justify-between">
+                <span>Subscription Package</span>
+                <Badge variant="default">Monthly</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Cleaner Slots</p>
+                  <p className="text-2xl font-bold">
+                    {cleaners?.filter(c => c.isActive === 1).length || 0} / {company.subscriptionCleanerSlots}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium text-muted-foreground">Monthly Fee</p>
+                  <p className="text-2xl font-bold text-primary">
+                    {((company.subscriptionCleanerSlots || 0) / 10 * 500).toFixed(0)} AED
+                  </p>
+                </div>
+              </div>
+              
+              {cleaners && invitations && (
+                <>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div 
+                      className="bg-primary h-2 rounded-full transition-all"
+                      style={{ 
+                        width: `${Math.min(100, ((cleaners.filter(c => c.isActive === 1).length + invitations.filter(inv => inv.status === 'pending').length) / (company.subscriptionCleanerSlots || 1)) * 100)}%` 
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>
+                      {cleaners.filter(c => c.isActive === 1).length} active + {invitations.filter(inv => inv.status === 'pending').length} pending
+                    </span>
+                    {(cleaners.filter(c => c.isActive === 1).length + invitations.filter(inv => inv.status === 'pending').length) >= (company.subscriptionCleanerSlots || 0) && (
+                      <span className="text-destructive font-medium">Limit reached</span>
+                    )}
+                  </div>
+                  {(cleaners.filter(c => c.isActive === 1).length + invitations.filter(inv => inv.status === 'pending').length) >= (company.subscriptionCleanerSlots || 0) && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-sm">
+                        You have reached your cleaner limit. To invite more cleaners, please upgrade your subscription.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Metrics Grid */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {metrics.map((metric) => {
