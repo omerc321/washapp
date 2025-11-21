@@ -19,15 +19,16 @@ I prefer simple language and clear explanations. I want iterative development wi
 -   **Frontend**: React, Tailwind CSS, shadcn/ui components, Roboto font, Framer Motion for animations.
 -   **Backend**: Express.js, Node.js.
 -   **Database**: PostgreSQL with Drizzle ORM.
--   **Authentication**: Passport.js with bcrypt for email/password (staff roles), `connect-pg-simple` for PostgreSQL session storage. Auto-admin setup on server startup ensures production admin account exists with correct credentials.
+-   **Authentication**: Passport.js with bcrypt for email/password (staff roles), `connect-pg-simple` for PostgreSQL session storage. Auto-admin setup on server startup ensures production admin account exists with correct credentials. Session cookies configured with `sameSite: 'none'` in production for cross-origin requests, `trust proxy: 1` enabled for HTTPS load balancers.
 -   **Payments**: Stripe integration for customer payments in AED currency.
 -   **Email**: Resend for notifications.
 -   **Real-time**: WebSocket server for job status updates.
 -   **File Uploads**: Multer for local file storage (job photos, trade licenses).
 -   **Location**: Geofence polygon matching using ray-casting algorithm for point-in-polygon checks. Companies can define multiple named service areas.
--   **Security**: Session-based authentication, CSRF protection, role-based access control, Stripe webhook signature verification.
+-   **Security**: Session-based authentication with cross-origin cookie support (SameSite=None in production, Lax in dev), CSRF protection, role-based access control, Stripe webhook signature verification.
 -   **PWA**: Progressive Web App implementation with service worker for offline capabilities, web app manifest for installability, and install prompt UI. Users can install the app on their mobile devices for an app-like experience.
 -   **Performance Optimization**: Consolidated API endpoints reduce HTTP roundtrips. Cleaner dashboard uses single `/api/cleaner/dashboard` endpoint that fetches profile, shift status, and jobs in parallel (Promise.all) instead of 4 separate requests. Polling only active when cleaner is on duty. Mutations use single invalidation pattern (no double refetch).
+-   **Cache Management**: Zero API data caching - service worker excludes `/api/*`, React Query uses `staleTime: 0`, global no-cache headers on all API responses. Automatic version checking (`version.json`) with cache invalidation and page reload on deployment updates.
 -   **Admin Auto-Setup**: Server automatically creates/updates admin account on startup (server/utils/ensureAdmin.ts) ensuring production always has correct credentials (omer.eldirdieri@gmail.com / Network#123).
 
 ### Feature Specifications

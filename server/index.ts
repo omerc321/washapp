@@ -13,6 +13,11 @@ declare module 'http' {
   }
 }
 
+// Trust proxy if behind a load balancer in production
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 // Session configuration - MUST be before Passport
 if (!process.env.SESSION_SECRET) {
   throw new Error('SESSION_SECRET must be set');
@@ -27,7 +32,7 @@ app.use(session({
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-    sameSite: 'lax', // CSRF protection
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
   },
 }));
 
