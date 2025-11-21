@@ -26,8 +26,14 @@ export class PushNotificationService {
   static async sendToUser(userId: number, payload: PushNotificationPayload): Promise<void> {
     try {
       const subscriptions = await storage.getUserPushSubscriptions(userId);
+      console.log(`[Push] User #${userId} has ${subscriptions.length} subscription(s)`);
       
-      const promises = subscriptions.map(async (sub) => {
+      if (subscriptions.length === 0) {
+        console.log(`[Push] No active subscriptions for user #${userId} - notification not sent`);
+        return;
+      }
+      
+      const results = await Promise.allSettled(subscriptions.map(async (sub) => {
         try {
           const payloadWithSound = {
             ...payload,
@@ -41,18 +47,34 @@ export class PushNotificationService {
             },
             JSON.stringify(payloadWithSound)
           );
+          return { success: true, endpoint: sub.endpoint };
         } catch (error: any) {
+          // Clean up stale subscriptions (410 Gone, 404 Not Found)
           if (error.statusCode === 410 || error.statusCode === 404) {
+            console.log(`[Push] Removing stale subscription for user #${userId}: ${error.statusCode}`);
             await storage.deletePushSubscription(sub.endpoint);
-          } else {
-            console.error(`Failed to send push notification to endpoint ${sub.endpoint}:`, error);
+            return { success: false, endpoint: sub.endpoint, reason: 'stale', statusCode: error.statusCode };
           }
+          
+          // Log structured error for other failures (network, rate limits, etc.)
+          console.error(`[Push] Failed to send to user #${userId}:`, {
+            endpoint: sub.endpoint.substring(0, 50) + '...',
+            statusCode: error.statusCode,
+            message: error.message,
+            type: error.name,
+          });
+          return { success: false, endpoint: sub.endpoint, reason: 'error', statusCode: error.statusCode };
         }
-      });
+      }));
 
-      await Promise.allSettled(promises);
+      // Log delivery summary
+      const successCount = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+      const staleCount = results.filter(r => r.status === 'fulfilled' && r.value.reason === 'stale').length;
+      const errorCount = results.filter(r => r.status === 'fulfilled' && r.value.reason === 'error').length;
+      
+      console.log(`[Push] Delivery summary for user #${userId}: ${successCount} sent, ${staleCount} stale removed, ${errorCount} failed`);
     } catch (error) {
-      console.error('Error sending push notification to user:', error);
+      console.error('[Push] Critical error sending to user:', error);
     }
   }
 
