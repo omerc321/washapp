@@ -10,6 +10,7 @@ import { MapPin, Users, Star, UserCheck } from "lucide-react";
 import { CompanyWithCleaners } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import logoUrl from "@assets/IMG_2508_1762619079711.png";
+import { calculateFees, type FeePackageType } from "@shared/fee-calculator";
 
 export default function SelectCompany() {
   const [, setLocation] = useLocation();
@@ -52,19 +53,21 @@ export default function SelectCompany() {
   });
 
   const handleSelectCompany = (company: CompanyWithCleaners) => {
-    const basePrice = Number(company.pricePerWash);
-    const platformFee = 3;
-    const subtotal = basePrice + platformFee; // Tax calculated on base + platform fee
-    const taxAmount = Number((subtotal * 0.05).toFixed(2)); // 5% tax on subtotal
-    const totalPrice = Number((subtotal + taxAmount).toFixed(2));
+    const carWashPrice = Number(company.pricePerWash);
+    const feePackageType = (company.feePackageType || "custom") as FeePackageType;
+    const platformFee = Number(company.platformFee);
+    
+    const fees = calculateFees({
+      carWashPrice,
+      feePackageType,
+      platformFee,
+    });
     
     const updatedJob = {
       ...pendingJob,
       companyId: company.id,
-      price: basePrice, // Send base price, backend will calculate fees
-      basePrice,
-      taxAmount,
-      platformFee,
+      price: carWashPrice,
+      ...fees,
     };
     sessionStorage.setItem("pendingJob", JSON.stringify(updatedJob));
     setLocation("/customer/checkout");
@@ -158,16 +161,29 @@ export default function SelectCompany() {
                   <div className="text-right shrink-0">
                     <div className="text-2xl font-bold text-foreground">
                       {(() => {
-                        const base = Number(company.pricePerWash);
-                        const platformFee = 3;
-                        const subtotal = base + platformFee;
-                        const tax = Number((subtotal * 0.05).toFixed(2));
-                        const total = Number((subtotal + tax).toFixed(2));
-                        return total;
+                        const carWashPrice = Number(company.pricePerWash);
+                        const feePackageType = (company.feePackageType || "custom") as FeePackageType;
+                        const platformFee = Number(company.platformFee);
+                        const fees = calculateFees({
+                          carWashPrice,
+                          feePackageType,
+                          platformFee,
+                        });
+                        return fees.totalAmount.toFixed(2);
                       })()} AED
                     </div>
                     <div className="text-xs text-muted-foreground leading-tight">
-                      {Number(company.pricePerWash).toFixed(2)} AED + 3 AED fee + 5% tax
+                      {(() => {
+                        const carWashPrice = Number(company.pricePerWash);
+                        const feePackageType = (company.feePackageType || "custom") as FeePackageType;
+                        const platformFee = Number(company.platformFee);
+                        const fees = calculateFees({
+                          carWashPrice,
+                          feePackageType,
+                          platformFee,
+                        });
+                        return fees.displayBreakdown;
+                      })()}
                     </div>
                   </div>
                 </div>

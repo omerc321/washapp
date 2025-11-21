@@ -13,6 +13,7 @@ import LocationPicker from "@/components/location-picker";
 import ProgressIndicator from "@/components/progress-indicator";
 import logoUrl from "@assets/IMG_2508_1762619079711.png";
 import type { CompanyWithCleaners } from "@shared/schema";
+import { calculateFees, type FeePackageType } from "@shared/fee-calculator";
 
 const STEPS = ["Car Details", "Location & Company", "Payment"];
 
@@ -182,6 +183,16 @@ export default function CustomerBooking() {
       const customer = await customerResponse.json();
       
       // Prepare job data for checkout page
+      const carWashPrice = Number(selectedCompany.pricePerWash);
+      const feePackageType = (selectedCompany.feePackageType || "custom") as FeePackageType;
+      const platformFee = Number(selectedCompany.platformFee);
+      
+      const fees = calculateFees({
+        carWashPrice,
+        feePackageType,
+        platformFee,
+      });
+      
       const jobData = {
         ...formData,
         locationAddress: locationData.address,
@@ -189,7 +200,8 @@ export default function CustomerBooking() {
         locationLongitude: locationData.longitude,
         companyId: selectedCompany.id.toString(),
         customerId: customer.id.toString(),
-        price: Number(selectedCompany.pricePerWash),
+        price: carWashPrice,
+        ...fees,
         tipAmount: 0,
       };
       
@@ -774,10 +786,30 @@ function Step2LocationCompany({
                         </div>
                         <div className="text-right">
                           <p className="text-sm text-muted-foreground">
-                            {company.pricePerWash} + 3 AED fee
+                            {(() => {
+                              const carWashPrice = Number(company.pricePerWash);
+                              const feePackageType = (company.feePackageType || "custom") as FeePackageType;
+                              const platformFee = Number(company.platformFee);
+                              const fees = calculateFees({
+                                carWashPrice,
+                                feePackageType,
+                                platformFee,
+                              });
+                              return fees.displayBreakdown;
+                            })()}
                           </p>
                           <p className="text-2xl font-bold text-primary">
-                            {Number(company.pricePerWash) + 3} AED
+                            {(() => {
+                              const carWashPrice = Number(company.pricePerWash);
+                              const feePackageType = (company.feePackageType || "custom") as FeePackageType;
+                              const platformFee = Number(company.platformFee);
+                              const fees = calculateFees({
+                                carWashPrice,
+                                feePackageType,
+                                platformFee,
+                              });
+                              return fees.totalAmount.toFixed(2);
+                            })()} AED
                           </p>
                         </div>
                       </div>

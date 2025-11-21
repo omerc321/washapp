@@ -67,7 +67,7 @@ export interface IStorage {
   // Company operations
   getAllCompanies(): Promise<Company[]>;
   getPendingCompanies(): Promise<Company[]>;
-  approveCompany(companyId: number, platformFee?: number): Promise<void>;
+  approveCompany(companyId: number, platformFee?: number, feePackageType?: string): Promise<void>;
   rejectCompany(companyId: number): Promise<void>;
   getCompany(id: number): Promise<Company | undefined>;
   createCompany(company: InsertCompany): Promise<Company>;
@@ -342,10 +342,13 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(companies).where(eq(companies.isActive, 0));
   }
 
-  async approveCompany(companyId: number, platformFee?: number): Promise<void> {
+  async approveCompany(companyId: number, platformFee?: number, feePackageType?: string): Promise<void> {
     const updateData: any = { isActive: 1 };
     if (platformFee !== undefined) {
       updateData.platformFee = platformFee.toString();
+    }
+    if (feePackageType) {
+      updateData.feePackageType = feePackageType;
     }
     await db
       .update(companies)

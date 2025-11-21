@@ -14,6 +14,7 @@ export const transactionTypeEnum = pgEnum("transaction_type", ["customer_payment
 export const transactionDirectionEnum = pgEnum("transaction_direction", ["credit", "debit"]);
 export const assignmentModeEnum = pgEnum("assignment_mode", ["pool", "direct"]);
 export const companyPackageTypeEnum = pgEnum("company_package_type", ["pay_per_wash", "subscription"]);
+export const feePackageTypeEnum = pgEnum("fee_package_type", ["custom", "package1", "package2"]);
 
 // Users Table
 export const users = pgTable("users", {
@@ -60,6 +61,7 @@ export const companies = pgTable("companies", {
   description: text("description"),
   pricePerWash: numeric("price_per_wash", { precision: 10, scale: 2 }).notNull(),
   platformFee: numeric("platform_fee", { precision: 10, scale: 2 }).notNull().default("3.00"),
+  feePackageType: feePackageTypeEnum("fee_package_type").notNull().default("custom"),
   packageType: companyPackageTypeEnum("package_type").notNull().default("pay_per_wash"),
   subscriptionCleanerSlots: integer("subscription_cleaner_slots"),
   adminId: integer("admin_id").notNull(),

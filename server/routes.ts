@@ -2374,8 +2374,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/approve-company/:companyId", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
     try {
       const { companyId } = req.params;
-      const { platformFee } = req.body;
-      await storage.approveCompany(parseInt(companyId), platformFee);
+      const { platformFee, feePackageType } = req.body;
+      await storage.approveCompany(parseInt(companyId), platformFee, feePackageType);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -2387,6 +2387,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { companyId } = req.params;
       await storage.rejectCompany(parseInt(companyId));
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Update company fee structure
+  app.patch("/api/admin/company/:companyId/fee-structure", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
+    try {
+      const { companyId } = req.params;
+      const { platformFee, feePackageType } = req.body;
+      
+      const updateData: any = {};
+      if (platformFee !== undefined) {
+        updateData.platformFee = platformFee.toString();
+      }
+      if (feePackageType) {
+        updateData.feePackageType = feePackageType;
+      }
+      
+      await storage.updateCompany(parseInt(companyId), updateData);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
