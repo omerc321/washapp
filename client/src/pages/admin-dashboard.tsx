@@ -481,21 +481,13 @@ function AnalyticsTab() {
   const [selectedCompanyForApproval, setSelectedCompanyForApproval] = useState<Company | null>(null);
   const [platformFee, setPlatformFee] = useState("3.00");
   
-  const { data: analytics, isLoading, isError, error } = useQuery<AdminAnalytics>({
+  const { data: analytics, isLoading } = useQuery<AdminAnalytics>({
     queryKey: ["/api/admin/analytics"],
   });
 
   const { data: pendingCompanies, isLoading: isLoadingPending } = useQuery<Company[]>({
     queryKey: ["/api/admin/pending-companies"],
   });
-
-  if (isError) {
-    console.error("Admin analytics error:", error);
-  }
-  
-  if (analytics) {
-    console.log("Admin analytics data:", analytics);
-  }
 
   const approveMutation = useMutation({
     mutationFn: async (data: { companyId: number; platformFee: number }) => {

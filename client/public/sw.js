@@ -1,4 +1,4 @@
-const CACHE_NAME = 'carwash-pro-v2';
+const CACHE_NAME = 'carwash-pro-v3';
 const urlsToCache = [
   '/',
   '/index.html',
