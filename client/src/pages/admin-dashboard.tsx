@@ -601,7 +601,7 @@ function AnalyticsTab() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Company Name</TableHead>
-                  <TableHead>Admin Email</TableHead>
+                  <TableHead>Package</TableHead>
                   <TableHead>Price/Wash</TableHead>
                   <TableHead>License</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -611,7 +611,11 @@ function AnalyticsTab() {
                 {pendingCompanies.map((company) => (
                   <TableRow key={company.id} data-testid={`pending-company-${company.id}`}>
                     <TableCell className="font-medium">{company.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{company.description || "N/A"}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {company.packageType === 'subscription' 
+                        ? `Subscription (${company.subscriptionCleanerSlots} slots)` 
+                        : 'Pay Per Wash'}
+                    </TableCell>
                     <TableCell>{company.pricePerWash} AED</TableCell>
                     <TableCell className="text-sm">{company.tradeLicenseNumber || "N/A"}</TableCell>
                     <TableCell className="text-right space-x-2">
@@ -656,26 +660,67 @@ function AnalyticsTab() {
           <DialogHeader>
             <DialogTitle>Approve Company</DialogTitle>
             <DialogDescription>
-              Set the platform fee for {selectedCompanyForApproval?.name}
+              Review and approve {selectedCompanyForApproval?.name}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="platformFee">Platform Fee (AED)</Label>
-              <Input
-                id="platformFee"
-                type="number"
-                step="0.01"
-                min="0"
-                value={platformFee}
-                onChange={(e) => setPlatformFee(e.target.value)}
-                placeholder="3.00"
-                data-testid="input-platform-fee"
-              />
-              <p className="text-sm text-muted-foreground">
-                This fee will be charged to customers for each wash booking.
-              </p>
+            <div className="space-y-3 p-4 bg-muted/50 rounded-lg">
+              <div className="flex justify-between">
+                <span className="text-sm font-medium">Company Name:</span>
+                <span className="text-sm text-muted-foreground">{selectedCompanyForApproval?.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm font-medium">Package Type:</span>
+                <span className="text-sm text-muted-foreground">
+                  {selectedCompanyForApproval?.packageType === 'subscription' ? 'Monthly Subscription' : 'Pay Per Wash'}
+                </span>
+              </div>
+              {selectedCompanyForApproval?.packageType === 'subscription' && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Cleaner Slots:</span>
+                    <span className="text-sm text-muted-foreground">{selectedCompanyForApproval.subscriptionCleanerSlots}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Monthly Fee:</span>
+                    <span className="text-sm font-bold text-primary">
+                      {((selectedCompanyForApproval.subscriptionCleanerSlots || 0) / 10 * 500).toFixed(2)} AED
+                    </span>
+                  </div>
+                </>
+              )}
+              <div className="flex justify-between">
+                <span className="text-sm font-medium">Price Per Wash:</span>
+                <span className="text-sm text-muted-foreground">{selectedCompanyForApproval?.pricePerWash} AED</span>
+              </div>
             </div>
+            
+            {selectedCompanyForApproval?.packageType === 'pay_per_wash' ? (
+              <div className="space-y-2">
+                <Label htmlFor="platformFee">Platform Fee (AED per wash)</Label>
+                <Input
+                  id="platformFee"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={platformFee}
+                  onChange={(e) => setPlatformFee(e.target.value)}
+                  placeholder="3.00"
+                  data-testid="input-platform-fee"
+                />
+                <p className="text-sm text-muted-foreground">
+                  Flat fee charged to customers per wash (in addition to company's base price and taxes).
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Subscription Package</p>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  This company will pay a monthly subscription fee instead of per-wash platform fees. 
+                  Only payment processing fees (2.9% + 1 AED) will apply to customer payments.
+                </p>
+              </div>
+            )}
             <div className="flex justify-end space-x-2">
               <Button
                 variant="outline"
@@ -688,13 +733,21 @@ function AnalyticsTab() {
               <Button
                 onClick={() => {
                   if (selectedCompanyForApproval) {
+                    const feeToApply = selectedCompanyForApproval.packageType === 'subscription' 
+                      ? 0 
+                      : parseFloat(platformFee);
+                    
                     approveMutation.mutate({
                       companyId: selectedCompanyForApproval.id,
-                      platformFee: parseFloat(platformFee),
+                      platformFee: feeToApply,
                     });
                   }
                 }}
-                disabled={approveMutation.isPending || !platformFee || parseFloat(platformFee) < 0}
+                disabled={
+                  approveMutation.isPending || 
+                  (selectedCompanyForApproval?.packageType === 'pay_per_wash' && 
+                   (!platformFee || parseFloat(platformFee) < 0))
+                }
                 data-testid="button-confirm-approval"
               >
                 {approveMutation.isPending ? "Approving..." : "Approve Company"}
