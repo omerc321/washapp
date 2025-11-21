@@ -1,4 +1,5 @@
 const CACHE_NAME = 'carwash-pro-v3';
+const VERSION_CHECK_INTERVAL = 60000;
 const urlsToCache = [
   '/',
   '/index.html',
@@ -6,27 +7,69 @@ const urlsToCache = [
   '/icon-512.png',
 ];
 
+let currentVersion = null;
+
+async function checkVersion() {
+  try {
+    const response = await fetch('/version.json', { cache: 'no-store' });
+    const data = await response.json();
+    
+    if (currentVersion === null) {
+      currentVersion = data.buildTimestamp;
+      return false;
+    }
+    
+    if (data.buildTimestamp !== currentVersion) {
+      console.log('New version detected, clearing caches and reloading');
+      await clearAllCaches();
+      currentVersion = data.buildTimestamp;
+      
+      const clients = await self.clients.matchAll();
+      clients.forEach(client => {
+        client.postMessage({ type: 'NEW_VERSION_AVAILABLE' });
+      });
+      
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Version check failed:', error);
+    return false;
+  }
+}
+
+async function clearAllCaches() {
+  const cacheNames = await caches.keys();
+  await Promise.all(cacheNames.map(name => caches.delete(name)));
+}
+
+setInterval(checkVersion, VERSION_CHECK_INTERVAL);
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        return cache.addAll(urlsToCache);
-      })
+    Promise.all([
+      caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache)),
+      checkVersion()
+    ])
   );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
+    Promise.all([
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            if (cacheName !== CACHE_NAME) {
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      }),
+      checkVersion()
+    ])
   );
   self.clients.claim();
 });

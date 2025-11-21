@@ -266,6 +266,15 @@ async function sendJobStatusEmail(job: Job, company: Company, status: string, cl
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
+  // Global middleware: Add no-cache headers to ALL API responses
+  app.use('/api/*', (req: Request, res: Response, next) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    res.set('Surrogate-Control', 'no-store');
+    next();
+  });
+  
   // Ensure upload directory exists
   mkdirSync(uploadDir, { recursive: true });
   

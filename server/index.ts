@@ -75,6 +75,10 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
   
+  // Update version file for cache busting
+  const { updateVersionFile } = await import("./utils/updateVersion");
+  updateVersionFile();
+  
   // Ensure admin account exists with correct credentials
   const { ensureAdminExists } = await import("./utils/ensureAdmin");
   await ensureAdminExists();
