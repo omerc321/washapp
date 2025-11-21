@@ -298,6 +298,20 @@ export class PushNotificationService {
     locationLng: number;
   }): Promise<void> {
     try {
+      // Validate coordinates server-side to prevent abuse
+      if (!context.locationLat || !context.locationLng ||
+          typeof context.locationLat !== 'number' || typeof context.locationLng !== 'number' ||
+          context.locationLat < -90 || context.locationLat > 90 ||
+          context.locationLng < -180 || context.locationLng > 180 ||
+          isNaN(context.locationLat) || isNaN(context.locationLng)) {
+        console.error('[Push] Invalid job coordinates - rejecting notification broadcast:', {
+          jobId,
+          lat: context.locationLat,
+          lng: context.locationLng,
+        });
+        return;
+      }
+      
       const { db } = await import('./db');
       const { cleaners, users } = await import('@shared/schema');
       const { eq, and } = await import('drizzle-orm');
