@@ -10,10 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, Users, Briefcase, DollarSign, TrendingUp, CheckCircle2, Check, X, ArrowLeft, Banknote } from "lucide-react";
+import { Building2, Users, Briefcase, DollarSign, TrendingUp, CheckCircle2, Check, X, ArrowLeft, Banknote, Settings } from "lucide-react";
 import { AdminAnalytics, Company, Transaction, CompanyWithdrawal } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 
 interface CompanyFinancialSummary {
   companyId: number;
@@ -913,9 +914,17 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-background p-4 pb-20">
       <div className="max-w-6xl mx-auto">
-        <div className="mb-6 pt-4">
-          <h1 className="text-2xl font-bold text-foreground mb-1">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Platform analytics and insights</p>
+        <div className="mb-6 pt-4 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground mb-1">Admin Dashboard</h1>
+            <p className="text-muted-foreground">Platform analytics and insights</p>
+          </div>
+          <Link href="/admin/settings">
+            <Button variant="outline" size="sm" data-testid="button-admin-settings">
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </Button>
+          </Link>
         </div>
 
         <Tabs defaultValue="analytics" className="space-y-6" data-testid="tabs-admin">

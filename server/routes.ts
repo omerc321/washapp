@@ -336,6 +336,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         logoUrl: null,
       };
 
+      // Default icons (always available as fallback)
+      const defaultIcons = [
+        {
+          src: "/icon-192.png",
+          sizes: "192x192",
+          type: "image/png",
+          purpose: "any maskable"
+        },
+        {
+          src: "/icon-512.png",
+          sizes: "512x512",
+          type: "image/png",
+          purpose: "any maskable"
+        }
+      ];
+
+      // If a custom logo is uploaded, use it for all icon sizes
+      // Otherwise, fall back to default icons
+      const icons = platformSettings.logoUrl ? [
+        {
+          src: platformSettings.logoUrl,
+          sizes: "192x192",
+          type: "image/png",
+          purpose: "any maskable"
+        },
+        {
+          src: platformSettings.logoUrl,
+          sizes: "512x512",
+          type: "image/png",
+          purpose: "any maskable"
+        }
+      ] : defaultIcons;
+
       const manifest = {
         name: platformSettings.companyName || "CarWash Pro",
         short_name: platformSettings.companyName || "CarWash Pro",
@@ -345,20 +378,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         background_color: "#ffffff",
         theme_color: "#000000",
         orientation: "portrait",
-        icons: platformSettings.logoUrl ? [
-          {
-            src: platformSettings.logoUrl,
-            sizes: "192x192",
-            type: "image/png",
-            purpose: "any maskable"
-          },
-          {
-            src: platformSettings.logoUrl,
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "any maskable"
-          }
-        ] : [
+        icons,
+        categories: ["business", "productivity"],
+        screenshots: []
+      };
+
+      res.set('Content-Type', 'application/manifest+json');
+      res.json(manifest);
+    } catch (error: any) {
+      console.error("Error generating manifest:", error);
+      
+      // On error, return a valid manifest with default icons
+      const fallbackManifest = {
+        name: "CarWash Pro",
+        short_name: "CarWash Pro",
+        description: "Professional car wash booking platform - Book cleaners, manage jobs, track payments",
+        start_url: "/",
+        display: "standalone",
+        background_color: "#ffffff",
+        theme_color: "#000000",
+        orientation: "portrait",
+        icons: [
           {
             src: "/icon-192.png",
             sizes: "192x192",
@@ -375,12 +415,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         categories: ["business", "productivity"],
         screenshots: []
       };
-
+      
       res.set('Content-Type', 'application/manifest+json');
-      res.json(manifest);
-    } catch (error: any) {
-      console.error("Error generating manifest:", error);
-      res.status(500).json({ message: error.message });
+      res.json(fallbackManifest);
     }
   });
 

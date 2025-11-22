@@ -37,6 +37,42 @@ export async function generateReceipt({ receiptData, platformSettings }: Generat
   const filename = `receipt-${receiptData.receiptNumber}.pdf`;
   const filePath = join(uploadsDir, filename);
 
+  // Fetch logo if needed (before creating the PDF)
+  let logoSource: string | Buffer | null = null;
+  
+  if (platformSettings.logoUrl) {
+    try {
+      const isRemoteUrl = platformSettings.logoUrl.startsWith('http://') || 
+                         platformSettings.logoUrl.startsWith('https://');
+      
+      if (isRemoteUrl) {
+        // Fetch remote logo and convert to Buffer
+        const response = await fetch(platformSettings.logoUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch remote logo: ${response.statusText}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        logoSource = Buffer.from(arrayBuffer);
+      } else {
+        // Local file path - remove leading slash and join with process.cwd()
+        const relativePath = platformSettings.logoUrl.startsWith('/') 
+          ? platformSettings.logoUrl.slice(1) 
+          : platformSettings.logoUrl;
+        const localPath = join(process.cwd(), relativePath);
+        
+        // Verify local file exists
+        if (existsSync(localPath)) {
+          logoSource = localPath;
+        } else {
+          console.warn('Logo file not found:', localPath);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading logo for receipt:', error);
+      // Continue without logo if there's an error
+    }
+  }
+
   return new Promise((resolve, reject) => {
     try {
       // Create a PDF document
@@ -45,30 +81,25 @@ export async function generateReceipt({ receiptData, platformSettings }: Generat
 
       doc.pipe(stream);
 
-      // Add logo at the top if it exists
-      if (platformSettings.logoUrl) {
-        const logoPath = join(process.cwd(), platformSettings.logoUrl);
-        
-        // Check if logo file exists
-        if (existsSync(logoPath)) {
-          try {
-            // Calculate center position for logo
-            const logoWidth = 80;
-            const logoHeight = 80;
-            const pageWidth = doc.page.width;
-            const logoX = (pageWidth - logoWidth) / 2;
-            
-            // Add logo image
-            doc.image(logoPath, logoX, doc.y, {
-              fit: [logoWidth, logoHeight],
-              align: 'center',
-            });
-            
-            doc.moveDown(5); // Add space after logo
-          } catch (error) {
-            console.error('Error adding logo to receipt:', error);
-            // Continue without logo if there's an error
-          }
+      // Add logo at the top if it was successfully loaded
+      if (logoSource) {
+        try {
+          // Calculate center position for logo
+          const logoWidth = 80;
+          const logoHeight = 80;
+          const pageWidth = doc.page.width;
+          const logoX = (pageWidth - logoWidth) / 2;
+          
+          // Add logo image (PDFKit accepts both file paths and Buffers)
+          doc.image(logoSource, logoX, doc.y, {
+            fit: [logoWidth, logoHeight],
+            align: 'center',
+          });
+          
+          doc.moveDown(5); // Add space after logo
+        } catch (error) {
+          console.error('Error adding logo to receipt:', error);
+          // Continue without logo if there's an error
         }
       }
 
