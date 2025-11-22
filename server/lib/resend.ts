@@ -38,10 +38,11 @@ async function getCredentials() {
 // Access tokens expire, so a new client must be created each time.
 export async function getUncachableResendClient() {
   const credentials = await getCredentials();
+  // Use env var if set, otherwise use verified email from Resend connection
+  const fromEmail = process.env.RESEND_FROM_EMAIL || connectionSettings.settings.from_email;
   return {
     client: new Resend(credentials.apiKey),
-    // Always use support@washapp.ae as sender email
-    fromEmail: 'support@washapp.ae'
+    fromEmail
   };
 }
 
