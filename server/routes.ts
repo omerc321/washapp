@@ -1418,6 +1418,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           customerId: job.customerId || undefined,
         }).catch(err => console.error('Push notification failed:', err));
         
+        // Send email notification if customer provided email
+        const company = await storage.getCompany(job.companyId);
+        if (company && job.customerEmail) {
+          await sendJobStatusEmail(job, company, 'assigned', req.user?.displayName);
+        }
+        
         // Broadcast update via WebSocket
         broadcastJobUpdate(job);
       }
@@ -1561,6 +1567,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           customerId: job.customerId || undefined,
         }).catch(err => console.error('Push notification failed:', err));
         
+        // Send email notification if customer provided email
+        const company = await storage.getCompany(job.companyId);
+        if (company && job.customerEmail) {
+          await sendJobStatusEmail(job, company, 'assigned', req.user?.displayName);
+        }
+        
         // Broadcast update via WebSocket
         broadcastJobUpdate(job);
       }
@@ -1590,6 +1602,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           cleanerName: req.user?.displayName,
           customerId: startedJob.customerId || undefined,
         }).catch(err => console.error('Push notification failed:', err));
+        
+        // Send email notification if customer provided email
+        const company = await storage.getCompany(startedJob.companyId);
+        if (company && startedJob.customerEmail) {
+          await sendJobStatusEmail(startedJob, company, 'in_progress', req.user?.displayName);
+        }
         
         // Broadcast job start
         broadcastJobUpdate(startedJob);
