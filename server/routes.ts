@@ -1115,7 +1115,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Broadcast update to all on-duty cleaners
       const updatedJob = await storage.getJob(job.id);
-      if (updatedJob) broadcastJobUpdate(updatedJob);
+      if (updatedJob) {
+        broadcastJobUpdate(updatedJob);
+        
+        // Send email notification if customer provided email
+        if (company && updatedJob.customerEmail) {
+          await sendJobStatusEmail(updatedJob, company, 'paid');
+        }
+        
+        // Send push notification
+        PushNotificationService.notifyJobStatusChange(updatedJob.id, JobStatus.PAID, {
+          carPlateNumber: updatedJob.carPlateNumber,
+          customerId: updatedJob.customerId || undefined,
+        }).catch(err => console.error('Push notification failed:', err));
+      }
       
       return res.json({ message: "Payment confirmed - job available for cleaners", job: updatedJob });
     } catch (error: any) {
