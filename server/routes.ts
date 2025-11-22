@@ -860,9 +860,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const platformFee = Number(company.platformFee || 3.00);
       const feePackageType = company.feePackageType || 'custom';
       
-      // Security: Validate requested cleaner belongs to selected company
-      if (requestedCleanerEmail) {
-        const user = await storage.getUserByEmail(requestedCleanerEmail);
+      // Security: Validate requested cleaner belongs to selected company (only if email is provided)
+      if (requestedCleanerEmail && requestedCleanerEmail.trim()) {
+        const user = await storage.getUserByEmail(requestedCleanerEmail.trim());
         if (!user || user.role !== UserRole.CLEANER) {
           return res.status(400).json({ message: "Invalid cleaner email" });
         }
