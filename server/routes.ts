@@ -850,7 +850,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const jobData = req.body;
       const tipAmount = Number(jobData.tipAmount || 0);
       const basePrice = Number(jobData.price);
-      const requestedCleanerEmail = jobData.requestedCleanerEmail;
+      
+      // Normalize requestedCleanerEmail to avoid treating empty/whitespace as valid
+      const requestedCleanerEmail = typeof jobData.requestedCleanerEmail === "string" 
+        ? jobData.requestedCleanerEmail.trim() 
+        : "";
       
       // Get company to retrieve platform fee and fee package type
       const company = await storage.getCompany(parseInt(jobData.companyId));
@@ -861,8 +865,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const feePackageType = company.feePackageType || 'custom';
       
       // Security: Validate requested cleaner belongs to selected company (only if email is provided)
-      if (requestedCleanerEmail && requestedCleanerEmail.trim()) {
-        const user = await storage.getUserByEmail(requestedCleanerEmail.trim());
+      if (requestedCleanerEmail) {
+        const user = await storage.getUserByEmail(requestedCleanerEmail);
         if (!user || user.role !== UserRole.CLEANER) {
           return res.status(400).json({ message: "Invalid cleaner email" });
         }
