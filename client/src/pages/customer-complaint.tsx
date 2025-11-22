@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useRoute } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,75 +9,114 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, AlertCircle, Car } from "lucide-react";
+import { ArrowLeft, AlertCircle, Mail, CheckCircle, Loader2 } from "lucide-react";
 import { Job } from "@shared/schema";
-import { useAuth } from "@/lib/auth-context";
-
-// UAE Emirates list
-const UAE_EMIRATES = [
-  "Abu Dhabi",
-  "Dubai",
-  "Sharjah",
-  "Ajman",
-  "Umm Al Quwain",
-  "Ras Al Khaimah",
-  "Fujairah"
-];
-
-// Plate codes: A-Z, AA-MM, 1-50
-const PLATE_CODES = [
-  ...Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)),
-  ...Array.from({ length: 13 }, (_, i) => {
-    const char = String.fromCharCode(65 + i);
-    return char + char;
-  }),
-  ...Array.from({ length: 50 }, (_, i) => (i + 1).toString())
-];
 
 export default function CustomerComplaint() {
-  const [, params] = useRoute("/customer/complaint/:plateNumber?");
+  const [, params] = useRoute("/customer/complaint/:jobId");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { currentUser } = useAuth();
   
-  const [selectedJobId, setSelectedJobId] = useState<string>("");
+  const jobId = params?.jobId ? parseInt(params.jobId) : null;
+  
+  // Form states
+  const [email, setEmail] = useState("");
+  const [otpCode, setOtpCode] = useState("");
   const [complaintType, setComplaintType] = useState<string>("");
   const [description, setDescription] = useState("");
   
-  // Plate number input for anonymous users
-  const [plateEmirate, setPlateEmirate] = useState("");
-  const [plateCode, setPlateCode] = useState("");
-  const [plateNumber, setPlateNumber] = useState("");
-  const [submittedPlate, setSubmittedPlate] = useState(params?.plateNumber || "");
+  // OTP verification states
+  const [isOtpSent, setIsOtpSent] = useState(false);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [otpSendCooldown, setOtpSendCooldown] = useState(0);
 
-  // Determine which endpoint to use based on authentication
-  const queryKey = currentUser 
-    ? ["/api/customer/jobs"]
-    : submittedPlate 
-    ? ["/api/jobs/track", submittedPlate]
-    : null;
-
-  // Fetch jobs (either by customer or by plate)
-  const { data: jobs = [], isLoading } = useQuery<Job[]>({
-    queryKey: queryKey || ["empty"],
-    enabled: !!queryKey,
+  // Fetch job details using jobId from URL
+  const { data: job, isLoading } = useQuery<Job>({
+    queryKey: ["/api/jobs", jobId],
+    enabled: !!jobId,
   });
 
-  // Filter completed or refunded jobs
-  const eligibleJobs = jobs.filter(j => 
-    j.status === 'completed' || j.status === 'refunded' || j.status === 'cancelled'
-  );
+  // Cooldown timer for OTP resend
+  useEffect(() => {
+    if (otpSendCooldown > 0) {
+      const timer = setTimeout(() => setOtpSendCooldown(otpSendCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [otpSendCooldown]);
 
+  // Send OTP mutation
+  const sendOtpMutation = useMutation({
+    mutationFn: async () => {
+      if (!email.trim()) {
+        throw new Error("Please enter your email address");
+      }
+      
+      return apiRequest("POST", "/api/otp/send", {
+        email: email.trim(),
+      });
+    },
+    onSuccess: () => {
+      setIsOtpSent(true);
+      setOtpSendCooldown(60); // 60 second cooldown
+      toast({
+        title: "Verification Code Sent",
+        description: "Check your email for the 6-digit code",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Failed to Send Code",
+        description: error.message || "Please try again",
+      });
+    },
+  });
+
+  // Verify OTP mutation
+  const verifyOtpMutation = useMutation({
+    mutationFn: async () => {
+      if (!otpCode.trim()) {
+        throw new Error("Please enter the verification code");
+      }
+      
+      return apiRequest("POST", "/api/otp/verify", {
+        email: email.trim(),
+        code: otpCode.trim(),
+      });
+    },
+    onSuccess: () => {
+      setIsEmailVerified(true);
+      toast({
+        title: "Email Verified",
+        description: "You can now submit your complaint",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Invalid Code",
+        description: error.message || "Please check the code and try again",
+      });
+    },
+  });
+
+  // Submit complaint mutation
   const submitComplaint = useMutation({
     mutationFn: async () => {
-      if (!selectedJobId || !complaintType || !description.trim()) {
+      if (!isEmailVerified) {
+        throw new Error("Please verify your email first");
+      }
+      
+      if (!complaintType || !description.trim()) {
         throw new Error("Please fill in all fields");
       }
 
       return apiRequest("POST", "/api/complaints", {
-        jobId: parseInt(selectedJobId),
+        jobId,
         type: complaintType,
         description: description.trim(),
+        email: email.trim(),
+        otpCode: otpCode,
       });
     },
     onSuccess: (data: any) => {
@@ -85,7 +124,7 @@ export default function CustomerComplaint() {
         title: "Complaint Submitted",
         description: `Your complaint reference is ${data.referenceNumber}. We'll review it shortly.`,
       });
-      setLocation("/customer/jobs");
+      setLocation("/customer/track");
     },
     onError: (error: any) => {
       toast({
@@ -96,19 +135,49 @@ export default function CustomerComplaint() {
     },
   });
 
-  const handlePlateSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!plateEmirate || !plateCode || !plateNumber.trim()) {
-      toast({
-        title: "Car Plate Required",
-        description: "Please complete all car plate fields",
-        variant: "destructive",
-      });
-      return;
-    }
-    const combinedPlate = `${plateEmirate} ${plateCode} ${plateNumber.trim().toUpperCase()}`;
-    setSubmittedPlate(combinedPlate);
-  };
+  if (!jobId) {
+    return (
+      <div className="min-h-screen bg-background p-4 flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Invalid Request</CardTitle>
+            <CardDescription>No job specified for complaint</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => setLocation("/customer/track")} data-testid="button-back">
+              Go to Tracking
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!job) {
+    return (
+      <div className="min-h-screen bg-background p-4 flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Job Not Found</CardTitle>
+            <CardDescription>Unable to load job details</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => setLocation("/customer/track")} data-testid="button-back">
+              Go to Tracking
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-4 pb-20">
@@ -118,170 +187,196 @@ export default function CustomerComplaint() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setLocation(currentUser ? "/customer/jobs" : "/")}
+            onClick={() => setLocation("/customer/track")}
             data-testid="button-back"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-foreground">
-              Submit Complaint
+              Report Issue
             </h1>
             <p className="text-muted-foreground text-sm">
-              We're here to help resolve any issues
+              Job #{job.id} • {job.carPlateEmirate} {job.carPlateCode} {job.carPlateNumber}
             </p>
           </div>
         </div>
 
-        {/* Plate Number Input for Anonymous Users */}
-        {!currentUser && !submittedPlate && (
+        {/* Email Verification Section */}
+        {!isEmailVerified && (
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle>Enter Your Car Plate</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                Email Verification
+              </CardTitle>
               <CardDescription>
-                We'll find your jobs to submit a complaint
+                Verify your email to submit a complaint
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={handlePlateSubmit} className="space-y-4">
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <Label htmlFor="plateEmirate" className="text-sm mb-1.5 block">
-                      Emirate
-                    </Label>
-                    <Select value={plateEmirate} onValueChange={setPlateEmirate}>
-                      <SelectTrigger id="plateEmirate" data-testid="select-emirate">
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {UAE_EMIRATES.map((emirate) => (
-                          <SelectItem key={emirate} value={emirate}>
-                            {emirate}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="plateCode" className="text-sm mb-1.5 block">
-                      Code
-                    </Label>
-                    <Select value={plateCode} onValueChange={setPlateCode}>
-                      <SelectTrigger id="plateCode" data-testid="select-code">
-                        <SelectValue placeholder="A-Z" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PLATE_CODES.map((code) => (
-                          <SelectItem key={code} value={code}>
-                            {code}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="plateNumber" className="text-sm mb-1.5 block">
-                      Number
-                    </Label>
+            <CardContent className="space-y-4">
+              {/* Email Input */}
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="your.email@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={isOtpSent}
+                    data-testid="input-email"
+                  />
+                  {!isOtpSent && (
+                    <Button
+                      onClick={() => sendOtpMutation.mutate()}
+                      disabled={sendOtpMutation.isPending || !email.trim()}
+                      data-testid="button-send-otp"
+                    >
+                      {sendOtpMutation.isPending ? "Sending..." : "Send Code"}
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* OTP Input */}
+              {isOtpSent && (
+                <div className="space-y-2">
+                  <Label htmlFor="otpCode">Verification Code</Label>
+                  <div className="flex gap-2">
                     <Input
-                      id="plateNumber"
-                      data-testid="input-plate-number"
-                      placeholder="12345"
-                      value={plateNumber}
-                      onChange={(e) => setPlateNumber(e.target.value)}
+                      id="otpCode"
+                      type="text"
+                      placeholder="Enter 6-digit code"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      maxLength={6}
+                      data-testid="input-otp"
                     />
+                    <Button
+                      onClick={() => verifyOtpMutation.mutate()}
+                      disabled={verifyOtpMutation.isPending || otpCode.length !== 6}
+                      data-testid="button-verify-otp"
+                    >
+                      {verifyOtpMutation.isPending ? "Verifying..." : "Verify"}
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <p className="text-muted-foreground">
+                      Check your email for the code
+                    </p>
+                    {otpSendCooldown > 0 ? (
+                      <p className="text-muted-foreground">
+                        Resend in {otpSendCooldown}s
+                      </p>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setOtpCode("");
+                          sendOtpMutation.mutate();
+                        }}
+                        data-testid="button-resend-otp"
+                      >
+                        Resend Code
+                      </Button>
+                    )}
                   </div>
                 </div>
-                <Button type="submit" className="w-full" data-testid="button-find-jobs">
-                  <Car className="h-4 w-4 mr-2" />
-                  Find My Jobs
-                </Button>
-              </form>
+              )}
             </CardContent>
           </Card>
         )}
 
-        {/* Show complaint form if authenticated OR plate submitted */}
-        {(currentUser || submittedPlate) && (
+        {/* Verification Success Banner */}
+        {isEmailVerified && (
+          <Card className="mb-6 border-green-500 bg-green-50 dark:bg-green-950">
+            <CardContent className="flex items-center gap-3 pt-6">
+              <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+              <div>
+                <p className="font-medium text-green-900 dark:text-green-100">
+                  Email Verified
+                </p>
+                <p className="text-sm text-green-700 dark:text-green-300">
+                  {email}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Complaint Form - Only shown after email verification */}
+        {isEmailVerified && (
           <Card>
-          <CardHeader>
-            <CardTitle>Complaint Details</CardTitle>
-            <CardDescription>
-              Please provide details about your concern
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Job Selection */}
-            <div className="space-y-2">
-              <Label htmlFor="job">Select Job</Label>
-              {isLoading ? (
-                <p className="text-sm text-muted-foreground">Loading your jobs...</p>
-              ) : eligibleJobs.length === 0 ? (
-                <div className="bg-muted p-4 rounded-lg flex items-start gap-2">
-                  <AlertCircle className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <p className="text-sm text-muted-foreground">
-                    No completed jobs found. You can only submit complaints for completed jobs.
-                  </p>
-                </div>
-              ) : (
-                <Select value={selectedJobId} onValueChange={setSelectedJobId}>
-                  <SelectTrigger id="job" data-testid="select-job">
-                    <SelectValue placeholder="Choose a job" />
+            <CardHeader>
+              <CardTitle>Complaint Details</CardTitle>
+              <CardDescription>
+                Tell us about the issue you're experiencing
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Complaint Type */}
+              <div className="space-y-2">
+                <Label htmlFor="complaintType">Issue Type</Label>
+                <Select value={complaintType} onValueChange={setComplaintType}>
+                  <SelectTrigger id="complaintType" data-testid="select-type">
+                    <SelectValue placeholder="Select issue type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {eligibleJobs.map((job) => (
-                      <SelectItem key={job.id} value={String(job.id)}>
-                        Job #{job.id} - {job.carPlateNumber}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="refund_request">Refund Request</SelectItem>
+                    <SelectItem value="general">General Complaint</SelectItem>
                   </SelectContent>
                 </Select>
-              )}
-            </div>
+              </div>
 
-            {/* Complaint Type */}
-            <div className="space-y-2">
-              <Label htmlFor="type">Complaint Type</Label>
-              <Select value={complaintType} onValueChange={setComplaintType}>
-                <SelectTrigger id="type" data-testid="select-type">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="refund_request">Refund Request</SelectItem>
-                  <SelectItem value="general">General Complaint</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              {/* Description */}
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Please describe the issue in detail..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={6}
+                  data-testid="input-description"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Provide as much detail as possible to help us resolve your issue
+                </p>
+              </div>
 
-            {/* Description */}
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="Please describe your concern in detail..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={6}
-                data-testid="textarea-description"
-              />
-              <p className="text-xs text-muted-foreground">
-                {description.length}/500 characters
-              </p>
-            </div>
+              {/* Submit Button */}
+              <Button
+                className="w-full"
+                onClick={() => submitComplaint.mutate()}
+                disabled={submitComplaint.isPending || !complaintType || !description.trim()}
+                data-testid="button-submit-complaint"
+              >
+                {submitComplaint.isPending ? "Submitting..." : "Submit Complaint"}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
-            {/* Submit Button */}
-            <Button
-              onClick={() => submitComplaint.mutate()}
-              disabled={!selectedJobId || !complaintType || !description.trim() || submitComplaint.isPending || eligibleJobs.length === 0}
-              className="w-full"
-              data-testid="button-submit-complaint"
-            >
-              {submitComplaint.isPending ? "Submitting..." : "Submit Complaint"}
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Help Text */}
+        {!isEmailVerified && (
+          <Card className="mt-6 bg-muted/50">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <p className="font-medium">Why verify email?</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Receive updates about your complaint</li>
+                    <li>Get notified when it's resolved</li>
+                    <li>Track complaint status via email</li>
+                  </ul>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>

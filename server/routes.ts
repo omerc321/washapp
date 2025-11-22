@@ -3211,19 +3211,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===== COMPLAINT ROUTES =====
   
-  // Create complaint (Customer) - Requires authentication
-  app.post("/api/complaints", requireAuth, async (req: Request, res: Response) => {
+  // Create complaint (Anonymous with Email OTP Verification)
+  app.post("/api/complaints", async (req: Request, res: Response) => {
     try {
-      const { jobId, type, description } = req.body;
+      const { jobId, type, description, email, otpCode } = req.body;
       
       // Validate inputs
-      if (!jobId || !type || !description) {
-        return res.status(400).json({ message: "Job ID, type, and description are required" });
+      if (!jobId || !type || !description || !email || !otpCode) {
+        return res.status(400).json({ message: "Job ID, type, description, email, and OTP code are required" });
       }
       
       // Validate type
       if (type !== 'refund_request' && type !== 'general') {
         return res.status(400).json({ message: "Invalid complaint type" });
+      }
+      
+      // Verify that OTP has been verified for this email
+      const isOtpVerified = await storage.verifyEmailOtp(email, otpCode);
+      if (!isOtpVerified) {
+        return res.status(403).json({ message: "Email not verified. Please verify your email first." });
       }
       
       // Get job details
@@ -3232,18 +3238,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Job not found" });
       }
       
-      // Security: Verify that the authenticated customer owns this job
-      // Customer can be identified by customerId OR customerPhone (for anonymous bookings)
-      const isCustomerOwner = (job.customerId && job.customerId === req.user!.id) || 
-                             (job.customerPhone && req.user!.phoneNumber && job.customerPhone === req.user!.phoneNumber);
-      
-      if (!isCustomerOwner) {
-        return res.status(403).json({ message: "You can only create complaints for your own jobs" });
-      }
-      
       // Only allow complaints for completed, cancelled, or refunded jobs
       if (job.status !== 'completed' && job.status !== 'cancelled' && job.status !== 'refunded') {
-        return res.status(400).json({ message: "Can only create complaints for completed jobs" });
+        return res.status(400).json({ message: "Can only create complaints for completed, cancelled, or refunded jobs" });
       }
       
       // Create complaint
@@ -3254,7 +3251,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         type,
         description,
         status: 'pending',
-        customerEmail: job.customerEmail || null,
+        customerEmail: email, // Use the verified email
         customerPhone: job.customerPhone,
       });
       
