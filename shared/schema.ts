@@ -15,6 +15,8 @@ export const transactionDirectionEnum = pgEnum("transaction_direction", ["credit
 export const assignmentModeEnum = pgEnum("assignment_mode", ["pool", "direct"]);
 export const companyPackageTypeEnum = pgEnum("company_package_type", ["pay_per_wash", "subscription"]);
 export const feePackageTypeEnum = pgEnum("fee_package_type", ["custom", "package1", "package2"]);
+export const complaintTypeEnum = pgEnum("complaint_type", ["refund_request", "general"]);
+export const complaintStatusEnum = pgEnum("complaint_status", ["pending", "in_progress", "resolved", "refunded"]);
 
 // Users Table
 export const users = pgTable("users", {
@@ -490,6 +492,63 @@ export const transactionsRelations = relations(transactions, ({ one }) => ({
   }),
 }));
 
+// Complaints Table
+export const complaints = pgTable("complaints", {
+  id: serial("id").primaryKey(),
+  referenceNumber: varchar("reference_number", { length: 100 }).notNull().unique(),
+  
+  // Related entities
+  jobId: integer("job_id").notNull(),
+  companyId: integer("company_id").notNull(),
+  customerId: integer("customer_id"),
+  
+  // Complaint details
+  type: complaintTypeEnum("type").notNull(),
+  description: text("description").notNull(),
+  status: complaintStatusEnum("status").notNull().default("pending"),
+  
+  // Resolution
+  resolution: text("resolution"),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: integer("resolved_by"), // Admin or company admin user ID
+  
+  // Refund tracking
+  refundedAt: timestamp("refunded_at"),
+  refundedBy: integer("refunded_by"), // Admin or company admin user ID
+  stripeRefundId: varchar("stripe_refund_id", { length: 255 }),
+  
+  // Contact info (copied from job for reference)
+  customerEmail: varchar("customer_email", { length: 255 }),
+  customerPhone: varchar("customer_phone", { length: 50 }),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const complaintsRelations = relations(complaints, ({ one }) => ({
+  job: one(jobs, {
+    fields: [complaints.jobId],
+    references: [jobs.id],
+  }),
+  company: one(companies, {
+    fields: [complaints.companyId],
+    references: [companies.id],
+  }),
+  customer: one(customers, {
+    fields: [complaints.customerId],
+    references: [customers.id],
+  }),
+  resolver: one(users, {
+    fields: [complaints.resolvedBy],
+    references: [users.id],
+  }),
+  refunder: one(users, {
+    fields: [complaints.refundedBy],
+    references: [users.id],
+  }),
+}));
+
 // Drizzle Zod Schemas for validation
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -690,6 +749,20 @@ export const selectTransactionSchema = createSelectSchema(transactions);
 
 export type Transaction = typeof transactions.$inferSelect;
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
+
+export const insertComplaintSchema = createInsertSchema(complaints).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  referenceNumber: true,
+  resolvedAt: true,
+  refundedAt: true,
+});
+
+export const selectComplaintSchema = createSelectSchema(complaints);
+
+export type Complaint = typeof complaints.$inferSelect;
+export type InsertComplaint = z.infer<typeof insertComplaintSchema>;
 
 // Additional validation schemas
 export const createJobSchema = z.object({
