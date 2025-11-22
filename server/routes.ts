@@ -327,6 +327,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // ===== LOCATION SEARCH ROUTES =====
   
+  // Serve dynamic PWA manifest with uploaded logo (public endpoint)
+  app.get("/manifest.json", async (req: Request, res: Response) => {
+    try {
+      const settings = await storage.getAllPlatformSettings();
+      const platformSettings = settings[0] || {
+        companyName: 'Washapp.ae',
+        logoUrl: null,
+      };
+
+      const manifest = {
+        name: platformSettings.companyName || "CarWash Pro",
+        short_name: platformSettings.companyName || "CarWash Pro",
+        description: "Professional car wash booking platform - Book cleaners, manage jobs, track payments",
+        start_url: "/",
+        display: "standalone",
+        background_color: "#ffffff",
+        theme_color: "#000000",
+        orientation: "portrait",
+        icons: platformSettings.logoUrl ? [
+          {
+            src: platformSettings.logoUrl,
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any maskable"
+          },
+          {
+            src: platformSettings.logoUrl,
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any maskable"
+          }
+        ] : [
+          {
+            src: "/icon-192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any maskable"
+          },
+          {
+            src: "/icon-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any maskable"
+          }
+        ],
+        categories: ["business", "productivity"],
+        screenshots: []
+      };
+
+      res.set('Content-Type', 'application/manifest+json');
+      res.json(manifest);
+    } catch (error: any) {
+      console.error("Error generating manifest:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Search locations using Nominatim API (public endpoint)
   app.get("/api/location/search", async (req: Request, res: Response) => {
     try {
