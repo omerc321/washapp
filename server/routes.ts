@@ -510,6 +510,158 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Password reset - Request reset
+  app.post("/api/auth/forgot-password", async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      
+      // Find user by email
+      const user = await storage.getUserByEmail(email);
+      
+      // Don't reveal if user exists or not (security best practice)
+      if (!user) {
+        return res.json({ message: "If an account exists with this email, you will receive a password reset link." });
+      }
+      
+      // Generate secure random token
+      const crypto = await import('crypto');
+      const token = crypto.randomBytes(32).toString('hex');
+      
+      // Token expires in 1 hour
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      
+      // Store token in database
+      await storage.createPasswordResetToken(user.id, token, expiresAt);
+      
+      // Get reset URL (use frontend URL)
+      const resetUrl = `${req.protocol}://${req.get('host')}/reset-password?token=${token}`;
+      
+      // Send email with reset link
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #0ea5e9;">Password Reset Request</h2>
+          <p>Hello ${user.displayName},</p>
+          <p>We received a request to reset your password. Click the button below to create a new password:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetUrl}" style="background-color: #0ea5e9; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">Reset Password</a>
+          </div>
+          <p>This link will expire in 1 hour.</p>
+          <p>If you didn't request this password reset, you can safely ignore this email.</p>
+          <p style="color: #64748b; font-size: 12px; margin-top: 30px;">
+            If the button doesn't work, copy and paste this link into your browser:<br>
+            ${resetUrl}
+          </p>
+        </div>
+      `;
+      
+      await sendEmail(
+        user.email,
+        "Password Reset Request - Washapp.ae",
+        emailHtml
+      );
+      
+      res.json({ message: "If an account exists with this email, you will receive a password reset link." });
+    } catch (error: any) {
+      console.error("Forgot password error:", error);
+      res.status(500).json({ message: "Failed to process password reset request" });
+    }
+  });
+  
+  // Password reset - Verify token
+  app.get("/api/auth/verify-reset-token/:token", async (req: Request, res: Response) => {
+    try {
+      const { token } = req.params;
+      
+      const resetToken = await storage.getPasswordResetToken(token);
+      
+      if (!resetToken) {
+        return res.status(400).json({ valid: false, message: "Invalid or expired reset token" });
+      }
+      
+      // Check if token is expired
+      if (new Date() > resetToken.expiresAt) {
+        await storage.deletePasswordResetToken(token);
+        return res.status(400).json({ valid: false, message: "Reset token has expired" });
+      }
+      
+      res.json({ valid: true });
+    } catch (error: any) {
+      console.error("Verify token error:", error);
+      res.status(500).json({ valid: false, message: "Failed to verify reset token" });
+    }
+  });
+  
+  // Password reset - Reset password
+  app.post("/api/auth/reset-password", async (req: Request, res: Response) => {
+    try {
+      const { token, newPassword } = req.body;
+      
+      if (!token || !newPassword) {
+        return res.status(400).json({ message: "Token and new password are required" });
+      }
+      
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters long" });
+      }
+      
+      // Verify token
+      const resetToken = await storage.getPasswordResetToken(token);
+      
+      if (!resetToken) {
+        return res.status(400).json({ message: "Invalid or expired reset token" });
+      }
+      
+      // Check if token is expired
+      if (new Date() > resetToken.expiresAt) {
+        await storage.deletePasswordResetToken(token);
+        return res.status(400).json({ message: "Reset token has expired" });
+      }
+      
+      // Update user password
+      await storage.updateUserPassword(resetToken.userId, newPassword);
+      
+      // Delete the used token
+      await storage.deletePasswordResetToken(token);
+      
+      // Clean up any other expired tokens
+      await storage.deleteExpiredPasswordResetTokens();
+      
+      // Get user details for confirmation email
+      const user = await storage.getUser(resetToken.userId);
+      
+      if (user) {
+        // Send confirmation email
+        const emailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #0ea5e9;">Password Changed Successfully</h2>
+            <p>Hello ${user.displayName},</p>
+            <p>Your password has been successfully changed.</p>
+            <p>If you didn't make this change, please contact support immediately.</p>
+            <p style="color: #64748b; margin-top: 30px;">
+              Thank you,<br>
+              Washapp.ae Team
+            </p>
+          </div>
+        `;
+        
+        await sendEmail(
+          user.email,
+          "Password Changed - Washapp.ae",
+          emailHtml
+        );
+      }
+      
+      res.json({ message: "Password reset successful" });
+    } catch (error: any) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
+  
   // ===== REGISTRATION ROUTES =====
   
   // Register platform admin

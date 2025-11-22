@@ -16,6 +16,7 @@ import {
   companyGeofences,
   cleanerGeofenceAssignments,
   transactions,
+  passwordResetTokens,
   type User, 
   type InsertUser,
   type Company,
@@ -47,6 +48,8 @@ import {
   type InsertCleanerGeofenceAssignment,
   type Transaction,
   type InsertTransaction,
+  type PasswordResetToken,
+  type InsertPasswordResetToken,
   UserRole,
   JobStatus,
   CleanerStatus,
@@ -63,6 +66,13 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: Omit<InsertUser, 'passwordHash'> & { password: string }): Promise<User>;
   updateUser(id: number, updates: Partial<User>): Promise<void>;
+  updateUserPassword(userId: number, newPassword: string): Promise<void>;
+  
+  // Password reset operations
+  createPasswordResetToken(userId: number, token: string, expiresAt: Date): Promise<void>;
+  getPasswordResetToken(token: string): Promise<{ userId: number; expiresAt: Date } | undefined>;
+  deletePasswordResetToken(token: string): Promise<void>;
+  deleteExpiredPasswordResetTokens(): Promise<void>;
   
   // Company operations
   getAllCompanies(): Promise<Company[]>;
@@ -259,6 +269,49 @@ export class DatabaseStorage implements IStorage {
       .update(users)
       .set(updates)
       .where(eq(users.id, id));
+  }
+
+  async updateUserPassword(userId: number, newPassword: string): Promise<void> {
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await db
+      .update(users)
+      .set({ passwordHash })
+      .where(eq(users.id, userId));
+  }
+
+  // ===== PASSWORD RESET OPERATIONS =====
+  
+  async createPasswordResetToken(userId: number, token: string, expiresAt: Date): Promise<void> {
+    await db.insert(passwordResetTokens).values({
+      userId,
+      token,
+      expiresAt,
+    });
+  }
+
+  async getPasswordResetToken(token: string): Promise<{ userId: number; expiresAt: Date } | undefined> {
+    const [resetToken] = await db
+      .select()
+      .from(passwordResetTokens)
+      .where(eq(passwordResetTokens.token, token));
+    
+    if (!resetToken) {
+      return undefined;
+    }
+
+    return {
+      userId: resetToken.userId,
+      expiresAt: resetToken.expiresAt,
+    };
+  }
+
+  async deletePasswordResetToken(token: string): Promise<void> {
+    await db.delete(passwordResetTokens).where(eq(passwordResetTokens.token, token));
+  }
+
+  async deleteExpiredPasswordResetTokens(): Promise<void> {
+    const now = new Date();
+    await db.delete(passwordResetTokens).where(sql`${passwordResetTokens.expiresAt} < ${now}`);
   }
 
   // ===== COMPANY OPERATIONS =====

@@ -10,6 +10,8 @@ import { BottomNav } from "@/components/bottom-nav";
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
+import ForgotPasswordPage from "@/pages/forgot-password";
+import ResetPasswordPage from "@/pages/reset-password";
 import RegisterCleanerPage from "@/pages/register-cleaner";
 import RegisterCompanyPage from "@/pages/register-company";
 import RegisterAdminPage from "@/pages/register-admin";
@@ -67,6 +69,8 @@ function Router() {
       <Switch>
         {/* Auth Routes */}
         <Route path="/login" component={LoginPage} />
+        <Route path="/forgot-password" component={ForgotPasswordPage} />
+        <Route path="/reset-password" component={ResetPasswordPage} />
         <Route path="/register/cleaner" component={RegisterCleanerPage} />
         <Route path="/register/company" component={RegisterCompanyPage} />
         <Route path="/register/admin" component={RegisterAdminPage} />
