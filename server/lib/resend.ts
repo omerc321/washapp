@@ -40,7 +40,8 @@ export async function getUncachableResendClient() {
   const credentials = await getCredentials();
   return {
     client: new Resend(credentials.apiKey),
-    fromEmail: connectionSettings.settings.from_email
+    // Always use support@washapp.ae as sender email
+    fromEmail: 'support@washapp.ae'
   };
 }
 
