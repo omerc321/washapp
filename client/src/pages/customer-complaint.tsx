@@ -1,26 +1,66 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useRoute } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, AlertCircle } from "lucide-react";
+import { ArrowLeft, AlertCircle, Car } from "lucide-react";
 import { Job } from "@shared/schema";
+import { useAuth } from "@/lib/auth-context";
+
+// UAE Emirates list
+const UAE_EMIRATES = [
+  "Abu Dhabi",
+  "Dubai",
+  "Sharjah",
+  "Ajman",
+  "Umm Al Quwain",
+  "Ras Al Khaimah",
+  "Fujairah"
+];
+
+// Plate codes: A-Z, AA-MM, 1-50
+const PLATE_CODES = [
+  ...Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)),
+  ...Array.from({ length: 13 }, (_, i) => {
+    const char = String.fromCharCode(65 + i);
+    return char + char;
+  }),
+  ...Array.from({ length: 50 }, (_, i) => (i + 1).toString())
+];
 
 export default function CustomerComplaint() {
+  const [, params] = useRoute("/customer/complaint/:plateNumber?");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { currentUser } = useAuth();
+  
   const [selectedJobId, setSelectedJobId] = useState<string>("");
   const [complaintType, setComplaintType] = useState<string>("");
   const [description, setDescription] = useState("");
+  
+  // Plate number input for anonymous users
+  const [plateEmirate, setPlateEmirate] = useState("");
+  const [plateCode, setPlateCode] = useState("");
+  const [plateNumber, setPlateNumber] = useState("");
+  const [submittedPlate, setSubmittedPlate] = useState(params?.plateNumber || "");
 
-  // Fetch customer jobs
+  // Determine which endpoint to use based on authentication
+  const queryKey = currentUser 
+    ? ["/api/customer/jobs"]
+    : submittedPlate 
+    ? ["/api/jobs/track", submittedPlate]
+    : null;
+
+  // Fetch jobs (either by customer or by plate)
   const { data: jobs = [], isLoading } = useQuery<Job[]>({
-    queryKey: ["/api/customer/jobs"],
+    queryKey: queryKey || ["empty"],
+    enabled: !!queryKey,
   });
 
   // Filter completed or refunded jobs
@@ -34,13 +74,10 @@ export default function CustomerComplaint() {
         throw new Error("Please fill in all fields");
       }
 
-      return apiRequest("/api/complaints", {
-        method: "POST",
-        body: JSON.stringify({
-          jobId: parseInt(selectedJobId),
-          type: complaintType,
-          description: description.trim(),
-        }),
+      return apiRequest("POST", "/api/complaints", {
+        jobId: parseInt(selectedJobId),
+        type: complaintType,
+        description: description.trim(),
       });
     },
     onSuccess: (data: any) => {
@@ -59,6 +96,20 @@ export default function CustomerComplaint() {
     },
   });
 
+  const handlePlateSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!plateEmirate || !plateCode || !plateNumber.trim()) {
+      toast({
+        title: "Car Plate Required",
+        description: "Please complete all car plate fields",
+        variant: "destructive",
+      });
+      return;
+    }
+    const combinedPlate = `${plateEmirate} ${plateCode} ${plateNumber.trim().toUpperCase()}`;
+    setSubmittedPlate(combinedPlate);
+  };
+
   return (
     <div className="min-h-screen bg-background p-4 pb-20">
       <div className="max-w-2xl mx-auto">
@@ -67,7 +118,7 @@ export default function CustomerComplaint() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setLocation("/customer/jobs")}
+            onClick={() => setLocation(currentUser ? "/customer/jobs" : "/")}
             data-testid="button-back"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -82,7 +133,79 @@ export default function CustomerComplaint() {
           </div>
         </div>
 
-        <Card>
+        {/* Plate Number Input for Anonymous Users */}
+        {!currentUser && !submittedPlate && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Enter Your Car Plate</CardTitle>
+              <CardDescription>
+                We'll find your jobs to submit a complaint
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handlePlateSubmit} className="space-y-4">
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <Label htmlFor="plateEmirate" className="text-sm mb-1.5 block">
+                      Emirate
+                    </Label>
+                    <Select value={plateEmirate} onValueChange={setPlateEmirate}>
+                      <SelectTrigger id="plateEmirate" data-testid="select-emirate">
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {UAE_EMIRATES.map((emirate) => (
+                          <SelectItem key={emirate} value={emirate}>
+                            {emirate}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="plateCode" className="text-sm mb-1.5 block">
+                      Code
+                    </Label>
+                    <Select value={plateCode} onValueChange={setPlateCode}>
+                      <SelectTrigger id="plateCode" data-testid="select-code">
+                        <SelectValue placeholder="A-Z" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PLATE_CODES.map((code) => (
+                          <SelectItem key={code} value={code}>
+                            {code}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="plateNumber" className="text-sm mb-1.5 block">
+                      Number
+                    </Label>
+                    <Input
+                      id="plateNumber"
+                      data-testid="input-plate-number"
+                      placeholder="12345"
+                      value={plateNumber}
+                      onChange={(e) => setPlateNumber(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <Button type="submit" className="w-full" data-testid="button-find-jobs">
+                  <Car className="h-4 w-4 mr-2" />
+                  Find My Jobs
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Show complaint form if authenticated OR plate submitted */}
+        {(currentUser || submittedPlate) && (
+          <Card>
           <CardHeader>
             <CardTitle>Complaint Details</CardTitle>
             <CardDescription>
@@ -159,6 +282,7 @@ export default function CustomerComplaint() {
             </Button>
           </CardContent>
         </Card>
+        )}
       </div>
     </div>
   );
