@@ -3140,6 +3140,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===== EMAIL OTP ROUTES ===== 
   
+  // Rate limiting map for OTP requests (email -> last request timestamp)
+  const otpRateLimitMap = new Map<string, number>();
+  const OTP_RATE_LIMIT_MS = 60 * 1000; // 60 seconds between requests per email
+  
   // Send OTP to email (for anonymous complaint submission)
   app.post("/api/otp/send", async (req: Request, res: Response) => {
     try {
@@ -3155,13 +3159,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid email format" });
       }
       
+      // Rate limiting: Check if email requested OTP recently
+      const lastRequestTime = otpRateLimitMap.get(email.toLowerCase());
+      const now = Date.now();
+      if (lastRequestTime && (now - lastRequestTime) < OTP_RATE_LIMIT_MS) {
+        const remainingSeconds = Math.ceil((OTP_RATE_LIMIT_MS - (now - lastRequestTime)) / 1000);
+        return res.status(429).json({ 
+          message: `Please wait ${remainingSeconds} seconds before requesting another code`,
+          remainingSeconds 
+        });
+      }
+      
+      // Update rate limit timestamp
+      otpRateLimitMap.set(email.toLowerCase(), now);
+      
       // Generate 6-digit OTP code
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       
       // OTP expires in 10 minutes
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
       
-      // Save OTP to database
+      // Save OTP to database (this also deletes any existing unverified OTPs)
       await storage.createEmailOtp(email, code, expiresAt);
       
       // Send OTP email via Resend
@@ -3192,8 +3210,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Email and code are required" });
       }
       
-      // Verify OTP
-      const isValid = await storage.verifyEmailOtp(email, code);
+      // Check if unverified OTP exists and is valid
+      const isValid = await storage.checkEmailOtp(email, code);
       
       if (!isValid) {
         return res.status(400).json({ message: "Invalid or expired OTP code" });
@@ -3226,10 +3244,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid complaint type" });
       }
       
-      // Verify that OTP has been verified for this email
-      const isOtpVerified = await storage.verifyEmailOtp(email, otpCode);
+      // Verify that OTP has been verified AND marked as verified for this email
+      const isOtpVerified = await storage.isEmailOtpVerified(email, otpCode);
       if (!isOtpVerified) {
-        return res.status(403).json({ message: "Email not verified. Please verify your email first." });
+        return res.status(403).json({ message: "Email not verified or OTP already used. Please verify your email again." });
       }
       
       // Get job details
@@ -3242,6 +3260,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (job.status !== 'completed' && job.status !== 'cancelled' && job.status !== 'refunded') {
         return res.status(400).json({ message: "Can only create complaints for completed, cancelled, or refunded jobs" });
       }
+      
+      // Invalidate OTP immediately to prevent reuse
+      await storage.invalidateEmailOtp(email, otpCode);
       
       // Create complaint
       const complaint = await storage.createComplaint({

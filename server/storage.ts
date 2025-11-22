@@ -82,8 +82,10 @@ export interface IStorage {
   
   // Email OTP operations (for anonymous complaint submission)
   createEmailOtp(email: string, code: string, expiresAt: Date): Promise<void>;
-  verifyEmailOtp(email: string, code: string): Promise<boolean>;
+  checkEmailOtp(email: string, code: string): Promise<boolean>; // Check unverified OTP for verification
+  isEmailOtpVerified(email: string, code: string): Promise<boolean>; // Check verified OTP for complaint
   markEmailOtpAsVerified(email: string, code: string): Promise<void>;
+  invalidateEmailOtp(email: string, code: string): Promise<void>;
   deleteExpiredEmailOtps(): Promise<void>;
   
   // Company operations
@@ -355,7 +357,8 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async verifyEmailOtp(email: string, code: string): Promise<boolean> {
+  async checkEmailOtp(email: string, code: string): Promise<boolean> {
+    // Check if unverified OTP exists and is valid (for verification endpoint)
     const now = new Date();
     const [otp] = await db
       .select()
@@ -364,12 +367,40 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(emailOtpVerifications.email, email),
           eq(emailOtpVerifications.code, code),
-          eq(emailOtpVerifications.verified, 0),
+          eq(emailOtpVerifications.verified, 0), // Must be unverified
           gte(emailOtpVerifications.expiresAt, now)
         )
       );
     
     return !!otp;
+  }
+
+  async isEmailOtpVerified(email: string, code: string): Promise<boolean> {
+    // Check if OTP has been verified (for complaint submission)
+    const now = new Date();
+    const [otp] = await db
+      .select()
+      .from(emailOtpVerifications)
+      .where(
+        and(
+          eq(emailOtpVerifications.email, email),
+          eq(emailOtpVerifications.code, code),
+          eq(emailOtpVerifications.verified, 1), // Must be verified
+          gte(emailOtpVerifications.expiresAt, now)
+        )
+      );
+    
+    return !!otp;
+  }
+  
+  async invalidateEmailOtp(email: string, code: string): Promise<void> {
+    // Delete the OTP after use to prevent reuse
+    await db.delete(emailOtpVerifications).where(
+      and(
+        eq(emailOtpVerifications.email, email),
+        eq(emailOtpVerifications.code, code)
+      )
+    );
   }
 
   async markEmailOtpAsVerified(email: string, code: string): Promise<void> {
