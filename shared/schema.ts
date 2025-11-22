@@ -885,3 +885,18 @@ export const selectPasswordResetTokenSchema = createSelectSchema(passwordResetTo
 export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).omit({ id: true, createdAt: true });
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
+
+// Email OTP Verification Table (for anonymous complaint submission)
+export const emailOtpVerifications = pgTable("email_otp_verifications", {
+  id: serial("id").primaryKey(),
+  email: varchar("email", { length: 255 }).notNull(),
+  code: varchar("code", { length: 6 }).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  verified: integer("verified").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const selectEmailOtpVerificationSchema = createSelectSchema(emailOtpVerifications);
+export const insertEmailOtpVerificationSchema = createInsertSchema(emailOtpVerifications).omit({ id: true, createdAt: true, verified: true });
+export type EmailOtpVerification = typeof emailOtpVerifications.$inferSelect;
+export type InsertEmailOtpVerification = z.infer<typeof insertEmailOtpVerificationSchema>;
