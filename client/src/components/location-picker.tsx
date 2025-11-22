@@ -44,7 +44,7 @@ function MapViewController({ position }: { position: [number, number] }) {
   return null;
 }
 
-export default function LocationPicker({ onLocationSelect, initialPosition = [1.3521, 103.8198] }: LocationPickerProps) {
+export default function LocationPicker({ onLocationSelect, initialPosition = [25.270360, 55.477580] }: LocationPickerProps) {
   const [position, setPosition] = useState<[number, number]>(initialPosition);
   const [address, setAddress] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -117,10 +117,13 @@ export default function LocationPicker({ onLocationSelect, initialPosition = [1.
     }
   }, [reverseGeocode]);
 
-  // Automatically get current location on mount
+  // Initialize location on mount - always use the provided position
   useEffect(() => {
-    handleUseCurrentLocation();
-  }, [handleUseCurrentLocation]);
+    // Immediately reverse geocode the initial position (default or provided)
+    // This ensures the component works in test environments without geolocation
+    // Users can still click "Current" button to update to their actual location
+    reverseGeocode(position[0], position[1]);
+  }, []); // Empty deps - only run once on mount
 
   return (
     <div className="border rounded-lg p-3 space-y-3">
