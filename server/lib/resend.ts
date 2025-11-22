@@ -4,6 +4,15 @@ import { Resend } from 'resend';
 let connectionSettings: any;
 
 async function getCredentials() {
+  // If project-specific API key is set, use it directly
+  if (process.env.RESEND_API_KEY) {
+    return {
+      apiKey: process.env.RESEND_API_KEY,
+      fromEmail: process.env.RESEND_FROM_EMAIL || 'support@washapp.ae'
+    };
+  }
+
+  // Otherwise, use the shared Resend integration
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY 
     ? 'repl ' + process.env.REPL_IDENTITY 
@@ -38,11 +47,9 @@ async function getCredentials() {
 // Access tokens expire, so a new client must be created each time.
 export async function getUncachableResendClient() {
   const credentials = await getCredentials();
-  // Use env var if set, otherwise use verified email from Resend connection
-  const fromEmail = process.env.RESEND_FROM_EMAIL || connectionSettings.settings.from_email;
   return {
     client: new Resend(credentials.apiKey),
-    fromEmail
+    fromEmail: credentials.fromEmail
   };
 }
 
