@@ -766,11 +766,39 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getJobsByPlateNumber(plateNumber: string): Promise<Job[]> {
-    return await db
-      .select()
-      .from(jobs)
-      .where(eq(jobs.carPlateNumber, plateNumber.toUpperCase()))
-      .orderBy(desc(jobs.createdAt));
+    // Parse the full plate number which is in format "Emirate Code Number" 
+    // e.g., "Abu Dhabi A 1" or just "1" for backwards compatibility
+    const parts = plateNumber.trim().split(/\s+/);
+    
+    if (parts.length === 1) {
+      // Just a plate number (backwards compatibility)
+      return await db
+        .select()
+        .from(jobs)
+        .where(eq(jobs.carPlateNumber, parts[0].toUpperCase()))
+        .orderBy(desc(jobs.createdAt));
+    } else if (parts.length >= 3) {
+      // Full format: "Emirate Code Number" (e.g., "Abu Dhabi A 1")
+      // Last part is number, second to last is code, rest is emirate
+      const number = parts[parts.length - 1].toUpperCase();
+      const code = parts[parts.length - 2].toUpperCase();
+      const emirate = parts.slice(0, parts.length - 2).join(' ');
+      
+      return await db
+        .select()
+        .from(jobs)
+        .where(
+          and(
+            eq(jobs.carPlateNumber, number),
+            eq(jobs.carPlateCode, code),
+            eq(jobs.carPlateEmirate, emirate)
+          )
+        )
+        .orderBy(desc(jobs.createdAt));
+    } else {
+      // Invalid format, return empty array
+      return [];
+    }
   }
 
   async getJobsByCleaner(cleanerId: number): Promise<Job[]> {
