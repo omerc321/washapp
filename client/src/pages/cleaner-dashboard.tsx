@@ -329,7 +329,7 @@ export default function CleanerDashboard() {
                 <div className="flex items-center justify-between flex-1">
                   <span className="font-bold">Stop Shift</span>
                   <span className="text-xs opacity-80">
-                    {new Date(shiftData.activeShift.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(shiftData.activeShift.startedAt).toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Dubai' })}
                   </span>
                 </div>
               </Button>

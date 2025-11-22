@@ -150,7 +150,8 @@ export async function generateReceipt({ receiptData, platformSettings }: Generat
           day: 'numeric',
           hour: '2-digit',
           minute: '2-digit',
-          hour12: true
+          hour12: true,
+          timeZone: 'Asia/Dubai'
         }), leftColumn + 100, yPos);
 
       yPos += 20;

@@ -278,7 +278,7 @@ export default function CompanyFinancials() {
                       {adminPayouts.map((payout) => (
                         <TableRow key={payout.id} data-testid={`payout-${payout.id}`}>
                           <TableCell className="font-medium">{payout.referenceNumber}</TableCell>
-                          <TableCell>{new Date(payout.createdAt).toLocaleDateString()}</TableCell>
+                          <TableCell>{new Date(payout.createdAt).toLocaleDateString('en-AE', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Dubai' })}</TableCell>
                           <TableCell>{payout.description}</TableCell>
                           <TableCell className="text-right font-medium text-red-600 dark:text-red-400">
                             -{Number(payout.amount).toFixed(2)} {payout.currency}
@@ -348,7 +348,7 @@ export default function CompanyFinancials() {
 
                       return (
                         <TableRow key={transaction.id} data-testid={`transaction-${transaction.id}`}>
-                          <TableCell className="text-sm">{new Date(transaction.createdAt).toLocaleDateString()}</TableCell>
+                          <TableCell className="text-sm">{new Date(transaction.createdAt).toLocaleDateString('en-AE', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Dubai' })}</TableCell>
                           <TableCell>
                             <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${badgeColor}`}>
                               {typeLabel}
@@ -474,7 +474,7 @@ export default function CompanyFinancials() {
                         <TableCell className="min-w-[100px]">{parseFloat(job.paymentProcessingFeeAmount || "0").toFixed(2)} AED</TableCell>
                         <TableCell className="font-medium min-w-[100px]">{parseFloat(job.grossAmount || "0").toFixed(2)} AED</TableCell>
                         <TableCell className="font-medium text-green-600 dark:text-green-400 min-w-[100px]">{parseFloat(job.netPayableAmount || "0").toFixed(2)} AED</TableCell>
-                        <TableCell className="text-sm min-w-[100px]">{new Date(job.paidAt).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-sm min-w-[100px]">{new Date(job.paidAt).toLocaleDateString('en-AE', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Dubai' })}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

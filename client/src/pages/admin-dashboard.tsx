@@ -224,7 +224,7 @@ function FinancialsTab() {
                         </span>
                       </TableCell>
                       <TableCell className="text-sm">{withdrawal.referenceNumber || "—"}</TableCell>
-                      <TableCell className="text-sm">{new Date(withdrawal.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-sm">{new Date(withdrawal.createdAt).toLocaleDateString('en-AE', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Dubai' })}</TableCell>
                       <TableCell className="text-right">
                         {withdrawal.status === 'pending' && (
                           <Button
@@ -297,7 +297,7 @@ function FinancialsTab() {
                     
                     return (
                       <TableRow key={transaction.id} data-testid={`transaction-${transaction.id}`}>
-                        <TableCell className="text-sm">{new Date(transaction.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-sm">{new Date(transaction.createdAt).toLocaleDateString('en-AE', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Dubai' })}</TableCell>
                         <TableCell>
                           <span className={`inline-block px-2 py-1 text-xs rounded-full ${
                             typeColors[transaction.type] || 'bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100'

@@ -930,10 +930,11 @@ function HistoryJobCard({ job, onRate }: { job: Job; onRate?: () => void }) {
           <div>
             <p className="font-semibold">Job #{job.id}</p>
             <p className="text-xs text-muted-foreground">
-              {new Date(job.createdAt).toLocaleDateString(undefined, {
+              {new Date(job.createdAt).toLocaleDateString('en-AE', {
                 month: 'short',
                 day: 'numeric',
-                year: 'numeric'
+                year: 'numeric',
+                timeZone: 'Asia/Dubai'
               })}
             </p>
           </div>

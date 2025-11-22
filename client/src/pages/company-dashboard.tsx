@@ -845,7 +845,7 @@ export default function CompanyDashboard() {
                               <div>
                                 <p className="font-medium">{invitation.phoneNumber}</p>
                                 <p className="text-sm text-muted-foreground">
-                                  Invited {new Date(invitation.invitedAt).toLocaleDateString()}
+                                  Invited {new Date(invitation.invitedAt).toLocaleDateString('en-AE', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Dubai' })}
                                 </p>
                               </div>
                             </div>

@@ -108,7 +108,12 @@ function JobCard({ job }: { job: Job }) {
           <div>
             <CardTitle className="text-lg">Job #{job.id}</CardTitle>
             <CardDescription className="mt-1">
-              {new Date(job.createdAt).toLocaleDateString()}
+              {new Date(job.createdAt).toLocaleDateString('en-AE', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                timeZone: 'Asia/Dubai'
+              })}
             </CardDescription>
           </div>
           {getStatusBadge(job.status)}
