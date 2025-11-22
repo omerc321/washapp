@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Car, MapPin, Phone, Building2, Clock, Star, ChevronLeft, AlertCircle, Bell, BellOff, User, Timer, CheckCircle2, Navigation } from "lucide-react";
+import { Car, MapPin, Phone, Building2, Clock, Star, ChevronLeft, AlertCircle, Bell, BellOff, User, Timer, CheckCircle2, Navigation, MessageSquare } from "lucide-react";
 import { Job, JobStatus, Cleaner, Company } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -880,6 +880,7 @@ function ActiveJobCard({ job, currentTime, onRate }: { job: Job; currentTime: Da
 }
 
 function HistoryJobCard({ job, onRate }: { job: Job; onRate?: () => void }) {
+  const [, setLocation] = useLocation();
   const { data: cleaner, isError: cleanerError } = useQuery<CleanerWithContact>({
     queryKey: ["/api/cleaners", job.cleanerId],
     queryFn: async () => {
@@ -1023,16 +1024,30 @@ function HistoryJobCard({ job, onRate }: { job: Job; onRate?: () => void }) {
         </div>
       </CardContent>
 
-      {/* Rate Button */}
-      {job.status === JobStatus.COMPLETED && !job.rating && onRate && (
-        <CardFooter>
+      {/* Action Buttons */}
+      {(job.status === JobStatus.COMPLETED || job.status === JobStatus.CANCELLED || job.status === JobStatus.REFUNDED) && (
+        <CardFooter className="flex gap-2">
+          {/* Rate Button - only for completed jobs without rating */}
+          {job.status === JobStatus.COMPLETED && !job.rating && onRate && (
+            <Button
+              className="flex-1 bg-primary hover:bg-primary/90"
+              onClick={onRate}
+              data-testid={`button-rate-${job.id}`}
+            >
+              <Star className="h-4 w-4 mr-2" />
+              Rate This Wash
+            </Button>
+          )}
+          
+          {/* Complaint Button - for all eligible statuses */}
           <Button
-            className="w-full bg-primary hover:bg-primary/90"
-            onClick={onRate}
-            data-testid={`button-rate-${job.id}`}
+            variant="outline"
+            className={job.status === JobStatus.COMPLETED && !job.rating ? "flex-1" : "w-full"}
+            onClick={() => setLocation("/customer/complaint")}
+            data-testid={`button-complaint-${job.id}`}
           >
-            <Star className="h-4 w-4 mr-2" />
-            Rate This Wash
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Report Issue
           </Button>
         </CardFooter>
       )}
