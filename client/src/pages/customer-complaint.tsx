@@ -32,7 +32,7 @@ export default function CustomerComplaint() {
 
   // Fetch job details using jobId from URL
   const { data: job, isLoading } = useQuery<Job>({
-    queryKey: ["/api/jobs", jobId],
+    queryKey: [`/api/jobs/${jobId}`],
     enabled: !!jobId,
   });
 
