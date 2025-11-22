@@ -2,6 +2,7 @@ import PDFDocument from 'pdfkit';
 import { createWriteStream } from 'fs';
 import { mkdir } from 'fs/promises';
 import { join } from 'path';
+import { existsSync } from 'fs';
 import type { PlatformSetting } from '@shared/schema';
 
 export interface ReceiptData {
@@ -43,6 +44,33 @@ export async function generateReceipt({ receiptData, platformSettings }: Generat
       const stream = createWriteStream(filePath);
 
       doc.pipe(stream);
+
+      // Add logo at the top if it exists
+      if (platformSettings.logoUrl) {
+        const logoPath = join(process.cwd(), platformSettings.logoUrl);
+        
+        // Check if logo file exists
+        if (existsSync(logoPath)) {
+          try {
+            // Calculate center position for logo
+            const logoWidth = 80;
+            const logoHeight = 80;
+            const pageWidth = doc.page.width;
+            const logoX = (pageWidth - logoWidth) / 2;
+            
+            // Add logo image
+            doc.image(logoPath, logoX, doc.y, {
+              fit: [logoWidth, logoHeight],
+              align: 'center',
+            });
+            
+            doc.moveDown(5); // Add space after logo
+          } catch (error) {
+            console.error('Error adding logo to receipt:', error);
+            // Continue without logo if there's an error
+          }
+        }
+      }
 
       // Header with company name
       doc.fontSize(24)
