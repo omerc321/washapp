@@ -86,6 +86,7 @@ function Router() {
         <Route path="/customer/checkout" component={Checkout} />
         <Route path="/customer/jobs" component={CustomerJobs} />
         <Route path="/customer/complaint" component={CustomerComplaint} />
+        <Route path="/customer/complaint/:plateNumber" component={CustomerComplaint} />
         <Route path="/customer/track" component={CustomerTrack} />
         <Route path="/customer/track/:plateNumber" component={CustomerTrack} />
 
