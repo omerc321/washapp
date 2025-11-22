@@ -1718,27 +1718,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ? `${completedJob.carPlateEmirate} ${completedJob.carPlateCode} ${completedJob.carPlateNumber}`
             : completedJob.carPlateNumber;
 
-          const servicePrice = Number(completedJob.price);
-          const platformFee = 3; // 3 AED platform fee
-          const serviceCost = servicePrice + platformFee;
-          const vatPercentage = 5;
-          const vatAmount = serviceCost * (vatPercentage / 100);
-          const totalAmount = serviceCost + vatAmount;
+          // Get actual financial data from job_financials table
+          const jobFinancials = await storage.getJobFinancialsByJobId(completedJob.id);
+          
+          // Use actual amounts from financials, or fallback to calculated values
+          const baseJobAmount = jobFinancials?.baseJobAmount 
+            ? Number(jobFinancials.baseJobAmount) 
+            : Number(completedJob.price);
+          const platformFeeAmount = jobFinancials?.platformFeeAmount 
+            ? Number(jobFinancials.platformFeeAmount) 
+            : 3;
+          const vatAmount = jobFinancials?.taxAmount 
+            ? Number(jobFinancials.taxAmount) 
+            : 0;
+          const totalAmount = Number(completedJob.totalAmount);
 
           await generateReceipt({
             receiptData: {
               receiptNumber,
               jobId: completedJob.id,
               carPlateNumber: fullPlateNumber,
-              carPlateEmirate: completedJob.carPlateEmirate || undefined,
-              carPlateCode: completedJob.carPlateCode || undefined,
               customerPhone: completedJob.customerPhone,
               customerEmail: completedJob.customerEmail || undefined,
               locationAddress: completedJob.locationAddress,
-              servicePrice,
-              platformFee,
-              vatPercentage,
-              totalAmount: Number(completedJob.totalAmount),
+              servicePrice: baseJobAmount,
+              platformFee: platformFeeAmount,
+              vatAmount,
+              totalAmount,
               paymentMethod: completedJob.paymentMethod || 'card',
               completedAt,
             },

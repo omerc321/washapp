@@ -7,15 +7,13 @@ import type { PlatformSetting } from '@shared/schema';
 export interface ReceiptData {
   receiptNumber: string;
   jobId: number;
-  carPlateNumber: string;
-  carPlateEmirate?: string;
-  carPlateCode?: string;
+  carPlateNumber: string; // Already formatted (e.g. "Abu Dhabi A 12345")
   customerPhone: string;
   customerEmail?: string;
   locationAddress: string;
-  servicePrice: number; // Original car wash price
-  platformFee: number; // 3 AED platform fee
-  vatPercentage: number; // 5%
+  servicePrice: number; // Base car wash price
+  platformFee: number; // Platform fee amount
+  vatAmount: number; // Total VAT amount
   totalAmount: number; // Total paid
   paymentMethod: string;
   completedAt: Date;
@@ -104,15 +102,11 @@ export async function generateReceipt({ receiptData, platformSettings }: Generat
 
       // Right column - Car & customer info
       yPos = doc.y - 60; // Reset to top
-      
-      const fullPlateNumber = receiptData.carPlateEmirate && receiptData.carPlateCode
-        ? `${receiptData.carPlateEmirate} ${receiptData.carPlateCode} ${receiptData.carPlateNumber}`
-        : receiptData.carPlateNumber;
 
       doc.font('Helvetica-Bold')
         .text('Car Plate:', rightColumn, yPos);
       doc.font('Helvetica')
-        .text(fullPlateNumber, rightColumn + 80, yPos);
+        .text(receiptData.carPlateNumber, rightColumn + 80, yPos);
 
       yPos += 20;
       doc.font('Helvetica-Bold')
@@ -160,7 +154,7 @@ export async function generateReceipt({ receiptData, platformSettings }: Generat
 
       let currentY = tableTop + 25;
 
-      // Service cost row
+      // Service cost row (car wash price + platform fee)
       const serviceCost = receiptData.servicePrice + receiptData.platformFee;
       
       doc.fontSize(10)
@@ -171,12 +165,10 @@ export async function generateReceipt({ receiptData, platformSettings }: Generat
       doc.rect(tableLeft, currentY, tableWidth, 25).stroke('#CCCCCC');
       currentY += 25;
 
-      // VAT row
-      const vatAmount = serviceCost * (receiptData.vatPercentage / 100);
-      
+      // VAT row (use actual VAT amount from financials)
       doc.font('Helvetica')
-        .text(`VAT (${receiptData.vatPercentage}%)`, tableLeft + 10, currentY + 8, { width: 240 })
-        .text(vatAmount.toFixed(2), tableLeft + 260, currentY + 8, { width: 200, align: 'right' });
+        .text('VAT (5%)', tableLeft + 10, currentY + 8, { width: 240 })
+        .text(receiptData.vatAmount.toFixed(2), tableLeft + 260, currentY + 8, { width: 200, align: 'right' });
 
       doc.rect(tableLeft, currentY, tableWidth, 25).stroke('#CCCCCC');
       currentY += 25;
