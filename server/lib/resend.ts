@@ -1,5 +1,6 @@
 // Resend email integration - from resend blueprint
 import { Resend } from 'resend';
+import { readFileSync } from 'fs';
 
 let connectionSettings: any;
 
@@ -68,11 +69,24 @@ export async function sendEmail(
       html,
     };
     
+    // Convert file path attachments to base64 content for Resend
     if (attachments && attachments.length > 0) {
-      emailData.attachments = attachments;
+      emailData.attachments = attachments.map(att => {
+        try {
+          const fileContent = readFileSync(att.path);
+          return {
+            filename: att.filename,
+            content: fileContent.toString('base64'),
+          };
+        } catch (fileError) {
+          console.error(`Failed to read attachment file ${att.path}:`, fileError);
+          return null;
+        }
+      }).filter(Boolean); // Remove failed attachments
     }
     
     await client.emails.send(emailData);
+    console.log(`Email sent successfully to ${to} - Subject: ${subject}`);
   } catch (error) {
     console.error('Failed to send email:', error);
     // Don't throw - emails are not critical
