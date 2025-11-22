@@ -1027,9 +1027,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               
               // Send email notification if customer provided email
               if (company) {
-                sendJobStatusEmail(updatedJob, company, 'assigned', cleanerUser?.displayName).catch(err => 
-                  console.error('Email notification failed:', err)
-                );
+                await sendJobStatusEmail(updatedJob, company, 'assigned', cleanerUser?.displayName);
               }
               
               // Only broadcast to the assigned cleaner
@@ -1043,9 +1041,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               
               // Send email notification if customer provided email
               if (company) {
-                sendJobStatusEmail(updatedJob, company, 'paid').catch(err => 
-                  console.error('Email notification failed:', err)
-                );
+                await sendJobStatusEmail(updatedJob, company, 'paid');
               }
               
               // Broadcast to all on-duty cleaners (pool mode)
@@ -1731,9 +1727,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Send email notification with receipt
         const company = await storage.getCompany(completedJob.companyId);
         if (company) {
-          sendJobStatusEmail(completedJob, company, 'completed', req.user?.displayName).catch(err =>
-            console.error('Email notification failed:', err)
-          );
+          await sendJobStatusEmail(completedJob, company, 'completed', req.user?.displayName);
         }
         
         // Broadcast job completion
