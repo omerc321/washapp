@@ -1044,9 +1044,8 @@ function HistoryJobCard({ job, onRate }: { job: Job; onRate?: () => void }) {
             variant="outline"
             className={job.status === JobStatus.COMPLETED && !job.rating ? "flex-1" : "w-full"}
             onClick={() => {
-              // Pass the full plate number to complaint page
-              const fullPlate = `${job.carPlateEmirate} ${job.carPlateCode} ${job.carPlateNumber}`;
-              setLocation(`/customer/complaint/${encodeURIComponent(fullPlate)}`);
+              // Pass the job ID to complaint page
+              setLocation(`/customer/complaint/${job.id}`);
             }}
             data-testid={`button-complaint-${job.id}`}
           >
