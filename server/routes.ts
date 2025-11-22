@@ -851,10 +851,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tipAmount = Number(jobData.tipAmount || 0);
       const basePrice = Number(jobData.price);
       
+      // Debug: Log the raw value
+      console.log('[DEBUG] requestedCleanerEmail RAW:', JSON.stringify(jobData.requestedCleanerEmail), 'type:', typeof jobData.requestedCleanerEmail);
+      
       // Normalize requestedCleanerEmail to avoid treating empty/whitespace as valid
       const requestedCleanerEmail = typeof jobData.requestedCleanerEmail === "string" 
         ? jobData.requestedCleanerEmail.trim() 
         : "";
+      
+      console.log('[DEBUG] requestedCleanerEmail NORMALIZED:', JSON.stringify(requestedCleanerEmail), 'length:', requestedCleanerEmail.length);
       
       // Get company to retrieve platform fee and fee package type
       const company = await storage.getCompany(parseInt(jobData.companyId));
