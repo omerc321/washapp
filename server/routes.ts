@@ -311,6 +311,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Upload platform logo (requires admin auth)
+  app.post("/api/upload/logo", requireRole(UserRole.ADMIN), upload.single("logo"), async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+      
+      const fileUrl = `/uploads/logos/${req.file.filename}`;
+      res.json({ url: fileUrl });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
   // ===== LOCATION SEARCH ROUTES =====
   
   // Search locations using Nominatim API (public endpoint)
@@ -2385,6 +2399,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const analytics = await storage.getAdminAnalytics();
       res.json(analytics);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get platform settings
+  app.get("/api/admin/platform-settings", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
+    try {
+      res.set('Cache-Control', 'no-store, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      
+      const settings = await storage.getAllPlatformSettings();
+      res.json(settings[0] || {
+        id: 1,
+        companyName: 'Washapp.ae',
+        companyAddress: 'Dubai, United Arab Emirates',
+        vatRegistrationNumber: '',
+        logoUrl: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Update platform settings
+  app.patch("/api/admin/platform-settings", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
+    try {
+      const { companyName, companyAddress, vatRegistrationNumber, logoUrl } = req.body;
+      await storage.updatePlatformSettings(1, {
+        companyName,
+        companyAddress,
+        vatRegistrationNumber,
+        logoUrl,
+      });
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

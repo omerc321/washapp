@@ -22,6 +22,7 @@ import CustomerTrack from "@/pages/customer-track";
 import CleanerDashboard from "@/pages/cleaner-dashboard";
 import CleanerShiftHistory from "@/pages/cleaner-shift-history";
 import AdminDashboard from "@/pages/admin-dashboard";
+import AdminSettings from "@/pages/admin-settings";
 import CompanyDashboard from "@/pages/company-dashboard";
 import CompanyFinancials from "@/pages/company-financials";
 import CompanyShiftHistory from "@/pages/company-shift-history";
@@ -102,6 +103,9 @@ function Router() {
         {/* Admin Routes - Auth required */}
         <Route path="/admin">
           {() => <ProtectedRoute component={AdminDashboard} allowedRoles={[UserRole.ADMIN]} />}
+        </Route>
+        <Route path="/admin/settings">
+          {() => <ProtectedRoute component={AdminSettings} allowedRoles={[UserRole.ADMIN]} />}
         </Route>
 
         {/* Default Route - New customer booking flow */}

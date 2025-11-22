@@ -366,6 +366,7 @@ export const platformSettings = pgTable("platform_settings", {
   companyName: varchar("company_name", { length: 255 }).notNull().default("Washapp.ae"),
   companyAddress: text("company_address").notNull().default("Dubai, United Arab Emirates"),
   vatRegistrationNumber: varchar("vat_registration_number", { length: 100 }).notNull().default(""),
+  logoUrl: text("logo_url"),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
