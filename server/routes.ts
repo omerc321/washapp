@@ -744,12 +744,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const basePrice = Number(jobData.price);
       const requestedCleanerEmail = jobData.requestedCleanerEmail;
       
-      // Get company to retrieve platform fee
+      // Get company to retrieve platform fee and fee package type
       const company = await storage.getCompany(parseInt(jobData.companyId));
       if (!company) {
         return res.status(400).json({ message: "Invalid company" });
       }
       const platformFee = Number(company.platformFee || 3.00);
+      const feePackageType = company.feePackageType || 'custom';
       
       // Security: Validate requested cleaner belongs to selected company
       if (requestedCleanerEmail) {
@@ -768,8 +769,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Calculate fees and total amount with company-specific platform fee
-      const fees = await calculateJobFees(basePrice, tipAmount, platformFee);
+      // Calculate fees and total amount with company-specific platform fee and package type
+      const fees = await calculateJobFees(basePrice, tipAmount, platformFee, 'pay_per_wash', feePackageType);
       
       // Create payment intent with total amount (including tip)
       const paymentIntent = await stripe.paymentIntents.create({
@@ -845,15 +846,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use the stored base price from the job (not from client)
       const basePrice = Number(job.price);
       
-      // Get company to retrieve platform fee
+      // Get company to retrieve platform fee and fee package type
       const company = await storage.getCompany(job.companyId);
       if (!company) {
         return res.status(400).json({ message: "Company not found" });
       }
       const platformFee = Number(company.platformFee || 3.00);
+      const feePackageType = company.feePackageType || 'custom';
       
       // Recalculate fees with new tip amount
-      const fees = await calculateJobFees(basePrice, tip, platformFee);
+      const fees = await calculateJobFees(basePrice, tip, platformFee, 'pay_per_wash', feePackageType);
       
       // Update the Stripe PaymentIntent with new amount
       const paymentIntent = await stripe.paymentIntents.update(paymentIntentId, {

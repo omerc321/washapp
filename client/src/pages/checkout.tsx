@@ -436,15 +436,14 @@ export default function Checkout() {
             <div className="space-y-2 pt-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Service Price</span>
-                <span>{feeBreakdown?.basePrice?.toFixed(2) || jobData.basePrice} AED</span>
+                <span>
+                  {feeBreakdown?.servicePrice?.toFixed(2) || 
+                   ((feeBreakdown?.basePrice || jobData.basePrice) + (feeBreakdown?.platformFee || jobData.platformFee)).toFixed(2)} AED
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Tax (5%)</span>
                 <span>{feeBreakdown?.taxAmount?.toFixed(2) || jobData.taxAmount} AED</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Platform Fee</span>
-                <span>{feeBreakdown?.platformFee?.toFixed(2) || jobData.platformFee} AED</span>
               </div>
               {feeBreakdown?.tipAmount > 0 && (
                 <div className="flex justify-between text-sm">

@@ -14,7 +14,8 @@ export interface FeeCalculationInput {
 export interface FeeCalculationResult {
   carWashPrice: number;
   platformFeeAmount: number;
-  subtotal: number; // carWash + platformFee
+  servicePrice: number; // Combined: carWash + platformFee (for customer display)
+  subtotal: number; // carWash + platformFee (same as servicePrice, kept for backend)
   vatAmount: number; // 5% of subtotal
   totalAmount: number; // subtotal + VAT
   displayBreakdown: string; // What to show customer
@@ -32,9 +33,12 @@ const VAT_RATE = 0.05; // 5% VAT
 export function calculateFees(input: FeeCalculationInput): FeeCalculationResult {
   const { carWashPrice, feePackageType, platformFee } = input;
   
+  // Normalize package type to handle case sensitivity and undefined values
+  const packageType = ((feePackageType ?? "custom") as string).toLowerCase() as FeePackageType;
+  
   let platformFeeAmount: number;
   
-  switch (feePackageType) {
+  switch (packageType) {
     case "custom":
       // Custom fee amount set by admin
       platformFeeAmount = platformFee;
@@ -60,6 +64,9 @@ export function calculateFees(input: FeeCalculationInput): FeeCalculationResult 
   // Calculate subtotal (car wash + platform fee)
   const subtotal = carWashPrice + platformFeeAmount;
   
+  // Calculate service price (same as subtotal, for customer display)
+  const servicePrice = subtotal;
+  
   // Calculate VAT (5% of subtotal)
   const vatAmount = Math.round(subtotal * VAT_RATE * 100) / 100;
   
@@ -67,11 +74,12 @@ export function calculateFees(input: FeeCalculationInput): FeeCalculationResult 
   const totalAmount = Math.round((subtotal + vatAmount) * 100) / 100;
   
   // Create display breakdown
-  const displayBreakdown = `Company cost is ${subtotal.toFixed(2)} AED + VAT 5%`;
+  const displayBreakdown = `Service price is ${servicePrice.toFixed(2)} AED + VAT 5%`;
   
   return {
     carWashPrice,
     platformFeeAmount,
+    servicePrice,
     subtotal,
     vatAmount,
     totalAmount,
