@@ -73,24 +73,8 @@ export function calculateFees(input: FeeCalculationInput): FeeCalculationResult 
   // Calculate total
   const totalAmount = Math.round((subtotal + vatAmount) * 100) / 100;
   
-  // Create display breakdown based on package type
-  let displayBreakdown: string;
-  
-  switch (packageType) {
-    case "package1":
-      // Show breakdown: car wash + fee breakdown
-      displayBreakdown = `${carWashPrice.toFixed(2)} + ${platformFeeAmount.toFixed(2)} AED fee`;
-      break;
-    case "package2":
-      // No platform fee
-      displayBreakdown = `${carWashPrice.toFixed(2)} AED + VAT 5%`;
-      break;
-    case "custom":
-    default:
-      // Show breakdown: car wash + fee
-      displayBreakdown = `${carWashPrice.toFixed(2)} + ${platformFeeAmount.toFixed(2)} AED fee`;
-      break;
-  }
+  // Create display breakdown - show combined service price for customer
+  const displayBreakdown = `Service price is ${servicePrice.toFixed(2)} AED + VAT 5%`;
   
   return {
     carWashPrice,
