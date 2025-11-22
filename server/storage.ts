@@ -17,6 +17,7 @@ import {
   cleanerGeofenceAssignments,
   transactions,
   passwordResetTokens,
+  emailOtpVerifications,
   complaints,
   type User, 
   type InsertUser,
@@ -51,6 +52,8 @@ import {
   type InsertTransaction,
   type PasswordResetToken,
   type InsertPasswordResetToken,
+  type EmailOtpVerification,
+  type InsertEmailOtpVerification,
   type Complaint,
   type InsertComplaint,
   UserRole,
@@ -76,6 +79,12 @@ export interface IStorage {
   getPasswordResetToken(token: string): Promise<{ userId: number; expiresAt: Date } | undefined>;
   deletePasswordResetToken(token: string): Promise<void>;
   deleteExpiredPasswordResetTokens(): Promise<void>;
+  
+  // Email OTP operations (for anonymous complaint submission)
+  createEmailOtp(email: string, code: string, expiresAt: Date): Promise<void>;
+  verifyEmailOtp(email: string, code: string): Promise<boolean>;
+  markEmailOtpAsVerified(email: string, code: string): Promise<void>;
+  deleteExpiredEmailOtps(): Promise<void>;
   
   // Company operations
   getAllCompanies(): Promise<Company[]>;
@@ -325,6 +334,59 @@ export class DatabaseStorage implements IStorage {
   async deleteExpiredPasswordResetTokens(): Promise<void> {
     const now = new Date();
     await db.delete(passwordResetTokens).where(sql`${passwordResetTokens.expiresAt} < ${now}`);
+  }
+
+  // ===== EMAIL OTP OPERATIONS =====
+  
+  async createEmailOtp(email: string, code: string, expiresAt: Date): Promise<void> {
+    // Delete any existing unverified OTPs for this email
+    await db.delete(emailOtpVerifications).where(
+      and(
+        eq(emailOtpVerifications.email, email),
+        eq(emailOtpVerifications.verified, 0)
+      )
+    );
+    
+    // Create new OTP
+    await db.insert(emailOtpVerifications).values({
+      email,
+      code,
+      expiresAt,
+    });
+  }
+
+  async verifyEmailOtp(email: string, code: string): Promise<boolean> {
+    const now = new Date();
+    const [otp] = await db
+      .select()
+      .from(emailOtpVerifications)
+      .where(
+        and(
+          eq(emailOtpVerifications.email, email),
+          eq(emailOtpVerifications.code, code),
+          eq(emailOtpVerifications.verified, 0),
+          gte(emailOtpVerifications.expiresAt, now)
+        )
+      );
+    
+    return !!otp;
+  }
+
+  async markEmailOtpAsVerified(email: string, code: string): Promise<void> {
+    await db
+      .update(emailOtpVerifications)
+      .set({ verified: 1 })
+      .where(
+        and(
+          eq(emailOtpVerifications.email, email),
+          eq(emailOtpVerifications.code, code)
+        )
+      );
+  }
+
+  async deleteExpiredEmailOtps(): Promise<void> {
+    const now = new Date();
+    await db.delete(emailOtpVerifications).where(sql`${emailOtpVerifications.expiresAt} < ${now}`);
   }
 
   // ===== COMPANY OPERATIONS =====

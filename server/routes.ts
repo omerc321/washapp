@@ -3138,6 +3138,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== EMAIL OTP ROUTES ===== 
+  
+  // Send OTP to email (for anonymous complaint submission)
+  app.post("/api/otp/send", async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: "Invalid email format" });
+      }
+      
+      // Generate 6-digit OTP code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // OTP expires in 10 minutes
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      
+      // Save OTP to database
+      await storage.createEmailOtp(email, code, expiresAt);
+      
+      // Send OTP email via Resend
+      await sendEmail(
+        email,
+        'Verify Your Email - CarWash Pro',
+        `
+          <h2>Email Verification Code</h2>
+          <p>Your verification code is: <strong style="font-size: 24px; color: #0ea5e9;">${code}</strong></p>
+          <p>This code will expire in 10 minutes.</p>
+          <p>If you didn't request this code, please ignore this email.</p>
+        `
+      );
+      
+      res.json({ success: true, message: "OTP sent to email" });
+    } catch (error: any) {
+      console.error("Error sending OTP:", error);
+      res.status(500).json({ message: "Failed to send OTP" });
+    }
+  });
+  
+  // Verify OTP code
+  app.post("/api/otp/verify", async (req: Request, res: Response) => {
+    try {
+      const { email, code } = req.body;
+      
+      if (!email || !code) {
+        return res.status(400).json({ message: "Email and code are required" });
+      }
+      
+      // Verify OTP
+      const isValid = await storage.verifyEmailOtp(email, code);
+      
+      if (!isValid) {
+        return res.status(400).json({ message: "Invalid or expired OTP code" });
+      }
+      
+      // Mark OTP as verified
+      await storage.markEmailOtpAsVerified(email, code);
+      
+      res.json({ success: true, verified: true });
+    } catch (error: any) {
+      console.error("Error verifying OTP:", error);
+      res.status(500).json({ message: "Failed to verify OTP" });
+    }
+  });
+
   // ===== COMPLAINT ROUTES =====
   
   // Create complaint (Customer) - Requires authentication
