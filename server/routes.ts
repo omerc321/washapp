@@ -1444,6 +1444,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get single job by ID (for complaint submission)
+  app.get("/api/jobs/:id", async (req: Request, res: Response) => {
+    try {
+      const jobId = parseInt(req.params.id);
+      if (isNaN(jobId)) {
+        return res.status(400).json({ message: "Invalid job ID" });
+      }
+      
+      const job = await storage.getJob(jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+      
+      res.json(job);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Rate a completed job
   app.post("/api/jobs/:jobId/rate", async (req: Request, res: Response) => {
     try {
