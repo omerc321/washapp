@@ -3138,6 +3138,323 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== COMPLAINT ROUTES =====
+  
+  // Create complaint (Customer) - Requires authentication
+  app.post("/api/complaints", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { jobId, type, description } = req.body;
+      
+      // Validate inputs
+      if (!jobId || !type || !description) {
+        return res.status(400).json({ message: "Job ID, type, and description are required" });
+      }
+      
+      // Validate type
+      if (type !== 'refund_request' && type !== 'general') {
+        return res.status(400).json({ message: "Invalid complaint type" });
+      }
+      
+      // Get job details
+      const job = await storage.getJob(jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+      
+      // Security: Verify that the authenticated customer owns this job
+      // Customer can be identified by customerId OR customerPhone (for anonymous bookings)
+      const isCustomerOwner = (job.customerId && job.customerId === req.user!.id) || 
+                             (job.customerPhone && req.user!.phoneNumber && job.customerPhone === req.user!.phoneNumber);
+      
+      if (!isCustomerOwner) {
+        return res.status(403).json({ message: "You can only create complaints for your own jobs" });
+      }
+      
+      // Only allow complaints for completed, cancelled, or refunded jobs
+      if (job.status !== 'completed' && job.status !== 'cancelled' && job.status !== 'refunded') {
+        return res.status(400).json({ message: "Can only create complaints for completed jobs" });
+      }
+      
+      // Create complaint
+      const complaint = await storage.createComplaint({
+        jobId,
+        companyId: job.companyId,
+        customerId: job.customerId || null,
+        type,
+        description,
+        status: 'pending',
+        customerEmail: job.customerEmail || null,
+        customerPhone: job.customerPhone,
+      });
+      
+      // Send email to company admin
+      try {
+        const company = await storage.getCompany(job.companyId);
+        if (company) {
+          const companyAdmin = await storage.getUser(company.adminId);
+          if (companyAdmin && companyAdmin.email) {
+            const typeLabel = type === 'refund_request' ? 'Refund Request' : 'General Complaint';
+            await sendEmail(
+              companyAdmin.email,
+              `New ${typeLabel} - Job #${job.id}`,
+              `
+                <h2>New Complaint Received</h2>
+                <p><strong>Reference:</strong> ${complaint.referenceNumber}</p>
+                <p><strong>Job ID:</strong> #${job.id}</p>
+                <p><strong>Type:</strong> ${typeLabel}</p>
+                <p><strong>Customer Phone:</strong> ${job.customerPhone}</p>
+                <p><strong>Description:</strong></p>
+                <p>${description}</p>
+                <p><em>Please review and respond to this complaint in your dashboard.</em></p>
+              `
+            );
+          }
+        }
+      } catch (emailError) {
+        console.error('Failed to send complaint notification email:', emailError);
+      }
+      
+      // Send confirmation email to customer
+      if (job.customerEmail) {
+        try {
+          const typeLabel = type === 'refund_request' ? 'Refund Request' : 'Complaint';
+          await sendEmail(
+            job.customerEmail,
+            `${typeLabel} Received - Reference ${complaint.referenceNumber}`,
+            `
+              <h2>We've Received Your ${typeLabel}</h2>
+              <p>Dear Customer,</p>
+              <p>Thank you for contacting us. We've received your ${typeLabel.toLowerCase()} and will review it shortly.</p>
+              <p><strong>Reference Number:</strong> ${complaint.referenceNumber}</p>
+              <p><strong>Job ID:</strong> #${job.id}</p>
+              <p><strong>Car Plate:</strong> ${job.carPlateNumber}</p>
+              <p>You can use this reference number to track the status of your ${typeLabel.toLowerCase()}.</p>
+              <p>We appreciate your patience and will get back to you soon.</p>
+            `
+          );
+        } catch (emailError) {
+          console.error('Failed to send customer confirmation email:', emailError);
+        }
+      }
+      
+      res.json(complaint);
+    } catch (error: any) {
+      console.error("Error creating complaint:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Get single complaint
+  app.get("/api/complaints/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const complaint = await storage.getComplaint(id);
+      
+      if (!complaint) {
+        return res.status(404).json({ message: "Complaint not found" });
+      }
+      
+      res.json(complaint);
+    } catch (error: any) {
+      console.error("Error fetching complaint:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Get company complaints
+  app.get("/api/company/complaints", requireAuth, requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      const companyId = req.user!.companyId!;
+      const complaints = await storage.getCompanyComplaints(companyId);
+      
+      res.json(complaints);
+    } catch (error: any) {
+      console.error("Error fetching company complaints:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Get all complaints (Admin)
+  app.get("/api/admin/complaints", requireAuth, requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
+    try {
+      const complaints = await storage.getAllComplaints();
+      res.json(complaints);
+    } catch (error: any) {
+      console.error("Error fetching complaints:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Update complaint status (Company Admin)
+  app.patch("/api/company/complaints/:id", requireAuth, requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status, resolution } = req.body;
+      
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
+      
+      // Validate status
+      const validStatuses = ['pending', 'in_progress', 'resolved'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+      
+      // Require resolution for resolved status
+      if (status === 'resolved' && !resolution) {
+        return res.status(400).json({ message: "Resolution is required when marking as resolved" });
+      }
+      
+      const complaint = await storage.getComplaint(id);
+      if (!complaint) {
+        return res.status(404).json({ message: "Complaint not found" });
+      }
+      
+      // Verify company owns this complaint
+      if (complaint.companyId !== req.user!.companyId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      // Don't allow status updates for refunded complaints
+      if (complaint.status === 'refunded') {
+        return res.status(400).json({ message: "Cannot update status of refunded complaint" });
+      }
+      
+      // Update complaint
+      await storage.updateComplaintStatus(id, status, req.user!.id, resolution);
+      
+      // Send resolution email if resolved
+      if (status === 'resolved' && complaint.customerEmail && resolution) {
+        try {
+          const job = await storage.getJob(complaint.jobId);
+          await sendEmail(
+            complaint.customerEmail,
+            `Complaint Resolved - ${complaint.referenceNumber}`,
+            `
+              <h2>Your Complaint Has Been Resolved</h2>
+              <p>Dear Customer,</p>
+              <p>We have reviewed and resolved your complaint.</p>
+              <p><strong>Reference:</strong> ${complaint.referenceNumber}</p>
+              <p><strong>Job ID:</strong> #${complaint.jobId}</p>
+              ${job ? `<p><strong>Car Plate:</strong> ${job.carPlateNumber}</p>` : ''}
+              <p><strong>Resolution:</strong></p>
+              <p>${resolution}</p>
+              <p>Thank you for your patience and for giving us the opportunity to resolve this matter.</p>
+            `
+          );
+        } catch (emailError) {
+          console.error('Failed to send resolution email:', emailError);
+        }
+      }
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error updating complaint:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Trigger refund (Admin or Company Admin)
+  app.post("/api/complaints/:id/refund", requireAuth, async (req: Request, res: Response) => {
+    try {
+      // Verify role is admin or company_admin
+      if (req.user!.role !== 'admin' && req.user!.role !== 'company_admin') {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const complaint = await storage.getComplaint(id);
+      
+      if (!complaint) {
+        return res.status(404).json({ message: "Complaint not found" });
+      }
+      
+      // Verify company admin owns this complaint (or user is platform admin)
+      if (req.user.role === 'company_admin' && complaint.companyId !== req.user.companyId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      // Get job
+      const job = await storage.getJob(complaint.jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+      
+      // Check if job can be refunded
+      if (job.status === 'refunded') {
+        return res.status(400).json({ message: "Job already refunded" });
+      }
+      
+      if (!job.stripePaymentIntentId) {
+        return res.status(400).json({ message: "No payment intent found for this job" });
+      }
+      
+      // Process Stripe refund
+      let refund;
+      try {
+        refund = await stripe.refunds.create({
+          payment_intent: job.stripePaymentIntentId,
+        });
+      } catch (stripeError: any) {
+        console.error('Stripe refund failed:', stripeError);
+        return res.status(500).json({ message: `Refund failed: ${stripeError.message}` });
+      }
+      
+      // Update job status
+      await storage.updateJob(job.id, {
+        status: 'refunded',
+        refundedAt: new Date(),
+        refundReason: `Complaint refund: ${complaint.description.substring(0, 200)}`,
+        stripeRefundId: refund.id,
+      });
+      
+      // Create refund transaction
+      await storage.createTransaction({
+        referenceNumber: `REF-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+        type: 'refund',
+        direction: 'debit',
+        jobId: job.id,
+        companyId: job.companyId,
+        amount: job.totalAmount,
+        currency: 'AED',
+        stripeRefundId: refund.id,
+        description: `Refund for complaint ${complaint.referenceNumber}`,
+      });
+      
+      // Update complaint
+      await storage.updateComplaintRefund(id, req.user.id, refund.id);
+      
+      // Send refund email to customer
+      if (job.customerEmail) {
+        try {
+          await sendEmail(
+            job.customerEmail,
+            `Refund Processed - ${complaint.referenceNumber}`,
+            `
+              <h2>Your Refund Has Been Processed</h2>
+              <p>Dear Customer,</p>
+              <p>We have processed a full refund for your complaint.</p>
+              <p><strong>Complaint Reference:</strong> ${complaint.referenceNumber}</p>
+              <p><strong>Job ID:</strong> #${job.id}</p>
+              <p><strong>Car Plate:</strong> ${job.carPlateNumber}</p>
+              <p><strong>Refund Amount:</strong> ${Number(job.totalAmount).toFixed(2)} AED</p>
+              <p>The refund will appear in your account within 5-10 business days.</p>
+              <p>We apologize for any inconvenience and thank you for your understanding.</p>
+            `
+          );
+        } catch (emailError) {
+          console.error('Failed to send refund email:', emailError);
+        }
+      }
+      
+      res.json({ success: true, refundId: refund.id });
+    } catch (error: any) {
+      console.error("Error processing refund:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return createServer(app);
 }
 

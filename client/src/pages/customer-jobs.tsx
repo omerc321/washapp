@@ -1,14 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Car, MapPin, Clock, CheckCircle2, Building2 } from "lucide-react";
+import { Car, MapPin, Clock, CheckCircle2, Building2, AlertCircle } from "lucide-react";
 import { Job, JobStatus } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
+import { useLocation } from "wouter";
 
 export default function CustomerJobs() {
   const { currentUser } = useAuth();
+  const [, setLocation] = useLocation();
 
   const { data: jobs = [], isLoading } = useQuery<Job[]>({
     queryKey: ["/api/customer/jobs", currentUser?.id],
@@ -25,12 +28,26 @@ export default function CustomerJobs() {
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="mb-6 pt-4">
-          <h1 className="text-2xl font-bold text-foreground mb-1">
-            My Jobs
-          </h1>
-          <p className="text-muted-foreground">
-            Track your car wash bookings
-          </p>
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground mb-1">
+                My Jobs
+              </h1>
+              <p className="text-muted-foreground">
+                Track your car wash bookings
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setLocation("/customer/complaint")}
+              data-testid="button-submit-complaint"
+              className="shrink-0"
+            >
+              <AlertCircle className="h-4 w-4 mr-2" />
+              Report Issue
+            </Button>
+          </div>
         </div>
 
         <Tabs defaultValue="active" className="w-full">
@@ -95,6 +112,7 @@ function JobCard({ job }: { job: Job }) {
       [JobStatus.COMPLETED]: { label: "Completed", variant: "outline" as const },
       [JobStatus.CANCELLED]: { label: "Cancelled", variant: "destructive" as const },
       [JobStatus.PENDING_PAYMENT]: { label: "Pending Payment", variant: "secondary" as const },
+      [JobStatus.REFUNDED]: { label: "Refunded", variant: "outline" as const },
     };
 
     const config = statusConfig[status];

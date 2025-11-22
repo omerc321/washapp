@@ -21,13 +21,16 @@ import SelectCompany from "@/pages/select-company";
 import Checkout from "@/pages/checkout";
 import CustomerJobs from "@/pages/customer-jobs";
 import CustomerTrack from "@/pages/customer-track";
+import CustomerComplaint from "@/pages/customer-complaint";
 import CleanerDashboard from "@/pages/cleaner-dashboard";
 import CleanerShiftHistory from "@/pages/cleaner-shift-history";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AdminSettings from "@/pages/admin-settings";
+import AdminComplaints from "@/pages/admin-complaints";
 import CompanyDashboard from "@/pages/company-dashboard";
 import CompanyFinancials from "@/pages/company-financials";
 import CompanyShiftHistory from "@/pages/company-shift-history";
+import CompanyComplaints from "@/pages/company-complaints";
 import { UserRole } from "@shared/schema";
 
 function ProtectedRoute({ 
@@ -82,6 +85,7 @@ function Router() {
         <Route path="/customer/select-company" component={SelectCompany} />
         <Route path="/customer/checkout" component={Checkout} />
         <Route path="/customer/jobs" component={CustomerJobs} />
+        <Route path="/customer/complaint" component={CustomerComplaint} />
         <Route path="/customer/track" component={CustomerTrack} />
         <Route path="/customer/track/:plateNumber" component={CustomerTrack} />
 
@@ -103,6 +107,9 @@ function Router() {
         <Route path="/company/shift-history">
           {() => <ProtectedRoute component={CompanyShiftHistory} allowedRoles={[UserRole.COMPANY_ADMIN]} />}
         </Route>
+        <Route path="/company/complaints">
+          {() => <ProtectedRoute component={CompanyComplaints} allowedRoles={[UserRole.COMPANY_ADMIN]} />}
+        </Route>
 
         {/* Admin Routes - Auth required */}
         <Route path="/admin">
@@ -110,6 +117,9 @@ function Router() {
         </Route>
         <Route path="/admin/settings">
           {() => <ProtectedRoute component={AdminSettings} allowedRoles={[UserRole.ADMIN]} />}
+        </Route>
+        <Route path="/admin/complaints">
+          {() => <ProtectedRoute component={AdminComplaints} allowedRoles={[UserRole.ADMIN]} />}
         </Route>
 
         {/* Default Route - New customer booking flow */}

@@ -1,4 +1,4 @@
-import { Home, Briefcase, BarChart3, LogOut } from "lucide-react";
+import { Home, Briefcase, BarChart3, LogOut, AlertCircle } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth-context";
 import { UserRole } from "@shared/schema";
@@ -23,10 +23,12 @@ export function BottomNav() {
       case UserRole.COMPANY_ADMIN:
         return [
           { icon: BarChart3, label: "Dashboard", path: "/company", testId: "nav-dashboard" },
+          { icon: AlertCircle, label: "Complaints", path: "/company/complaints", testId: "nav-complaints" },
         ];
       case UserRole.ADMIN:
         return [
           { icon: BarChart3, label: "Dashboard", path: "/admin", testId: "nav-dashboard" },
+          { icon: AlertCircle, label: "Complaints", path: "/admin/complaints", testId: "nav-complaints" },
         ];
       default:
         return [];

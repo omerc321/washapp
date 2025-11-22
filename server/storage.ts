@@ -17,6 +17,7 @@ import {
   cleanerGeofenceAssignments,
   transactions,
   passwordResetTokens,
+  complaints,
   type User, 
   type InsertUser,
   type Company,
@@ -50,6 +51,8 @@ import {
   type InsertTransaction,
   type PasswordResetToken,
   type InsertPasswordResetToken,
+  type Complaint,
+  type InsertComplaint,
   UserRole,
   JobStatus,
   CleanerStatus,
@@ -232,6 +235,16 @@ export interface IStorage {
   getInvitationGeofenceAssignments(invitationId: number): Promise<CompanyGeofence[]>;
   isCleanerAssignedToGeofence(cleanerId: number, geofenceId: number): Promise<boolean>;
   isCleanerAssignedToAllGeofences(cleanerId: number): Promise<boolean>;
+  
+  // Complaint operations
+  createComplaint(complaint: InsertComplaint): Promise<Complaint>;
+  getComplaint(id: number): Promise<Complaint | undefined>;
+  getComplaintByReference(referenceNumber: string): Promise<Complaint | undefined>;
+  getJobComplaints(jobId: number): Promise<Complaint[]>;
+  getCompanyComplaints(companyId: number): Promise<Complaint[]>;
+  getAllComplaints(): Promise<Complaint[]>;
+  updateComplaintStatus(id: number, status: string, resolvedBy?: number, resolution?: string): Promise<void>;
+  updateComplaintRefund(id: number, refundedBy: number, stripeRefundId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1907,6 +1920,80 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ===== HELPER METHODS =====
+
+  // ===== COMPLAINT OPERATIONS =====
+  
+  async createComplaint(complaintData: InsertComplaint): Promise<Complaint> {
+    // Generate unique reference number
+    const referenceNumber = `CMP-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+    
+    const [complaint] = await db
+      .insert(complaints)
+      .values({
+        ...complaintData,
+        referenceNumber,
+      })
+      .returning();
+    
+    return complaint;
+  }
+  
+  async getComplaint(id: number): Promise<Complaint | undefined> {
+    const [complaint] = await db.select().from(complaints).where(eq(complaints.id, id));
+    return complaint;
+  }
+  
+  async getComplaintByReference(referenceNumber: string): Promise<Complaint | undefined> {
+    const [complaint] = await db.select().from(complaints).where(eq(complaints.referenceNumber, referenceNumber));
+    return complaint;
+  }
+  
+  async getJobComplaints(jobId: number): Promise<Complaint[]> {
+    return await db.select().from(complaints).where(eq(complaints.jobId, jobId)).orderBy(desc(complaints.createdAt));
+  }
+  
+  async getCompanyComplaints(companyId: number): Promise<Complaint[]> {
+    return await db.select().from(complaints).where(eq(complaints.companyId, companyId)).orderBy(desc(complaints.createdAt));
+  }
+  
+  async getAllComplaints(): Promise<Complaint[]> {
+    return await db.select().from(complaints).orderBy(desc(complaints.createdAt));
+  }
+  
+  async updateComplaintStatus(id: number, status: string, resolvedBy?: number, resolution?: string): Promise<void> {
+    const updates: any = { 
+      status,
+      updatedAt: new Date()
+    };
+    
+    if (status === 'resolved' || status === 'in_progress') {
+      updates.resolvedBy = resolvedBy;
+      if (resolution) {
+        updates.resolution = resolution;
+      }
+      if (status === 'resolved') {
+        updates.resolvedAt = new Date();
+      }
+    }
+    
+    await db
+      .update(complaints)
+      .set(updates)
+      .where(eq(complaints.id, id));
+  }
+  
+  async updateComplaintRefund(id: number, refundedBy: number, stripeRefundId: string): Promise<void> {
+    await db
+      .update(complaints)
+      .set({
+        status: 'refunded',
+        refundedAt: new Date(),
+        refundedBy,
+        stripeRefundId,
+        updatedAt: new Date(),
+      })
+      .where(eq(complaints.id, id));
+  }
 
   private mapUserRow(row: any): User {
     return {

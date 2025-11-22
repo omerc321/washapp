@@ -273,7 +273,8 @@ function FinancialsTab() {
                     <TableHead>Date</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Job ID</TableHead>
-                    <TableHead>Reference</TableHead>
+                    <TableHead>Txn Ref</TableHead>
+                    <TableHead>Receipt Ref</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
                   </TableRow>
@@ -309,6 +310,7 @@ function FinancialsTab() {
                           {transaction.jobId ? `#${transaction.jobId}` : '—'}
                         </TableCell>
                         <TableCell className="text-sm font-mono">{transaction.referenceNumber}</TableCell>
+                        <TableCell className="text-sm">—</TableCell>
                         <TableCell className="text-sm">{transaction.description || "—"}</TableCell>
                         <TableCell className={`text-right font-medium ${isCredit ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                           {isCredit ? '+' : '-'}{Number(transaction.amount).toFixed(2)} {transaction.currency}
