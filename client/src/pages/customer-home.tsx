@@ -27,9 +27,6 @@ export default function CustomerHome() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
-  const [mode, setMode] = useState<'book' | 'track'>('book');
-  const [trackingPlate, setTrackingPlate] = useState("");
-  
   const [formData, setFormData] = useState({
     carPlateNumber: "",
     locationAddress: "",
@@ -47,10 +44,10 @@ export default function CustomerHome() {
 
   // Progressive geolocation: Show consent modal when needed
   useEffect(() => {
-    if (mode === 'book' && geolocationStatus === 'idle' && !formData.locationAddress) {
+    if (geolocationStatus === 'idle' && !formData.locationAddress) {
       setShowLocationConsent(true);
     }
-  }, [mode, geolocationStatus, formData.locationAddress]);
+  }, [geolocationStatus, formData.locationAddress]);
 
   // Request geolocation with consent
   const requestGeolocation = async () => {
@@ -250,18 +247,6 @@ export default function CustomerHome() {
     }
   };
 
-  const handleTrack = () => {
-    if (!trackingPlate.trim()) {
-      toast({
-        title: "Plate Number Required",
-        description: "Please enter your car plate number",
-        variant: "destructive",
-      });
-      return;
-    }
-    setLocation(`/customer/track/${trackingPlate.toUpperCase()}`);
-  };
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header - Vibrant and modern */}
@@ -277,10 +262,7 @@ export default function CustomerHome() {
               <Button 
                 variant="default"
                 size="sm"
-                onClick={() => {
-                  setMode('track');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
+                onClick={() => setLocation('/customer/track')}
                 data-testid="button-track"
                 className="bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90 text-white font-medium shadow-md hover:shadow-lg transition-all"
               >
@@ -309,58 +291,8 @@ export default function CustomerHome() {
 
       {/* Content */}
       <div className="flex-1 max-w-md mx-auto w-full px-4 py-4">
-        {/* Segmented Control - Modern toggle */}
-        <div className="flex gap-1 p-1 bg-muted rounded-lg mb-4" role="tablist">
-          <button
-            role="tab"
-            aria-selected={mode === 'book'}
-            onClick={() => setMode('book')}
-            data-testid="button-book-mode"
-            className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-all ${
-              mode === 'book'
-                ? 'bg-background shadow-sm text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Book Wash
-          </button>
-          <button
-            role="tab"
-            aria-selected={mode === 'track'}
-            onClick={() => setMode('track')}
-            data-testid="button-track-mode"
-            className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-all ${
-              mode === 'track'
-                ? 'bg-background shadow-sm text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Track Wash
-          </button>
-        </div>
-
-        {mode === 'track' ? (
-          /* Tracking Form - Clean and simple */
-          <div className="space-y-4 pb-20">
-            <div>
-              <Label htmlFor="trackingPlate" className="text-base font-medium mb-2 block">
-                Car Plate Number
-              </Label>
-              <Input
-                id="trackingPlate"
-                data-testid="input-tracking-plate"
-                placeholder="Enter your car plate number"
-                value={trackingPlate}
-                onChange={(e) => setTrackingPlate(e.target.value.toUpperCase())}
-                className="h-12 text-lg"
-                onKeyDown={(e) => e.key === 'Enter' && handleTrack()}
-                autoFocus
-              />
-            </div>
-          </div>
-        ) : (
-          /* Booking Form - All inputs first, map last */
-          <form onSubmit={handleSubmit} className="space-y-4 pb-20">
+        {/* Booking Form - All inputs first, map last */}
+        <form onSubmit={handleSubmit} className="space-y-4 pb-20">
             {/* Car Plate and Parking Number - Same line */}
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -474,11 +406,10 @@ export default function CustomerHome() {
               )}
             </div>
           </form>
-        )}
       </div>
 
       {/* Geolocation Status Banner */}
-      {mode === 'book' && (geolocationStatus === 'denied' || geolocationStatus === 'error') && (
+      {(geolocationStatus === 'denied' || geolocationStatus === 'error') && (
         <div className="max-w-md mx-auto w-full px-4 mb-4">
           <Alert variant="destructive" data-testid="alert-location-error">
             <AlertCircle className="h-4 w-4" />
@@ -507,38 +438,27 @@ export default function CustomerHome() {
       {/* Sticky Bottom CTA */}
       <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 z-[1200]">
         <div className="max-w-md mx-auto">
-          {mode === 'track' ? (
-            <Button
-              type="button"
-              className="w-full h-12 text-base"
-              onClick={handleTrack}
-              data-testid="button-track"
-            >
-              Track My Wash
-            </Button>
-          ) : (
-            <Button
-              type="submit"
-              className="w-full h-12 text-base"
-              onClick={handleSubmit}
-              data-testid="button-continue"
-              disabled={geolocationStatus === 'requesting' || isSubmitting}
-            >
-              {geolocationStatus === 'requesting' ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Getting Location...
-                </>
-              ) : isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Validating...
-                </>
-              ) : (
-                'Continue'
-              )}
-            </Button>
-          )}
+          <Button
+            type="submit"
+            className="w-full h-12 text-base"
+            onClick={handleSubmit}
+            data-testid="button-continue"
+            disabled={geolocationStatus === 'requesting' || isSubmitting}
+          >
+            {geolocationStatus === 'requesting' ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Getting Location...
+              </>
+            ) : isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Validating...
+              </>
+            ) : (
+              'Continue'
+            )}
+          </Button>
         </div>
       </div>
 
