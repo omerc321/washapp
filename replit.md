@@ -11,9 +11,10 @@ I prefer simple language and clear explanations. I want iterative development wi
 ### UI/UX Decisions
 -   **Design**: Mobile-first responsive design, optimized for potential app store wrapping.
 -   **Theme**: Modern vibrant interface with bright blue primary color (220 95% 50%), gradient accents, and dark mode support with theme toggle.
--   **Navigation**: Role-based bottom navigation with login button in top-right for staff access (company admin, cleaner, platform admin).
+-   **Navigation**: Role-based bottom navigation with login button in top-right for staff access (company admin, cleaner, platform admin). Footer navigation with links to About, Terms, and Privacy pages.
 -   **Mapping**: Interactive OpenStreetMap integration with Leaflet for location selection, geolocation support, and Nominatim reverse geocoding.
 -   **Booking Flow**: Phone-first 4-step wizard (Phone Number → Car Details → Location & Company → Payment) with persistent progress indicator showing "Step X of 4", framer-motion animations, and mobile-first design. Step 1 has dedicated button, steps 2-3 use sticky bottom CTA. Reuses existing checkout component to avoid code duplication.
+-   **Legal Pages**: Three informational pages: (1) About/How It Works with FAQs for requesters and companies, (2) Terms & Conditions clarifying platform is matcher with no liability for damages, (3) Privacy Policy stating car wash data is searchable by plate/phone and not confidential.
 
 ### Technical Implementations
 -   **Frontend**: React, Tailwind CSS, shadcn/ui components, Roboto font, Framer Motion for animations.
