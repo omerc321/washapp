@@ -288,16 +288,16 @@ export default function CustomerBooking() {
             </Button>
             
             {/* Action Buttons */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               {/* Track Button - Vibrant Blue */}
               <Button 
                 variant="default"
                 size="sm"
                 onClick={() => setLocation('/customer/track')}
                 data-testid="button-track"
-                className="bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90 text-white font-medium shadow-md hover:shadow-lg transition-all px-3"
+                className="bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90 text-white font-medium shadow-md hover:shadow-lg transition-all px-2 text-xs"
               >
-                <Search className="h-4 w-4 mr-1" />
+                <Search className="h-3.5 w-3.5 mr-1" />
                 Track
               </Button>
               
@@ -307,9 +307,9 @@ export default function CustomerBooking() {
                 size="sm"
                 onClick={() => setLocation("/login")}
                 data-testid="button-staff-login"
-                className="bg-gradient-to-r from-primary/90 to-primary hover:from-primary hover:to-primary/90 text-white font-medium shadow-md hover:shadow-lg transition-all px-3"
+                className="bg-gradient-to-r from-primary/90 to-primary hover:from-primary hover:to-primary/90 text-white font-medium shadow-md hover:shadow-lg transition-all px-2 text-xs"
               >
-                <LogIn className="h-4 w-4 mr-1" />
+                <LogIn className="h-3.5 w-3.5 mr-1" />
                 Staff
               </Button>
             </div>
