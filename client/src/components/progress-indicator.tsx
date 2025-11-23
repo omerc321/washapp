@@ -66,7 +66,7 @@ export default function ProgressIndicator({ currentStep, totalSteps, steps }: Pr
         </div>
         
         {/* Step Labels */}
-        <div className="grid grid-cols-3 gap-2 text-center mb-2">
+        <div className="grid grid-cols-4 gap-1 text-center mb-2">
           {steps.map((step, index) => {
             const stepNumber = index + 1;
             const isCurrent = stepNumber === currentStep;
