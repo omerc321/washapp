@@ -17,7 +17,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import LocationPicker from "@/components/location-picker";
-import { ThemeToggle } from "@/components/theme-toggle";
 import logoUrl from "@assets/IMG_2508_1762619079711.png";
 
 type GeolocationStatus = 'idle' | 'requesting' | 'success' | 'denied' | 'error';
@@ -253,7 +252,7 @@ export default function CustomerHome() {
       <div className="border-b bg-background/95 backdrop-blur-sm sticky top-0 z-10 shadow-sm">
         <div className="max-w-md mx-auto px-3 py-2.5">
           <div className="flex items-center justify-between gap-2">
-            {/* Left Side - Logo + Action Buttons */}
+            {/* Action Buttons */}
             <div className="flex items-center gap-1.5">
               <img src={logoUrl} alt="Washapp.ae" className="h-10 w-auto" data-testid="img-logo" />
               
@@ -281,9 +280,6 @@ export default function CustomerHome() {
                 Staff
               </Button>
             </div>
-            
-            {/* Right Side - Theme Toggle */}
-            <ThemeToggle />
           </div>
         </div>
       </div>

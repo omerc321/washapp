@@ -11,7 +11,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import LocationPicker from "@/components/location-picker";
 import ProgressIndicator from "@/components/progress-indicator";
-import { ThemeToggle } from "@/components/theme-toggle";
 import logoUrl from "@assets/IMG_2508_1762619079711.png";
 import type { CompanyWithCleaners } from "@shared/schema";
 import { calculateFees, type FeePackageType } from "@shared/fee-calculator";
@@ -276,7 +275,7 @@ export default function CustomerBooking() {
       <div className="border-b bg-background/95 backdrop-blur-sm sticky top-0 z-10 shadow-sm">
         <div className="max-w-md mx-auto px-3 py-2.5">
           <div className="flex items-center justify-between gap-2">
-            {/* Left Side - Back + Action Buttons */}
+            {/* Action Buttons */}
             <div className="flex items-center gap-1.5">
               <Button
                 variant="ghost"
@@ -312,9 +311,6 @@ export default function CustomerBooking() {
                 Staff
               </Button>
             </div>
-            
-            {/* Right Side - Theme Toggle */}
-            <ThemeToggle />
           </div>
         </div>
       </div>
