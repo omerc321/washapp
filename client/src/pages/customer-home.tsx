@@ -253,20 +253,19 @@ export default function CustomerHome() {
       <div className="border-b bg-background/95 backdrop-blur-sm sticky top-0 z-10 shadow-sm">
         <div className="max-w-md mx-auto px-3 py-2.5">
           <div className="flex items-center justify-between gap-2">
-            {/* Logo */}
-            <img src={logoUrl} alt="Washapp.ae" className="h-10 w-auto" data-testid="img-logo" />
-            
-            {/* Action Buttons */}
+            {/* Left Side - Logo + Action Buttons */}
             <div className="flex items-center gap-1.5">
+              <img src={logoUrl} alt="Washapp.ae" className="h-10 w-auto" data-testid="img-logo" />
+              
               {/* Track Button - Vibrant Blue */}
               <Button 
                 variant="default"
                 size="sm"
                 onClick={() => setLocation('/customer/track')}
                 data-testid="button-track"
-                className="bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90 text-white font-medium shadow-md hover:shadow-lg transition-all px-2 text-xs"
+                className="bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90 text-white font-medium shadow-md hover:shadow-lg transition-all"
               >
-                <Search className="h-3.5 w-3.5 mr-1" />
+                <Search className="h-4 w-4 mr-1.5" />
                 Track
               </Button>
               
@@ -276,15 +275,15 @@ export default function CustomerHome() {
                 size="sm"
                 onClick={() => setLocation("/login")}
                 data-testid="button-staff-login"
-                className="bg-gradient-to-r from-primary/90 to-primary hover:from-primary hover:to-primary/90 text-white font-medium shadow-md hover:shadow-lg transition-all px-2 text-xs"
+                className="bg-gradient-to-r from-primary/90 to-primary hover:from-primary hover:to-primary/90 text-white font-medium shadow-md hover:shadow-lg transition-all"
               >
-                <LogIn className="h-3.5 w-3.5 mr-1" />
+                <LogIn className="h-4 w-4 mr-1.5" />
                 Staff
               </Button>
-              
-              {/* Theme Toggle */}
-              <ThemeToggle />
             </div>
+            
+            {/* Right Side - Theme Toggle */}
+            <ThemeToggle />
           </div>
         </div>
       </div>
