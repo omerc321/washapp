@@ -3322,12 +3322,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error('Failed to send complaint notification email:', emailError);
       }
       
-      // Send confirmation email to customer
-      if (job.customerEmail) {
+      // Send confirmation email to customer (use verified OTP email)
+      if (email) {
         try {
           const typeLabel = type === 'refund_request' ? 'Refund Request' : 'Complaint';
           await sendEmail(
-            job.customerEmail,
+            email,
             `${typeLabel} Received - Reference ${complaint.referenceNumber}`,
             `
               <h2>We've Received Your ${typeLabel}</h2>
@@ -3533,11 +3533,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update complaint
       await storage.updateComplaintRefund(id, req.user.id, refund.id);
       
-      // Send refund email to customer
-      if (job.customerEmail) {
+      // Send refund email to customer (use complaint email from verified OTP)
+      if (complaint.customerEmail) {
         try {
           await sendEmail(
-            job.customerEmail,
+            complaint.customerEmail,
             `Refund Processed - ${complaint.referenceNumber}`,
             `
               <h2>Your Refund Has Been Processed</h2>
