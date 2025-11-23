@@ -872,7 +872,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get all jobs for this customer
-      const jobs = await storage.getJobsByCustomerId(customer.id);
+      const jobs = await storage.getJobsByCustomer(customer.id);
       
       // Extract unique cars (car plate + email combinations)
       const carsMap = new Map();
