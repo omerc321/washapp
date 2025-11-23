@@ -257,16 +257,16 @@ export default function CustomerHome() {
             <img src={logoUrl} alt="Washapp.ae" className="h-10 w-auto" data-testid="img-logo" />
             
             {/* Action Buttons */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               {/* Track Button - Vibrant Blue */}
               <Button 
                 variant="default"
                 size="sm"
                 onClick={() => setLocation('/customer/track')}
                 data-testid="button-track"
-                className="bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90 text-white font-medium shadow-md hover:shadow-lg transition-all"
+                className="bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90 text-white font-medium shadow-md hover:shadow-lg transition-all px-3"
               >
-                <Search className="h-4 w-4 mr-1.5" />
+                <Search className="h-4 w-4 mr-1" />
                 Track
               </Button>
               
@@ -276,9 +276,9 @@ export default function CustomerHome() {
                 size="sm"
                 onClick={() => setLocation("/login")}
                 data-testid="button-staff-login"
-                className="bg-gradient-to-r from-primary/90 to-primary hover:from-primary hover:to-primary/90 text-white font-medium shadow-md hover:shadow-lg transition-all"
+                className="bg-gradient-to-r from-primary/90 to-primary hover:from-primary hover:to-primary/90 text-white font-medium shadow-md hover:shadow-lg transition-all px-3"
               >
-                <LogIn className="h-4 w-4 mr-1.5" />
+                <LogIn className="h-4 w-4 mr-1" />
                 Staff
               </Button>
               
