@@ -60,6 +60,8 @@ interface Transaction {
   grossAmount?: string;
   netAmount?: string;
   taxAmount?: string;
+  cleanerName?: string;
+  cleanerEmail?: string;
 }
 
 export default function CompanyFinancials() {
@@ -314,6 +316,7 @@ export default function CompanyFinancials() {
                       <TableHead>Date</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Job ID</TableHead>
+                      <TableHead>Cleaner</TableHead>
                       <TableHead className="text-right">Gross (incl. VAT)</TableHead>
                       <TableHead className="text-right">VAT (5%)</TableHead>
                       <TableHead className="text-right">Net Amount</TableHead>
@@ -356,6 +359,9 @@ export default function CompanyFinancials() {
                           </TableCell>
                           <TableCell data-testid={`transaction-job-${transaction.id}`}>
                             {transaction.jobId ? `#${transaction.jobId}` : '-'}
+                          </TableCell>
+                          <TableCell className="text-sm" data-testid={`transaction-cleaner-${transaction.id}`}>
+                            {transaction.cleanerName || '-'}
                           </TableCell>
                           <TableCell className="text-right text-sm">
                             {transaction.grossAmount ? `${Number(transaction.grossAmount).toFixed(2)} AED` : '-'}

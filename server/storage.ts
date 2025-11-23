@@ -1612,7 +1612,7 @@ export class DatabaseStorage implements IStorage {
 
   // ===== TRANSACTION OPERATIONS =====
 
-  async getCompanyTransactions(companyId: number): Promise<Array<Transaction & { grossAmount?: string; netAmount?: string; taxAmount?: string }>> {
+  async getCompanyTransactions(companyId: number): Promise<Array<Transaction & { grossAmount?: string; netAmount?: string; taxAmount?: string; cleanerName?: string; cleanerEmail?: string }>> {
     const results = await db
       .select({
         id: transactions.id,
@@ -1631,9 +1631,13 @@ export class DatabaseStorage implements IStorage {
         grossAmount: sql<string | null>`${jobFinancials.grossAmount}`,
         netAmount: sql<string | null>`${jobFinancials.netPayableAmount}`,
         taxAmount: sql<string | null>`COALESCE(${jobFinancials.baseTax}, 0) + COALESCE(${jobFinancials.tipTax}, 0)`,
+        cleanerName: sql<string | null>`${users.displayName}`,
+        cleanerEmail: sql<string | null>`${users.email}`,
       })
       .from(transactions)
       .leftJoin(jobFinancials, eq(transactions.jobId, jobFinancials.jobId))
+      .leftJoin(cleaners, eq(jobFinancials.cleanerId, cleaners.id))
+      .leftJoin(users, eq(cleaners.userId, users.id))
       .where(eq(transactions.companyId, companyId))
       .orderBy(desc(transactions.createdAt));
     
@@ -1642,6 +1646,8 @@ export class DatabaseStorage implements IStorage {
       grossAmount: r.grossAmount ?? undefined,
       netAmount: r.netAmount ?? undefined,
       taxAmount: r.taxAmount ?? undefined,
+      cleanerName: r.cleanerName ?? undefined,
+      cleanerEmail: r.cleanerEmail ?? undefined,
     }));
   }
 
