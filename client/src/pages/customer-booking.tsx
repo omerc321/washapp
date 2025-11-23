@@ -276,19 +276,16 @@ export default function CustomerBooking() {
       <div className="border-b bg-background/95 backdrop-blur-sm sticky top-0 z-10 shadow-sm">
         <div className="max-w-md mx-auto px-3 py-2.5">
           <div className="flex items-center justify-between gap-2">
-            {/* Logo and Back Button */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={goBack}
-                data-testid="button-back"
-                className="h-9 w-9"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
-              <img src={logoUrl} alt="Washapp.ae" className="h-10 w-auto" data-testid="img-logo" />
-            </div>
+            {/* Back Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goBack}
+              data-testid="button-back"
+              className="h-9 w-9"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
             
             {/* Action Buttons */}
             <div className="flex items-center gap-1.5">
@@ -304,20 +301,17 @@ export default function CustomerBooking() {
                 Track
               </Button>
               
-              {/* Staff Login Button - Vibrant Purple/Pink */}
+              {/* Staff Login Button - Brand Colors */}
               <Button 
                 variant="default"
                 size="sm"
                 onClick={() => setLocation("/login")}
                 data-testid="button-staff-login"
-                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-600/90 hover:to-pink-600/90 text-white font-medium shadow-md hover:shadow-lg transition-all"
+                className="bg-gradient-to-r from-primary/90 to-primary hover:from-primary hover:to-primary/90 text-white font-medium shadow-md hover:shadow-lg transition-all"
               >
                 <LogIn className="h-4 w-4 mr-1.5" />
                 Staff
               </Button>
-              
-              {/* Theme Toggle */}
-              <ThemeToggle />
             </div>
           </div>
         </div>
@@ -468,32 +462,33 @@ function Step1CarDetails({
       className="space-y-6 pt-4"
     >
       <div className="text-center space-y-2">
+        <h2 className="text-2xl font-bold">Car Details</h2>
+      </div>
+
+      <Card className="p-6 space-y-5 border-2 hover-elevate relative overflow-hidden">
+        {/* Animated Logo - Top Right */}
         <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", delay: 0.1 }}
-          className="mx-auto mb-4"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ type: "spring", delay: 0.2 }}
+          className="absolute top-4 right-4 z-10"
         >
           <motion.img 
             src={logoUrl} 
             alt="Washapp.ae" 
-            className="h-20 w-auto mx-auto"
+            className="h-12 w-auto"
             animate={{ 
-              scale: [1, 1.05, 1],
+              scale: [1, 1.08, 1],
+              rotate: [0, 2, -2, 0]
             }}
             transition={{ 
-              duration: 2,
+              duration: 3,
               repeat: Infinity,
-              repeatDelay: 1
+              repeatDelay: 2
             }}
             data-testid="img-logo-animation"
           />
         </motion.div>
-        <h2 className="text-2xl font-bold">Car Details</h2>
-        <p className="text-muted-foreground">Tell us about your vehicle</p>
-      </div>
-
-      <Card className="p-6 space-y-5 border-2 hover-elevate">
         <div>
           <Label className="text-base font-medium mb-3 block">
             Car Plate Details *
