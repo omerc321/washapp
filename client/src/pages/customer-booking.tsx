@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import LocationPicker from "@/components/location-picker";
 import ProgressIndicator from "@/components/progress-indicator";
+import { ThemeToggle } from "@/components/theme-toggle";
 import logoUrl from "@assets/IMG_2508_1762619079711.png";
 import type { CompanyWithCleaners } from "@shared/schema";
 import { calculateFees, type FeePackageType } from "@shared/fee-calculator";
@@ -271,23 +272,56 @@ export default function CustomerBooking() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex flex-col">
-      {/* Back Button */}
-      <motion.div
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        className="max-w-md mx-auto w-full px-4 pt-4"
-      >
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={goBack}
-          data-testid="button-back"
-          className="hover-elevate active-elevate-2"
-        >
-          <ChevronLeft className="h-4 w-4 mr-1" />
-          Back
-        </Button>
-      </motion.div>
+      {/* Header - Vibrant and modern */}
+      <div className="border-b bg-background/95 backdrop-blur-sm sticky top-0 z-10 shadow-sm">
+        <div className="max-w-md mx-auto px-3 py-2.5">
+          <div className="flex items-center justify-between gap-2">
+            {/* Logo and Back Button */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={goBack}
+                data-testid="button-back"
+                className="h-9 w-9"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <img src={logoUrl} alt="Washapp.ae" className="h-10 w-auto" data-testid="img-logo" />
+            </div>
+            
+            {/* Action Buttons */}
+            <div className="flex items-center gap-1.5">
+              {/* Track Button - Vibrant Blue */}
+              <Button 
+                variant="default"
+                size="sm"
+                onClick={() => setLocation('/customer/track')}
+                data-testid="button-track"
+                className="bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90 text-white font-medium shadow-md hover:shadow-lg transition-all"
+              >
+                <Search className="h-4 w-4 mr-1.5" />
+                Track
+              </Button>
+              
+              {/* Staff Login Button - Vibrant Purple/Pink */}
+              <Button 
+                variant="default"
+                size="sm"
+                onClick={() => setLocation("/login")}
+                data-testid="button-staff-login"
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-600/90 hover:to-pink-600/90 text-white font-medium shadow-md hover:shadow-lg transition-all"
+              >
+                <LogIn className="h-4 w-4 mr-1.5" />
+                Staff
+              </Button>
+              
+              {/* Theme Toggle */}
+              <ThemeToggle />
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Progress Indicator */}
       <motion.div
@@ -592,69 +626,6 @@ function Step1CarDetails({
           <p className="text-sm text-muted-foreground mt-2">
             If on-duty and within 50m, they'll be auto-assigned
           </p>
-        </div>
-      </Card>
-
-      {/* Track Your Wash Section */}
-      <Card className="border-primary/20 hover-elevate">
-        <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <motion.div
-                animate={{ 
-                  scale: [1, 1.1, 1],
-                  rotate: [0, 5, -5, 0]
-                }}
-                transition={{ 
-                  duration: 2,
-                  repeat: Infinity,
-                  repeatDelay: 1
-                }}
-                className="h-12 w-12 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/30"
-              >
-                <Search className="h-6 w-6 text-white" />
-              </motion.div>
-              <div>
-                <h3 className="font-bold text-lg">Track Your Wash</h3>
-                <p className="text-sm text-muted-foreground">Already booked? Track your service</p>
-              </div>
-            </div>
-            <Link href="/customer/track">
-              <Button
-                variant="default"
-                className="bg-primary"
-                data-testid="button-track-wash"
-              >
-                Track
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </Card>
-
-      {/* Login Section */}
-      <Card className="border-primary/20 hover-elevate">
-        <div className="bg-gradient-to-r from-accent/10 to-accent/5 p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-accent to-accent/80 flex items-center justify-center shadow-lg shadow-accent/30">
-                <LogIn className="h-6 w-6 text-accent-foreground" />
-              </div>
-              <div>
-                <h3 className="font-bold text-lg">Staff Login</h3>
-                <p className="text-sm text-muted-foreground">For company & cleaner access</p>
-              </div>
-            </div>
-            <Link href="/login">
-              <Button
-                variant="outline"
-                className="hover-elevate active-elevate-2"
-                data-testid="button-login"
-              >
-                Login
-              </Button>
-            </Link>
-          </div>
         </div>
       </Card>
     </motion.div>
