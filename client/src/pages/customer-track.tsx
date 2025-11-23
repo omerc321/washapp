@@ -58,39 +58,90 @@ export default function CustomerTrack() {
   const [review, setReview] = useState("");
   const [currentTime, setCurrentTime] = useState(new Date());
   
+  // Search method selection: "plate" or "phone"
+  const [searchMethod, setSearchMethod] = useState<"plate" | "phone">("plate");
+  
   // Three-field car plate state
   const [plateEmirate, setPlateEmirate] = useState("");
   const [plateCode, setPlateCode] = useState("");
   const [plateNumber, setPlateNumber] = useState("");
+  
+  // Phone number state
+  const [phoneNumber, setPhoneNumber] = useState("");
 
   const fullPlateNumber = params?.plateNumber || "";
 
+  // Sync search method with URL on mount and when URL changes
+  useEffect(() => {
+    if (fullPlateNumber.startsWith('phone:')) {
+      setSearchMethod('phone');
+      const phone = fullPlateNumber.substring(6);
+      setPhoneNumber(decodeURIComponent(phone));
+    } else if (fullPlateNumber) {
+      setSearchMethod('plate');
+      // Optionally parse and set plate fields here if needed
+    }
+  }, [fullPlateNumber]);
+
   const handleTrackSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!plateEmirate || !plateCode || !plateNumber.trim()) {
-      toast({
-        title: "Car Plate Required",
-        description: "Please complete all car plate fields (emirate, code, and number)",
-        variant: "destructive",
-      });
-      return;
+    
+    if (searchMethod === "phone") {
+      if (!phoneNumber.trim()) {
+        toast({
+          title: "Phone Number Required",
+          description: "Please enter your phone number",
+          variant: "destructive",
+        });
+        return;
+      }
+      // Use phone number in URL
+      setLocation(`/customer/track/phone:${encodeURIComponent(phoneNumber)}`);
+    } else {
+      if (!plateEmirate || !plateCode || !plateNumber.trim()) {
+        toast({
+          title: "Car Plate Required",
+          description: "Please complete all car plate fields (emirate, code, and number)",
+          variant: "destructive",
+        });
+        return;
+      }
+      const combinedPlate = `${plateEmirate} ${plateCode} ${plateNumber.trim().toUpperCase()}`;
+      setLocation(`/customer/track/${encodeURIComponent(combinedPlate)}`);
     }
-    const combinedPlate = `${plateEmirate} ${plateCode} ${plateNumber.trim().toUpperCase()}`;
-    setLocation(`/customer/track/${encodeURIComponent(combinedPlate)}`);
   };
+
+  // Determine if we're searching by phone
+  const isPhoneSearch = fullPlateNumber.startsWith('phone:');
+  const searchPhone = isPhoneSearch ? fullPlateNumber.substring(6) : '';
+  const searchPlate = isPhoneSearch ? '' : fullPlateNumber;
 
   const { data: jobs, isLoading } = useQuery<Job[]>({
     queryKey: ["/api/jobs/track", fullPlateNumber],
     queryFn: async () => {
-      const res = await fetch(`/api/jobs/track/${fullPlateNumber}`, {
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache',
-        },
-      });
-      if (!res.ok) throw new Error("Failed to fetch jobs");
-      return res.json();
+      if (isPhoneSearch) {
+        // Fetch by phone number (searchPhone is already decoded from URL)
+        const res = await fetch(`/api/jobs/track-by-phone/${searchPhone}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+          },
+        });
+        if (!res.ok) throw new Error("Failed to fetch jobs");
+        return res.json();
+      } else {
+        // Fetch by plate number
+        const res = await fetch(`/api/jobs/track/${searchPlate}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+          },
+        });
+        if (!res.ok) throw new Error("Failed to fetch jobs");
+        return res.json();
+      }
     },
     enabled: !!fullPlateNumber,
     staleTime: 0,
@@ -237,68 +288,116 @@ export default function CustomerTrack() {
                   </div>
                   <div>
                     <CardTitle className="text-xl">Track Your Wash</CardTitle>
-                    <CardDescription>Enter your car plate details to track your service</CardDescription>
+                    <CardDescription>Search by phone number or car plate</CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleTrackSubmit} className="space-y-5">
-                  <div>
-                    <Label className="text-base font-medium mb-3 block">
-                      Car Plate Details
-                    </Label>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <Label htmlFor="plateEmirate" className="text-sm mb-1.5 block text-muted-foreground">
-                          Emirate
-                        </Label>
-                        <Select value={plateEmirate} onValueChange={setPlateEmirate}>
-                          <SelectTrigger id="plateEmirate" className="h-12" data-testid="select-emirate">
-                            <SelectValue placeholder="Select" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {UAE_EMIRATES.map((emirate) => (
-                              <SelectItem key={emirate} value={emirate}>
-                                {emirate}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="plateCode" className="text-sm mb-1.5 block text-muted-foreground">
-                          Code
-                        </Label>
-                        <Select value={plateCode} onValueChange={setPlateCode}>
-                          <SelectTrigger id="plateCode" className="h-12" data-testid="select-code">
-                            <SelectValue placeholder="A-Z" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {PLATE_CODES.map((code) => (
-                              <SelectItem key={code} value={code}>
-                                {code}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="plateNumber" className="text-sm mb-1.5 block text-muted-foreground">
-                          Number
-                        </Label>
+                  {/* Search Method Toggle */}
+                  <div className="flex gap-2 p-1 bg-muted rounded-lg">
+                    <Button
+                      type="button"
+                      variant={searchMethod === "phone" ? "default" : "ghost"}
+                      className="flex-1 h-10"
+                      onClick={() => setSearchMethod("phone")}
+                      data-testid="button-search-phone"
+                    >
+                      <Phone className="h-4 w-4 mr-2" />
+                      Phone Number
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={searchMethod === "plate" ? "default" : "ghost"}
+                      className="flex-1 h-10"
+                      onClick={() => setSearchMethod("plate")}
+                      data-testid="button-search-plate"
+                    >
+                      <Car className="h-4 w-4 mr-2" />
+                      Car Plate
+                    </Button>
+                  </div>
+
+                  {searchMethod === "phone" ? (
+                    <div>
+                      <Label htmlFor="phoneNumber" className="text-base font-medium mb-2 block">
+                        Phone Number
+                      </Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                         <Input
-                          id="plateNumber"
-                          data-testid="input-plate-number"
-                          placeholder="12345"
-                          value={plateNumber}
-                          onChange={(e) => setPlateNumber(e.target.value)}
-                          className="h-12 text-lg"
+                          id="phoneNumber"
+                          data-testid="input-phone-number"
+                          type="tel"
+                          placeholder="Enter your phone number"
+                          value={phoneNumber}
+                          onChange={(e) => setPhoneNumber(e.target.value)}
+                          className="h-12 text-lg pl-11"
+                          autoFocus
                         />
                       </div>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Enter the phone number you used when booking
+                      </p>
                     </div>
-                  </div>
+                  ) : (
+                    <div>
+                      <Label className="text-base font-medium mb-3 block">
+                        Car Plate Details
+                      </Label>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <Label htmlFor="plateEmirate" className="text-sm mb-1.5 block text-muted-foreground">
+                            Emirate
+                          </Label>
+                          <Select value={plateEmirate} onValueChange={setPlateEmirate}>
+                            <SelectTrigger id="plateEmirate" className="h-12" data-testid="select-emirate">
+                              <SelectValue placeholder="Select" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {UAE_EMIRATES.map((emirate) => (
+                                <SelectItem key={emirate} value={emirate}>
+                                  {emirate}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="plateCode" className="text-sm mb-1.5 block text-muted-foreground">
+                            Code
+                          </Label>
+                          <Select value={plateCode} onValueChange={setPlateCode}>
+                            <SelectTrigger id="plateCode" className="h-12" data-testid="select-code">
+                              <SelectValue placeholder="A-Z" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PLATE_CODES.map((code) => (
+                                <SelectItem key={code} value={code}>
+                                  {code}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="plateNumber" className="text-sm mb-1.5 block text-muted-foreground">
+                            Number
+                          </Label>
+                          <Input
+                            id="plateNumber"
+                            data-testid="input-plate-number"
+                            placeholder="12345"
+                            value={plateNumber}
+                            onChange={(e) => setPlateNumber(e.target.value)}
+                            className="h-12 text-lg"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <Button
                     type="submit"
                     className="w-full bg-primary"

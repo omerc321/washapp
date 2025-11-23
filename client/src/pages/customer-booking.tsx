@@ -154,20 +154,20 @@ export default function CustomerBooking() {
       setPreviousCars(data.cars || []);
       
       // Set phone number in form data
-      setFormData({ ...formData, customerPhone: phoneNumber });
+      setFormData(prev => ({ ...prev, customerPhone: phoneNumber }));
       
       // Auto-fill if only one car
       if (data.cars && data.cars.length === 1) {
         const car = data.cars[0];
-        setFormData({
-          ...formData,
+        setFormData(prev => ({
+          ...prev,
           customerPhone: phoneNumber,
           carPlateEmirate: car.carPlateEmirate,
           carPlateCode: car.carPlateCode,
           carPlateNumber: car.carPlateNumber,
           customerEmail: car.customerEmail,
           parkingNumber: car.parkingNumber,
-        });
+        }));
         setSelectedCarIndex(0);
       }
       
@@ -637,26 +637,26 @@ function Step1CarDetails({
 }) {
   const handleCarSelect = (index: number) => {
     const car = previousCars[index];
-    setFormData({
-      ...formData,
+    setFormData((prev: any) => ({
+      ...prev,
       carPlateEmirate: car.carPlateEmirate,
       carPlateCode: car.carPlateCode,
       carPlateNumber: car.carPlateNumber,
       customerEmail: car.customerEmail,
       parkingNumber: car.parkingNumber,
-    });
+    }));
     setSelectedCarIndex(index);
   };
 
   const handleNewCar = () => {
-    setFormData({
-      ...formData,
+    setFormData((prev: any) => ({
+      ...prev,
       carPlateEmirate: "",
       carPlateCode: "",
       carPlateNumber: "",
       customerEmail: "",
       parkingNumber: "",
-    });
+    }));
     setSelectedCarIndex(null);
   };
   // Show car selection if multiple cars and none selected yet

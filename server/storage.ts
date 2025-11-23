@@ -139,6 +139,7 @@ export interface IStorage {
   updateJob(id: number, updates: Partial<Job>): Promise<void>;
   getJobsByCustomer(customerId: number): Promise<Job[]>;
   getJobsByPlateNumber(plateNumber: string): Promise<Job[]>;
+  getJobsByPhoneNumber(phoneNumber: string): Promise<Job[]>;
   getJobsByCleaner(cleanerId: number): Promise<Job[]>;
   getJobsByCompany(companyId: number, status?: JobStatus): Promise<Job[]>;
   getJobByPaymentIntent(paymentIntentId: string): Promise<Job | undefined>;
@@ -892,6 +893,14 @@ export class DatabaseStorage implements IStorage {
       // Invalid format, return empty array
       return [];
     }
+  }
+
+  async getJobsByPhoneNumber(phoneNumber: string): Promise<Job[]> {
+    return await db
+      .select()
+      .from(jobs)
+      .where(eq(jobs.customerPhone, phoneNumber))
+      .orderBy(desc(jobs.createdAt));
   }
 
   async getJobsByCleaner(cleanerId: number): Promise<Job[]> {

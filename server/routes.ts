@@ -1496,6 +1496,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get jobs by phone number (for tracking)
+  app.get("/api/jobs/track-by-phone/:phoneNumber", async (req: Request, res: Response) => {
+    try {
+      const { phoneNumber } = req.params;
+      if (!phoneNumber) {
+        return res.status(400).json({ message: "Phone number is required" });
+      }
+      
+      // Disable caching completely for real-time updates
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'Surrogate-Control': 'no-store'
+      });
+      
+      const jobs = await storage.getJobsByPhoneNumber(phoneNumber);
+      res.json(jobs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Get single job by ID (for complaint submission)
   app.get("/api/jobs/:id", async (req: Request, res: Response) => {
     try {
