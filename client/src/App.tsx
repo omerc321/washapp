@@ -33,6 +33,9 @@ import CompanyDashboard from "@/pages/company-dashboard";
 import CompanyFinancials from "@/pages/company-financials";
 import CompanyShiftHistory from "@/pages/company-shift-history";
 import CompanyComplaints from "@/pages/company-complaints";
+import About from "@/pages/about";
+import Terms from "@/pages/terms";
+import Privacy from "@/pages/privacy";
 import { UserRole } from "@shared/schema";
 
 function ProtectedRoute({ 
@@ -90,6 +93,11 @@ function Router() {
         <Route path="/customer/complaint/:jobId" component={CustomerComplaint} />
         <Route path="/customer/track" component={CustomerTrack} />
         <Route path="/customer/track/:plateNumber" component={CustomerTrack} />
+
+        {/* Public Info Pages - No auth required */}
+        <Route path="/about" component={About} />
+        <Route path="/terms" component={Terms} />
+        <Route path="/privacy" component={Privacy} />
 
         {/* Cleaner Routes - Auth required */}
         <Route path="/cleaner">
