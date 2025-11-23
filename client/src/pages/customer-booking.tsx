@@ -68,16 +68,16 @@ export default function CustomerBooking() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
-  const [currentStep, setCurrentStep] = useState(0); // Start at step 0 for phone entry
+  const [currentStep, setCurrentStep] = useState(1); // Start at step 1 for phone entry
   const checkoutTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Step 0: Phone number
+  // Step 1: Phone number
   const [phoneNumber, setPhoneNumber] = useState("");
   const [previousCars, setPreviousCars] = useState<PreviousCar[]>([]);
   const [selectedCarIndex, setSelectedCarIndex] = useState<number | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
   
-  // Step 1: Car Details
+  // Step 2: Car Details
   const [formData, setFormData] = useState<BookingFormData>({
     carPlateNumber: "",
     carPlateEmirate: "",
@@ -88,7 +88,7 @@ export default function CustomerBooking() {
     requestedCleanerEmail: "",
   });
   
-  // Step 2: Location & Company
+  // Step 3: Location & Company
   const [locationData, setLocationData] = useState({
     address: "",
     latitude: 0,
@@ -147,8 +147,8 @@ export default function CustomerBooking() {
     }
   };
 
-  // Step 0: Phone Number Submit
-  const handleStep0Submit = async () => {
+  // Step 1: Phone Number Submit
+  const handleStep1Submit = async () => {
     if (!phoneNumber || phoneNumber.trim().length < 8) {
       toast({
         title: "Phone Required",
@@ -192,7 +192,7 @@ export default function CustomerBooking() {
         setSelectedCarIndex(0);
       }
       
-      setCurrentStep(1);
+      setCurrentStep(2);
     } catch (error) {
       toast({
         title: "Error",
@@ -204,8 +204,8 @@ export default function CustomerBooking() {
     }
   };
 
-  // Step 1: Car Details Submit (updated from old step 1)
-  const handleStep1Submit = () => {
+  // Step 2: Car Details Submit
+  const handleStep2Submit = () => {
     // Prevent accidental skip if user has multiple cars but hasn't selected one
     if (previousCars.length > 1 && selectedCarIndex === null && !formData.carPlateNumber) {
       toast({
@@ -232,15 +232,10 @@ export default function CustomerBooking() {
       });
       return;
     }
-    setCurrentStep(2);
-  };
-
-  // Step 2: Skip to step 3 (this was the intermediate step, now we go directly to location)
-  const handleStep2Submit = () => {
     setCurrentStep(3);
   };
 
-  // Step 3: Location & Company Submit (updated from old step 2)
+  // Step 3: Location & Company Submit
   const handleStep3Submit = async () => {
     if (!locationData.address) {
       toast({
@@ -342,7 +337,7 @@ export default function CustomerBooking() {
     setIsNavigatingToPayment(false);
     
     // Navigate back
-    if (currentStep > 0) {
+    if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     } else {
       setLocation("/customer");
@@ -423,31 +418,29 @@ export default function CustomerBooking() {
       {/* Content */}
       <div className="flex-1 max-w-md mx-auto w-full px-4 pb-24">
         <AnimatePresence mode="wait" custom={currentStep}>
-          {/* Step 0: Phone Number Entry */}
-          {currentStep === 0 && (
+          {/* Step 1: Phone Number Entry */}
+          {currentStep === 1 && (
             <Step0PhoneEntry
-              key="step0"
+              key="step1"
               phoneNumber={phoneNumber}
               setPhoneNumber={setPhoneNumber}
-              onSubmit={handleStep0Submit}
+              onSubmit={handleStep1Submit}
               isLoading={loadingHistory}
             />
           )}
 
-          {/* Step 1: Car Details (with auto-fill or selection) */}
-          {currentStep === 1 && (
+          {/* Step 2: Car Details (with auto-fill or selection) */}
+          {currentStep === 2 && (
             <Step1CarDetails
-              key="step1"
+              key="step2"
               formData={formData}
               setFormData={setFormData}
               previousCars={previousCars}
               selectedCarIndex={selectedCarIndex}
               setSelectedCarIndex={setSelectedCarIndex}
-              onSubmit={handleStep1Submit}
+              onSubmit={handleStep2Submit}
             />
           )}
-          
-          {/* Step 2: Just a pass-through (removed) - skip directly to location */}
           
           {/* Step 3: Location & Company */}
           {currentStep === 3 && (
@@ -521,8 +514,8 @@ export default function CustomerBooking() {
         </AnimatePresence>
       </div>
 
-      {/* Sticky Bottom CTA - Only for steps 1 and 2 (not step 0) */}
-      {currentStep >= 1 && currentStep < 3 && (
+      {/* Sticky Bottom CTA - Only for steps 2 and 3 (not step 1) */}
+      {currentStep >= 2 && currentStep < 4 && (
         <motion.div
           initial={{ y: 100 }}
           animate={{ y: 0 }}
@@ -533,7 +526,7 @@ export default function CustomerBooking() {
             <Button
               type="button"
               className="w-full h-12 text-base bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90"
-              onClick={currentStep === 1 ? handleStep1Submit : handleStep2Submit}
+              onClick={currentStep === 2 ? handleStep2Submit : handleStep3Submit}
               disabled={isSubmitting || isNavigatingToPayment}
               data-testid="button-continue"
             >
@@ -864,28 +857,6 @@ function Step1CarDetails({
             onChange={(e) => setFormData(prev => ({ ...prev, parkingNumber: e.target.value }))}
             className="h-12 text-lg"
           />
-        </div>
-
-        <div>
-          <Label htmlFor="customerPhone" className="text-base font-medium mb-2 block">
-            Phone Number *
-          </Label>
-          <div className="relative">
-            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input
-              id="customerPhone"
-              data-testid="input-phone"
-              type="tel"
-              placeholder="Your contact number"
-              value={formData.customerPhone}
-              onChange={(e) => setFormData(prev => ({ ...prev, customerPhone: e.target.value }))}
-              required
-              className="h-12 text-lg pl-11"
-            />
-          </div>
-          <p className="text-sm text-muted-foreground mt-2">
-            We'll share this with your cleaner
-          </p>
         </div>
 
         <div>
