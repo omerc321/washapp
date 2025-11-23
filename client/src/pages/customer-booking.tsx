@@ -521,8 +521,8 @@ export default function CustomerBooking() {
         </AnimatePresence>
       </div>
 
-      {/* Sticky Bottom CTA - Only for steps 1 and 2 */}
-      {currentStep < 3 && (
+      {/* Sticky Bottom CTA - Only for steps 1 and 2 (not step 0) */}
+      {currentStep >= 1 && currentStep < 3 && (
         <motion.div
           initial={{ y: 100 }}
           animate={{ y: 0 }}
