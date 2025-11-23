@@ -315,12 +315,15 @@ export class PushNotificationService {
       const { cleaners, users } = await import('@shared/schema');
       const { eq, and } = await import('drizzle-orm');
       
-      // Get all on-duty cleaners for this company
+      // Get all on-duty cleaners for this company (with full cleaner data including location)
       const onDutyCleaners = await db
         .select({
           id: cleaners.id,
           userId: cleaners.userId,
           displayName: users.displayName,
+          currentLatitude: cleaners.currentLatitude,
+          currentLongitude: cleaners.currentLongitude,
+          lastLocationUpdate: cleaners.lastLocationUpdate,
         })
         .from(cleaners)
         .innerJoin(users, eq(cleaners.userId, users.id))
@@ -333,18 +336,41 @@ export class PushNotificationService {
 
       console.log(`[Push] Found ${onDutyCleaners.length} on-duty cleaners for company #${companyId}`);
 
-      // Filter cleaners by geofence assignment in parallel to avoid N+1 queries
+      // Filter cleaners by geofence assignment AND current location in parallel to avoid N+1 queries
       const eligibilityChecks = await Promise.allSettled(
         onDutyCleaners.map(async (cleaner) => {
           try {
-            const isAssignedToAll = await storage.isCleanerAssignedToAllGeofences(cleaner.id);
-            if (isAssignedToAll) {
-              return { cleaner, eligible: true };
+            // Validate cleaner has current location data
+            if (!cleaner.currentLatitude || !cleaner.currentLongitude) {
+              console.log(`[Push] Cleaner #${cleaner.id} has no location data - skipping`);
+              return { cleaner, eligible: false };
             }
 
-            // Check if cleaner is assigned to the geofence containing this job location
+            const cleanerLat = parseFloat(cleaner.currentLatitude);
+            const cleanerLng = parseFloat(cleaner.currentLongitude);
+
+            if (isNaN(cleanerLat) || isNaN(cleanerLng)) {
+              console.log(`[Push] Cleaner #${cleaner.id} has invalid location data - skipping`);
+              return { cleaner, eligible: false };
+            }
+
+            // Check if cleaner's location was updated recently (within 10 minutes)
+            if (cleaner.lastLocationUpdate) {
+              const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+              const lastUpdate = new Date(cleaner.lastLocationUpdate);
+              if (lastUpdate < tenMinutesAgo) {
+                console.log(`[Push] Cleaner #${cleaner.id} location is stale (last update: ${lastUpdate.toISOString()}) - skipping`);
+                return { cleaner, eligible: false };
+              }
+            }
+
+            const isAssignedToAll = await storage.isCleanerAssignedToAllGeofences(cleaner.id);
+            
+            // Get cleaner's assigned geofences
             const assignments = await storage.getCleanerGeofenceAssignments(cleaner.id);
-            const isInGeofence = assignments.some(geofence => {
+            
+            // Find geofences that contain the job location
+            const jobGeofences = assignments.filter(geofence => {
               if (!geofence.polygon) return false;
               return this.isPointInPolygon(
                 context.locationLat,
@@ -353,7 +379,27 @@ export class PushNotificationService {
               );
             });
 
-            return { cleaner, eligible: isInGeofence };
+            if (jobGeofences.length === 0 && !isAssignedToAll) {
+              console.log(`[Push] Cleaner #${cleaner.id} not assigned to geofence containing job location`);
+              return { cleaner, eligible: false };
+            }
+
+            // CRITICAL CHECK: Verify cleaner's current location is within the SAME geofence as the job
+            // If assigned to all, check against all geofences; otherwise check against job geofences
+            const geofencesToCheck = isAssignedToAll ? assignments : jobGeofences;
+            
+            const cleanerInJobGeofence = geofencesToCheck.some(geofence => {
+              if (!geofence.polygon) return false;
+              return this.isPointInPolygon(cleanerLat, cleanerLng, geofence.polygon);
+            });
+
+            if (!cleanerInJobGeofence) {
+              console.log(`[Push] Cleaner #${cleaner.id} current location (${cleanerLat}, ${cleanerLng}) is NOT within job geofence - skipping`);
+              return { cleaner, eligible: false };
+            }
+
+            console.log(`[Push] Cleaner #${cleaner.id} is eligible - in geofence and assigned`);
+            return { cleaner, eligible: true };
           } catch (error) {
             console.error(`[Push] Error checking eligibility for cleaner #${cleaner.id}:`, error);
             return { cleaner, eligible: false };
