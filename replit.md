@@ -13,7 +13,7 @@ I prefer simple language and clear explanations. I want iterative development wi
 -   **Theme**: Modern vibrant interface with bright blue primary color (220 95% 50%), gradient accents, and dark mode support with theme toggle.
 -   **Navigation**: Role-based bottom navigation with login button in top-right for staff access (company admin, cleaner, platform admin).
 -   **Mapping**: Interactive OpenStreetMap integration with Leaflet for location selection, geolocation support, and Nominatim reverse geocoding.
--   **Booking Flow**: Modern 3-step wizard (Car Details → Location & Company → Payment) with persistent progress indicator, framer-motion animations, and mobile-first design. Reuses existing checkout component to avoid code duplication.
+-   **Booking Flow**: Phone-first 4-step wizard (Phone Number → Car Details → Location & Company → Payment) with persistent progress indicator showing "Step X of 4", framer-motion animations, and mobile-first design. Step 1 has dedicated button, steps 2-3 use sticky bottom CTA. Reuses existing checkout component to avoid code duplication.
 
 ### Technical Implementations
 -   **Frontend**: React, Tailwind CSS, shadcn/ui components, Roboto font, Framer Motion for animations.
@@ -33,11 +33,12 @@ I prefer simple language and clear explanations. I want iterative development wi
 -   **Admin Auto-Setup**: Server automatically creates/updates admin account on startup (server/utils/ensureAdmin.ts) ensuring production always has correct credentials (omer.eldirdieri@gmail.com / Network#123).
 
 ### Feature Specifications
--   **Customer Booking Flow**: Modern 3-step wizard at `/customer/booking`:
-    -   **Step 1 - Car Details**: Animated car plate and phone number entry with gradient icon backgrounds
-    -   **Step 2 - Location & Company**: Integrated map location picker with geofence-based company matching (only companies with service areas containing the customer location are shown), company selection with pricing display
-    -   **Step 3 - Payment**: Redirects to existing `/customer/checkout` page to complete Stripe payment (reuses checkout component to avoid code duplication)
-    -   **Features**: Persistent progress indicator showing "Step X of 3", framer-motion animations for smooth transitions, mobile-first responsive design, gradient accents and vibrant colors
+-   **Customer Booking Flow**: Phone-first 4-step wizard at `/customer/booking`:
+    -   **Step 1 - Phone Number**: Phone number entry with smart auto-fill (single car auto-fills, multiple cars show selection grid, new users see blank form)
+    -   **Step 2 - Car Details**: Animated car plate entry with gradient icon backgrounds (phone number NOT shown here - captured in step 1)
+    -   **Step 3 - Location & Company**: Integrated map location picker with geofence-based company matching (only companies with service areas containing the customer location are shown), company selection with pricing display
+    -   **Step 4 - Payment**: Redirects to existing `/customer/checkout` page to complete Stripe payment (reuses checkout component to avoid code duplication)
+    -   **Features**: Persistent progress indicator showing "Step X of 4", framer-motion animations for smooth transitions, mobile-first responsive design, gradient accents and vibrant colors, dual search tracking (phone OR car plate) with URL sync
 -   **Customer Flow**: Anonymous booking with car plate entry, map-based location selection, geofence-based company matching, Stripe payment in AED (company price + 3 AED platform fee clearly displayed in booking flow), and job tracking (Paid → Assigned → In Progress → Completed). Completed jobs remain in active tracker with full progress indicator before moving to history.
 -   **Cleaner Flow**: Invitation-based registration, streamlined shift-based status (starting shift automatically sets ON_DUTY, ending shift sets OFF_DUTY), job acceptance, "Open in Google Maps" navigation to job location, and photo-based job completion. Compact header design with 40% reduced height. Periodic location tracking for on-duty cleaners. Cleaners can only see and accept jobs within their assigned service areas. Password reset available via "Forgot password?" link on login page.
 -   **Company Admin Flow**: Registration (requires admin approval), multiple named geofence management with location search and GPS positioning, cleaner invitation management with service area assignment (all areas or specific areas), detailed financial reports (revenue breakdown, withdrawals, cleaner filtering, Excel export), cleaner service area management post-registration, and company settings management. Password reset available via "Forgot password?" link on login page.
