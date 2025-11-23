@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BottomNav } from "@/components/bottom-nav";
+import { Footer } from "@/components/footer";
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 import { SplashScreen } from "@/components/splash-screen";
 import NotFound from "@/pages/not-found";
@@ -68,78 +69,82 @@ function ProtectedRoute({
 
 function Router() {
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen flex flex-col">
       {/* Theme Toggle - Fixed in top right */}
       <div className="fixed top-4 right-4 z-50">
         <ThemeToggle />
       </div>
 
-      <Switch>
-        {/* Auth Routes */}
-        <Route path="/login" component={LoginPage} />
-        <Route path="/forgot-password" component={ForgotPasswordPage} />
-        <Route path="/reset-password" component={ResetPasswordPage} />
-        <Route path="/register/cleaner" component={RegisterCleanerPage} />
-        <Route path="/register/company" component={RegisterCompanyPage} />
-        <Route path="/register/admin" component={RegisterAdminPage} />
+      <div className="flex-1">
+        <Switch>
+          {/* Auth Routes */}
+          <Route path="/login" component={LoginPage} />
+          <Route path="/forgot-password" component={ForgotPasswordPage} />
+          <Route path="/reset-password" component={ResetPasswordPage} />
+          <Route path="/register/cleaner" component={RegisterCleanerPage} />
+          <Route path="/register/company" component={RegisterCompanyPage} />
+          <Route path="/register/admin" component={RegisterAdminPage} />
 
-        {/* Customer Routes - No auth required */}
-        <Route path="/customer" component={CustomerBooking} />
-        <Route path="/customer/booking" component={CustomerBooking} />
-        <Route path="/customer/home" component={CustomerHome} />
-        <Route path="/customer/select-company" component={SelectCompany} />
-        <Route path="/customer/checkout" component={Checkout} />
-        <Route path="/customer/jobs" component={CustomerJobs} />
-        <Route path="/customer/complaint/:jobId" component={CustomerComplaint} />
-        <Route path="/customer/track" component={CustomerTrack} />
-        <Route path="/customer/track/:plateNumber" component={CustomerTrack} />
+          {/* Customer Routes - No auth required */}
+          <Route path="/customer" component={CustomerBooking} />
+          <Route path="/customer/booking" component={CustomerBooking} />
+          <Route path="/customer/home" component={CustomerHome} />
+          <Route path="/customer/select-company" component={SelectCompany} />
+          <Route path="/customer/checkout" component={Checkout} />
+          <Route path="/customer/jobs" component={CustomerJobs} />
+          <Route path="/customer/complaint/:jobId" component={CustomerComplaint} />
+          <Route path="/customer/track" component={CustomerTrack} />
+          <Route path="/customer/track/:plateNumber" component={CustomerTrack} />
 
-        {/* Public Info Pages - No auth required */}
-        <Route path="/about" component={About} />
-        <Route path="/terms" component={Terms} />
-        <Route path="/privacy" component={Privacy} />
+          {/* Public Info Pages - No auth required */}
+          <Route path="/about" component={About} />
+          <Route path="/terms" component={Terms} />
+          <Route path="/privacy" component={Privacy} />
 
-        {/* Cleaner Routes - Auth required */}
-        <Route path="/cleaner">
-          {() => <ProtectedRoute component={CleanerDashboard} allowedRoles={[UserRole.CLEANER]} />}
-        </Route>
-        <Route path="/cleaner/shift-history">
-          {() => <ProtectedRoute component={CleanerShiftHistory} allowedRoles={[UserRole.CLEANER]} />}
-        </Route>
+          {/* Cleaner Routes - Auth required */}
+          <Route path="/cleaner">
+            {() => <ProtectedRoute component={CleanerDashboard} allowedRoles={[UserRole.CLEANER]} />}
+          </Route>
+          <Route path="/cleaner/shift-history">
+            {() => <ProtectedRoute component={CleanerShiftHistory} allowedRoles={[UserRole.CLEANER]} />}
+          </Route>
 
-        {/* Company Routes - Auth required */}
-        <Route path="/company">
-          {() => <ProtectedRoute component={CompanyDashboard} allowedRoles={[UserRole.COMPANY_ADMIN]} />}
-        </Route>
-        <Route path="/company/financials">
-          {() => <ProtectedRoute component={CompanyFinancials} allowedRoles={[UserRole.COMPANY_ADMIN]} />}
-        </Route>
-        <Route path="/company/shift-history">
-          {() => <ProtectedRoute component={CompanyShiftHistory} allowedRoles={[UserRole.COMPANY_ADMIN]} />}
-        </Route>
-        <Route path="/company/complaints">
-          {() => <ProtectedRoute component={CompanyComplaints} allowedRoles={[UserRole.COMPANY_ADMIN]} />}
-        </Route>
+          {/* Company Routes - Auth required */}
+          <Route path="/company">
+            {() => <ProtectedRoute component={CompanyDashboard} allowedRoles={[UserRole.COMPANY_ADMIN]} />}
+          </Route>
+          <Route path="/company/financials">
+            {() => <ProtectedRoute component={CompanyFinancials} allowedRoles={[UserRole.COMPANY_ADMIN]} />}
+          </Route>
+          <Route path="/company/shift-history">
+            {() => <ProtectedRoute component={CompanyShiftHistory} allowedRoles={[UserRole.COMPANY_ADMIN]} />}
+          </Route>
+          <Route path="/company/complaints">
+            {() => <ProtectedRoute component={CompanyComplaints} allowedRoles={[UserRole.COMPANY_ADMIN]} />}
+          </Route>
 
-        {/* Admin Routes - Auth required */}
-        <Route path="/admin">
-          {() => <ProtectedRoute component={AdminDashboard} allowedRoles={[UserRole.ADMIN]} />}
-        </Route>
-        <Route path="/admin/settings">
-          {() => <ProtectedRoute component={AdminSettings} allowedRoles={[UserRole.ADMIN]} />}
-        </Route>
-        <Route path="/admin/complaints">
-          {() => <ProtectedRoute component={AdminComplaints} allowedRoles={[UserRole.ADMIN]} />}
-        </Route>
+          {/* Admin Routes - Auth required */}
+          <Route path="/admin">
+            {() => <ProtectedRoute component={AdminDashboard} allowedRoles={[UserRole.ADMIN]} />}
+          </Route>
+          <Route path="/admin/settings">
+            {() => <ProtectedRoute component={AdminSettings} allowedRoles={[UserRole.ADMIN]} />}
+          </Route>
+          <Route path="/admin/complaints">
+            {() => <ProtectedRoute component={AdminComplaints} allowedRoles={[UserRole.ADMIN]} />}
+          </Route>
 
-        {/* Default Route - New customer booking flow */}
-        <Route path="/" component={CustomerBooking} />
+          {/* Default Route - New customer booking flow */}
+          <Route path="/" component={CustomerBooking} />
 
-        {/* 404 */}
-        <Route component={NotFound} />
-      </Switch>
+          {/* 404 */}
+          <Route component={NotFound} />
+        </Switch>
 
-      <BottomNav />
+        <BottomNav />
+      </div>
+
+      <Footer />
     </div>
   );
 }
