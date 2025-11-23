@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -8,6 +9,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BottomNav } from "@/components/bottom-nav";
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
+import { SplashScreen } from "@/components/splash-screen";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
 import ForgotPasswordPage from "@/pages/forgot-password";
@@ -135,11 +137,30 @@ function Router() {
 }
 
 function App() {
+  const [showSplash, setShowSplash] = useState(true);
+  const [splashComplete, setSplashComplete] = useState(false);
+
+  useEffect(() => {
+    const hasSeenSplash = sessionStorage.getItem('splashShown');
+    if (hasSeenSplash) {
+      setShowSplash(false);
+      setSplashComplete(true);
+    }
+  }, []);
+
+  const handleSplashComplete = () => {
+    sessionStorage.setItem('splashShown', 'true');
+    setSplashComplete(true);
+  };
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
           <TooltipProvider>
+            {showSplash && !splashComplete && (
+              <SplashScreen onComplete={handleSplashComplete} />
+            )}
             <Toaster />
             <PWAInstallPrompt />
             <Router />

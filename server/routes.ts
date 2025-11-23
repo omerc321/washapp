@@ -859,6 +859,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: error.message });
     }
   });
+
+  // Get customer's previous cars (unique car plates from booking history)
+  app.get("/api/customer/history/:phoneNumber", async (req: Request, res: Response) => {
+    try {
+      const { phoneNumber } = req.params;
+      
+      // Get customer first
+      const customer = await storage.getCustomerByPhone(phoneNumber);
+      if (!customer) {
+        return res.json({ cars: [] });
+      }
+
+      // Get all jobs for this customer
+      const jobs = await storage.getJobsByCustomerId(customer.id);
+      
+      // Extract unique cars (car plate + email combinations)
+      const carsMap = new Map();
+      for (const job of jobs) {
+        const key = `${job.carPlateEmirate}-${job.carPlateCode}-${job.carPlateNumber}`;
+        if (!carsMap.has(key)) {
+          carsMap.set(key, {
+            carPlateEmirate: job.carPlateEmirate,
+            carPlateCode: job.carPlateCode,
+            carPlateNumber: job.carPlateNumber,
+            customerEmail: job.customerEmail,
+            parkingNumber: job.parkingNumber || "",
+            lastUsed: job.createdAt,
+          });
+        } else {
+          // Update if this job is more recent
+          const existing = carsMap.get(key);
+          if (new Date(job.createdAt) > new Date(existing.lastUsed)) {
+            carsMap.set(key, {
+              ...existing,
+              customerEmail: job.customerEmail,
+              parkingNumber: job.parkingNumber || "",
+              lastUsed: job.createdAt,
+            });
+          }
+        }
+      }
+
+      // Convert to array and sort by most recent
+      const cars = Array.from(carsMap.values()).sort(
+        (a, b) => new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime()
+      );
+
+      res.json({ cars });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
   
   // Get all companies (for registration dropdown)
   app.get("/api/companies/all", async (req: Request, res: Response) => {
