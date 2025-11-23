@@ -15,7 +15,16 @@ import logoUrl from "@assets/IMG_2508_1762619079711.png";
 import type { CompanyWithCleaners } from "@shared/schema";
 import { calculateFees, type FeePackageType } from "@shared/fee-calculator";
 
-const STEPS = ["Car Details", "Location & Company", "Payment"];
+const STEPS = ["Phone Number", "Car Details", "Location & Company", "Payment"];
+
+interface PreviousCar {
+  carPlateEmirate: string;
+  carPlateCode: string;
+  carPlateNumber: string;
+  customerEmail: string;
+  parkingNumber: string;
+  lastUsed: string;
+}
 
 // UAE Emirates
 const UAE_EMIRATES = [
@@ -45,8 +54,14 @@ export default function CustomerBooking() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(0); // Start at step 0 for phone entry
   const checkoutTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Step 0: Phone number
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [previousCars, setPreviousCars] = useState<PreviousCar[]>([]);
+  const [selectedCarIndex, setSelectedCarIndex] = useState<number | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   
   // Step 1: Car Details
   const [formData, setFormData] = useState({
@@ -82,16 +97,16 @@ export default function CustomerBooking() {
     };
   }, []);
 
-  // Auto-load map on step 2
+  // Auto-load map on step 3 (was step 2)
   useEffect(() => {
-    if (currentStep === 2 && !locationData.address) {
+    if (currentStep === 3 && !locationData.address) {
       setShowMap(true);
     }
   }, [currentStep]);
 
-  // Fetch companies when location is selected
+  // Fetch companies when location is selected on step 3
   useEffect(() => {
-    if (currentStep === 2 && locationData.latitude !== 0) {
+    if (currentStep === 3 && locationData.latitude !== 0) {
       fetchCompanies();
     }
   }, [locationData, currentStep]);
@@ -118,19 +133,62 @@ export default function CustomerBooking() {
     }
   };
 
+  // Step 0: Phone Number Submit
+  const handleStep0Submit = async () => {
+    if (!phoneNumber || phoneNumber.trim().length < 8) {
+      toast({
+        title: "Phone Required",
+        description: "Please enter a valid phone number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoadingHistory(true);
+    try {
+      // Fetch customer's car history
+      const res = await fetch(`/api/customer/history/${encodeURIComponent(phoneNumber)}`);
+      if (!res.ok) throw new Error("Failed to fetch history");
+      
+      const data = await res.json();
+      setPreviousCars(data.cars || []);
+      
+      // Set phone number in form data
+      setFormData({ ...formData, customerPhone: phoneNumber });
+      
+      // Auto-fill if only one car
+      if (data.cars && data.cars.length === 1) {
+        const car = data.cars[0];
+        setFormData({
+          ...formData,
+          customerPhone: phoneNumber,
+          carPlateEmirate: car.carPlateEmirate,
+          carPlateCode: car.carPlateCode,
+          carPlateNumber: car.carPlateNumber,
+          customerEmail: car.customerEmail,
+          parkingNumber: car.parkingNumber,
+        });
+        setSelectedCarIndex(0);
+      }
+      
+      setCurrentStep(1);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load your booking history",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  // Step 1: Car Details Submit (updated from old step 1)
   const handleStep1Submit = () => {
     if (!formData.carPlateEmirate || !formData.carPlateCode || !formData.carPlateNumber) {
       toast({
         title: "Car Plate Required",
         description: "Please complete all car plate fields (emirate, code, and number)",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (!formData.customerPhone) {
-      toast({
-        title: "Phone Required",
-        description: "Please enter your phone number",
         variant: "destructive",
       });
       return;
@@ -146,7 +204,13 @@ export default function CustomerBooking() {
     setCurrentStep(2);
   };
 
-  const handleStep2Submit = async () => {
+  // Step 2: Skip to step 3 (this was the intermediate step, now we go directly to location)
+  const handleStep2Submit = () => {
+    setCurrentStep(3);
+  };
+
+  // Step 3: Location & Company Submit (updated from old step 2)
+  const handleStep3Submit = async () => {
     if (!locationData.address) {
       toast({
         title: "Location Required",
@@ -208,8 +272,8 @@ export default function CustomerBooking() {
       // Store in sessionStorage for checkout page
       sessionStorage.setItem("pendingJob", JSON.stringify(jobData));
       
-      // Show Step 3 transition before navigating to checkout
-      setCurrentStep(3);
+      // Show Step 4 (payment) transition before navigating to checkout
+      setCurrentStep(4);
       
       // Clear any existing timeout before setting a new one
       if (checkoutTimeoutRef.current) {
@@ -247,7 +311,7 @@ export default function CustomerBooking() {
     setIsNavigatingToPayment(false);
     
     // Navigate back
-    if (currentStep > 1) {
+    if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
     } else {
       setLocation("/customer");
@@ -322,24 +386,42 @@ export default function CustomerBooking() {
         transition={{ delay: 0.1 }}
         className="max-w-md mx-auto w-full"
       >
-        <ProgressIndicator currentStep={currentStep} totalSteps={3} steps={STEPS} />
+        <ProgressIndicator currentStep={currentStep} totalSteps={4} steps={STEPS} />
       </motion.div>
 
       {/* Content */}
       <div className="flex-1 max-w-md mx-auto w-full px-4 pb-24">
         <AnimatePresence mode="wait" custom={currentStep}>
+          {/* Step 0: Phone Number Entry */}
+          {currentStep === 0 && (
+            <Step0PhoneEntry
+              key="step0"
+              phoneNumber={phoneNumber}
+              setPhoneNumber={setPhoneNumber}
+              onSubmit={handleStep0Submit}
+              isLoading={loadingHistory}
+            />
+          )}
+
+          {/* Step 1: Car Details (with auto-fill or selection) */}
           {currentStep === 1 && (
             <Step1CarDetails
               key="step1"
               formData={formData}
               setFormData={setFormData}
+              previousCars={previousCars}
+              selectedCarIndex={selectedCarIndex}
+              setSelectedCarIndex={setSelectedCarIndex}
               onSubmit={handleStep1Submit}
             />
           )}
           
-          {currentStep === 2 && (
+          {/* Step 2: Just a pass-through (removed) - skip directly to location */}
+          
+          {/* Step 3: Location & Company */}
+          {currentStep === 3 && (
             <Step2LocationCompany
-              key="step2"
+              key="step3"
               locationData={locationData}
               showMap={showMap}
               setShowMap={setShowMap}
@@ -348,12 +430,13 @@ export default function CustomerBooking() {
               selectedCompany={selectedCompany}
               setSelectedCompany={setSelectedCompany}
               loadingCompanies={loadingCompanies}
-              onSubmit={handleStep2Submit}
+              onSubmit={handleStep3Submit}
               isSubmitting={isSubmitting}
             />
           )}
           
-          {currentStep === 3 && (
+          {/* Step 4: Payment Loading */}
+          {currentStep === 4 && (
             <motion.div
               key="step3"
               initial={{ opacity: 0, scale: 0.95 }}
@@ -442,15 +525,17 @@ export default function CustomerBooking() {
   );
 }
 
-// Step 1: Car Details Component
-function Step1CarDetails({
-  formData,
-  setFormData,
+// Step 0: Phone Number Entry Component
+function Step0PhoneEntry({
+  phoneNumber,
+  setPhoneNumber,
   onSubmit,
+  isLoading,
 }: {
-  formData: any;
-  setFormData: (data: any) => void;
+  phoneNumber: string;
+  setPhoneNumber: (phone: string) => void;
   onSubmit: () => void;
+  isLoading: boolean;
 }) {
   return (
     <motion.div
@@ -460,7 +545,195 @@ function Step1CarDetails({
       className="space-y-6 pt-4"
     >
       <div className="text-center space-y-2">
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", delay: 0.1 }}
+          className="mx-auto mb-4"
+        >
+          <motion.img 
+            src={logoUrl} 
+            alt="Washapp.ae" 
+            className="h-24 w-auto mx-auto"
+            animate={{ 
+              scale: [1, 1.05, 1],
+            }}
+            transition={{ 
+              duration: 2,
+              repeat: Infinity,
+              repeatDelay: 1
+            }}
+            data-testid="img-logo-animation"
+          />
+        </motion.div>
+        <h2 className="text-2xl font-bold">Welcome!</h2>
+        <p className="text-muted-foreground">Enter your phone number to get started</p>
+      </div>
+
+      <Card className="p-6 space-y-5 border-2 hover-elevate">
+        <div>
+          <Label htmlFor="phoneNumber" className="text-base font-medium mb-2 block">
+            Phone Number *
+          </Label>
+          <Input
+            id="phoneNumber"
+            type="tel"
+            placeholder="+971 50 123 4567"
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
+            className="h-12 text-lg"
+            autoFocus
+            data-testid="input-phone-number"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                onSubmit();
+              }
+            }}
+          />
+          <p className="text-sm text-muted-foreground mt-2">
+            We'll check if you've booked with us before
+          </p>
+        </div>
+
+        <Button
+          type="button"
+          className="w-full h-12 text-base bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90"
+          onClick={onSubmit}
+          disabled={isLoading}
+          data-testid="button-continue-phone"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Checking history...
+            </>
+          ) : (
+            <>
+              Continue
+              <ChevronLeft className="ml-2 h-4 w-4 rotate-180" />
+            </>
+          )}
+        </Button>
+      </Card>
+    </motion.div>
+  );
+}
+
+// Step 1: Car Details Component
+function Step1CarDetails({
+  formData,
+  setFormData,
+  previousCars,
+  selectedCarIndex,
+  setSelectedCarIndex,
+  onSubmit,
+}: {
+  formData: any;
+  setFormData: (data: any) => void;
+  previousCars: PreviousCar[];
+  selectedCarIndex: number | null;
+  setSelectedCarIndex: (index: number | null) => void;
+  onSubmit: () => void;
+}) {
+  const handleCarSelect = (index: number) => {
+    const car = previousCars[index];
+    setFormData({
+      ...formData,
+      carPlateEmirate: car.carPlateEmirate,
+      carPlateCode: car.carPlateCode,
+      carPlateNumber: car.carPlateNumber,
+      customerEmail: car.customerEmail,
+      parkingNumber: car.parkingNumber,
+    });
+    setSelectedCarIndex(index);
+  };
+
+  const handleNewCar = () => {
+    setFormData({
+      ...formData,
+      carPlateEmirate: "",
+      carPlateCode: "",
+      carPlateNumber: "",
+      customerEmail: "",
+      parkingNumber: "",
+    });
+    setSelectedCarIndex(null);
+  };
+  // Show car selection if multiple cars and none selected yet
+  if (previousCars.length > 1 && selectedCarIndex === null) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        className="space-y-6 pt-4"
+      >
+        <div className="text-center space-y-2">
+          <h2 className="text-2xl font-bold">Select Your Car</h2>
+          <p className="text-muted-foreground">We found {previousCars.length} cars linked to your number</p>
+        </div>
+
+        <div className="space-y-3">
+          {previousCars.map((car, index) => (
+            <Card
+              key={index}
+              className="p-4 border-2 hover-elevate cursor-pointer transition-all"
+              onClick={() => handleCarSelect(index)}
+              data-testid={`car-option-${index}`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center">
+                    <Car className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-lg">
+                      {car.carPlateEmirate} {car.carPlateCode} {car.carPlateNumber}
+                    </p>
+                    {car.parkingNumber && (
+                      <p className="text-sm text-muted-foreground">Parking: {car.parkingNumber}</p>
+                    )}
+                  </div>
+                </div>
+                <ChevronLeft className="h-5 w-5 rotate-180 text-muted-foreground" />
+              </div>
+            </Card>
+          ))}
+
+          <Button
+            variant="outline"
+            className="w-full h-12"
+            onClick={handleNewCar}
+            data-testid="button-new-car"
+          >
+            <Car className="mr-2 h-4 w-4" />
+            Add a Different Car
+          </Button>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Show car details form (either pre-filled from selection or empty for new car)
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-6 pt-4"
+    >
+      <div className="text-center space-y-2">
         <h2 className="text-2xl font-bold">Car Details</h2>
+        {previousCars.length > 1 && selectedCarIndex !== null && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelectedCarIndex(null)}
+            data-testid="button-change-car"
+          >
+            Change Car
+          </Button>
+        )}
       </div>
 
       <Card className="p-6 space-y-5 border-2 hover-elevate relative overflow-hidden">
