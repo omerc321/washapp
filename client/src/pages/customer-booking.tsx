@@ -206,6 +206,16 @@ export default function CustomerBooking() {
 
   // Step 1: Car Details Submit (updated from old step 1)
   const handleStep1Submit = () => {
+    // Prevent accidental skip if user has multiple cars but hasn't selected one
+    if (previousCars.length > 1 && selectedCarIndex === null && !formData.carPlateNumber) {
+      toast({
+        title: "Selection Required",
+        description: "Please select a car or add a new one",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (!formData.carPlateEmirate || !formData.carPlateCode || !formData.carPlateNumber) {
       toast({
         title: "Car Plate Required",
@@ -607,6 +617,8 @@ function Step0PhoneEntry({
             data-testid="input-phone-number"
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
                 onSubmit();
               }
             }}
