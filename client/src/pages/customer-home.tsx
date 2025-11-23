@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Car, Phone, Building2, MapPin, AlertCircle, Loader2 } from "lucide-react";
+import { Car, Phone, Building2, MapPin, AlertCircle, Loader2, ArrowLeft, Search, LogIn } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import LocationPicker from "@/components/location-picker";
+import { ThemeToggle } from "@/components/theme-toggle";
 import logoUrl from "@assets/IMG_2508_1762619079711.png";
 
 type GeolocationStatus = 'idle' | 'requesting' | 'success' | 'denied' | 'error';
@@ -263,20 +264,45 @@ export default function CustomerHome() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header - Clean and minimal */}
-      <div className="border-b bg-background sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <img src={logoUrl} alt="Washapp.ae" className="h-12 w-auto" data-testid="img-logo" />
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => setLocation("/login")}
-              data-testid="button-staff-login"
-              className="text-muted-foreground"
-            >
-              Staff Login
-            </Button>
+      {/* Header - Vibrant and modern */}
+      <div className="border-b bg-background/95 backdrop-blur-sm sticky top-0 z-10 shadow-sm">
+        <div className="max-w-md mx-auto px-3 py-2.5">
+          <div className="flex items-center justify-between gap-2">
+            {/* Logo */}
+            <img src={logoUrl} alt="Washapp.ae" className="h-10 w-auto" data-testid="img-logo" />
+            
+            {/* Action Buttons */}
+            <div className="flex items-center gap-1.5">
+              {/* Track Button - Vibrant Blue */}
+              <Button 
+                variant="default"
+                size="sm"
+                onClick={() => {
+                  setMode('track');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                data-testid="button-track"
+                className="bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90 text-white font-medium shadow-md hover:shadow-lg transition-all"
+              >
+                <Search className="h-4 w-4 mr-1.5" />
+                Track
+              </Button>
+              
+              {/* Staff Login Button - Vibrant Purple/Pink */}
+              <Button 
+                variant="default"
+                size="sm"
+                onClick={() => setLocation("/login")}
+                data-testid="button-staff-login"
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-600/90 hover:to-pink-600/90 text-white font-medium shadow-md hover:shadow-lg transition-all"
+              >
+                <LogIn className="h-4 w-4 mr-1.5" />
+                Staff
+              </Button>
+              
+              {/* Theme Toggle */}
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       </div>
