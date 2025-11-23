@@ -26,6 +26,20 @@ interface PreviousCar {
   lastUsed: string;
 }
 
+interface BookingFormData {
+  carPlateNumber: string;
+  carPlateEmirate: string;
+  carPlateCode: string;
+  parkingNumber: string;
+  customerPhone: string;
+  customerEmail: string;
+  requestedCleanerEmail: string;
+}
+
+interface CustomerHistoryResponse {
+  cars: PreviousCar[];
+}
+
 // UAE Emirates
 const UAE_EMIRATES = [
   "Abu Dhabi",
@@ -64,7 +78,7 @@ export default function CustomerBooking() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   
   // Step 1: Car Details
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<BookingFormData>({
     carPlateNumber: "",
     carPlateEmirate: "",
     carPlateCode: "",
@@ -148,9 +162,16 @@ export default function CustomerBooking() {
     try {
       // Fetch customer's car history
       const res = await fetch(`/api/customer/history/${encodeURIComponent(phoneNumber)}`);
-      if (!res.ok) throw new Error("Failed to fetch history");
       
-      const data = await res.json();
+      // Handle 404 as new customer (no previous bookings)
+      let data: CustomerHistoryResponse = { cars: [] };
+      if (res.ok) {
+        data = await res.json();
+      } else if (res.status !== 404) {
+        // Only throw error for non-404 errors
+        throw new Error("Failed to fetch history");
+      }
+      
       setPreviousCars(data.cars || []);
       
       // Set phone number in form data
@@ -628,8 +649,8 @@ function Step1CarDetails({
   setSelectedCarIndex,
   onSubmit,
 }: {
-  formData: any;
-  setFormData: (data: any) => void;
+  formData: BookingFormData;
+  setFormData: React.Dispatch<React.SetStateAction<BookingFormData>>;
   previousCars: PreviousCar[];
   selectedCarIndex: number | null;
   setSelectedCarIndex: (index: number | null) => void;
@@ -637,7 +658,7 @@ function Step1CarDetails({
 }) {
   const handleCarSelect = (index: number) => {
     const car = previousCars[index];
-    setFormData((prev: any) => ({
+    setFormData(prev => ({
       ...prev,
       carPlateEmirate: car.carPlateEmirate,
       carPlateCode: car.carPlateCode,
@@ -649,7 +670,7 @@ function Step1CarDetails({
   };
 
   const handleNewCar = () => {
-    setFormData((prev: any) => ({
+    setFormData(prev => ({
       ...prev,
       carPlateEmirate: "",
       carPlateCode: "",
@@ -769,7 +790,7 @@ function Step1CarDetails({
               <Label htmlFor="carPlateEmirate" className="text-sm mb-1.5 block text-muted-foreground">
                 Emirate
               </Label>
-              <Select value={formData.carPlateEmirate} onValueChange={(value) => setFormData({ ...formData, carPlateEmirate: value })}>
+              <Select value={formData.carPlateEmirate} onValueChange={(value) => setFormData(prev => ({ ...prev, carPlateEmirate: value }))}>
                 <SelectTrigger id="carPlateEmirate" className="h-12" data-testid="select-emirate">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
@@ -787,7 +808,7 @@ function Step1CarDetails({
               <Label htmlFor="carPlateCode" className="text-sm mb-1.5 block text-muted-foreground">
                 Code
               </Label>
-              <Select value={formData.carPlateCode} onValueChange={(value) => setFormData({ ...formData, carPlateCode: value })}>
+              <Select value={formData.carPlateCode} onValueChange={(value) => setFormData(prev => ({ ...prev, carPlateCode: value }))}>
                 <SelectTrigger id="carPlateCode" className="h-12" data-testid="select-code">
                   <SelectValue placeholder="A-Z" />
                 </SelectTrigger>
@@ -810,7 +831,7 @@ function Step1CarDetails({
                 data-testid="input-plate-number"
                 placeholder="12345"
                 value={formData.carPlateNumber}
-                onChange={(e) => setFormData({ ...formData, carPlateNumber: e.target.value })}
+                onChange={(e) => setFormData(prev => ({ ...prev, carPlateNumber: e.target.value }))}
                 required
                 className="h-12 text-lg"
                 autoFocus
@@ -828,7 +849,7 @@ function Step1CarDetails({
             data-testid="input-parking"
             placeholder="P2-45"
             value={formData.parkingNumber}
-            onChange={(e) => setFormData({ ...formData, parkingNumber: e.target.value })}
+            onChange={(e) => setFormData(prev => ({ ...prev, parkingNumber: e.target.value }))}
             className="h-12 text-lg"
           />
         </div>
@@ -845,7 +866,7 @@ function Step1CarDetails({
               type="tel"
               placeholder="Your contact number"
               value={formData.customerPhone}
-              onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
+              onChange={(e) => setFormData(prev => ({ ...prev, customerPhone: e.target.value }))}
               required
               className="h-12 text-lg pl-11"
             />
@@ -867,7 +888,7 @@ function Step1CarDetails({
               type="email"
               placeholder="your.email@example.com"
               value={formData.customerEmail || ""}
-              onChange={(e) => setFormData({ ...formData, customerEmail: e.target.value })}
+              onChange={(e) => setFormData(prev => ({ ...prev, customerEmail: e.target.value }))}
               className="h-12 text-lg pl-11"
             />
           </div>
@@ -886,7 +907,7 @@ function Step1CarDetails({
             type="email"
             placeholder="Request specific cleaner"
             value={formData.requestedCleanerEmail || ""}
-            onChange={(e) => setFormData({ ...formData, requestedCleanerEmail: e.target.value })}
+            onChange={(e) => setFormData(prev => ({ ...prev, requestedCleanerEmail: e.target.value }))}
             className="h-12 text-lg"
           />
           <p className="text-sm text-muted-foreground mt-2">
