@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Car, MapPin, Phone, Building2, Upload, CheckCircle2, Clock, Navigation, History, Timer, User, MessageCircle, Banknote, DollarSign, Star, Bell, BellOff, Volume2, VolumeX } from "lucide-react";
+import { Car, MapPin, Phone, Building2, Upload, CheckCircle2, Clock, Navigation, History, Timer, User, MessageCircle, Banknote, DollarSign, Star, Bell, BellOff, Volume2, VolumeX, QrCode, Copy } from "lucide-react";
 import { Job, Cleaner, CleanerStatus, JobStatus } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -17,12 +17,16 @@ import { Input } from "@/components/ui/input";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import QRCodeComponent from "react-qr-code";
 
 export default function CleanerDashboard() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingJobId, setUploadingJobId] = useState<string | null>(null);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [paymentQRData, setPaymentQRData] = useState<{ token: string; expiresAt: string } | null>(null);
   
   // Push notifications for cleaners
   const {
@@ -168,6 +172,36 @@ export default function CleanerDashboard() {
       });
     },
   });
+
+  const generateQRToken = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/cleaner/generate-qr-token", {});
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      setPaymentQRData(data);
+      setShowQRModal(true);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to generate payment QR code",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCopyPaymentLink = () => {
+    if (!paymentQRData) return;
+    
+    const paymentURL = `${window.location.origin}/customer/pay/${paymentQRData.token}`;
+    navigator.clipboard.writeText(paymentURL);
+    
+    toast({
+      title: "Link Copied",
+      description: "Payment link copied to clipboard",
+    });
+  };
 
   const locationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -345,6 +379,19 @@ export default function CleanerDashboard() {
                 <span className="font-bold">Start Shift</span>
               </Button>
             )}
+
+            {/* Payment QR Code Button */}
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => generateQRToken.mutate()}
+              disabled={generateQRToken.isPending}
+              className="w-full border-2 min-h-12"
+              data-testid="button-generate-qr"
+            >
+              <QrCode className="h-4 w-4 mr-2" />
+              <span className="font-semibold">Generate Payment QR</span>
+            </Button>
           </div>
         </motion.div>
 
@@ -564,6 +611,53 @@ export default function CleanerDashboard() {
           </Tabs>
         </div>
       </div>
+
+      {/* QR Code Payment Modal */}
+      <Dialog open={showQRModal} onOpenChange={setShowQRModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Payment QR Code</DialogTitle>
+            <DialogDescription>
+              Customers can scan this QR code to pay and auto-assign the job to you
+            </DialogDescription>
+          </DialogHeader>
+          
+          {paymentQRData && (
+            <div className="space-y-4">
+              <div className="flex justify-center p-6 bg-white rounded-lg">
+                <QRCodeComponent 
+                  value={`${window.location.origin}/customer/pay/${paymentQRData.token}`}
+                  size={256}
+                  data-testid="qr-code"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                  <span className="text-sm text-muted-foreground">Expires:</span>
+                  <span className="text-sm font-medium">
+                    {new Date(paymentQRData.expiresAt).toLocaleString('en-AE', { 
+                      timeZone: 'Asia/Dubai',
+                      dateStyle: 'short',
+                      timeStyle: 'short'
+                    })}
+                  </span>
+                </div>
+                
+                <Button
+                  onClick={handleCopyPaymentLink}
+                  variant="outline"
+                  className="w-full"
+                  data-testid="button-copy-link"
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy Payment Link
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

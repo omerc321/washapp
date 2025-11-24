@@ -985,7 +985,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "This token has already been used" });
       }
 
-      if (new Date(paymentToken.expiresAt) < new Date()) {
+      if (!paymentToken.expiresAt || new Date(paymentToken.expiresAt) < new Date()) {
         return res.status(400).json({ message: "This token has expired" });
       }
 
@@ -1516,7 +1516,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (paymentToken) {
         const token = await storage.getCleanerPaymentToken(paymentToken);
         
-        if (token && !token.isUsed && new Date(token.expiresAt) > new Date()) {
+        if (token && !token.isUsed && token.expiresAt && new Date(token.expiresAt) > new Date()) {
           cleanerIdToAssign = token.cleanerId;
           
           // Mark token as used
