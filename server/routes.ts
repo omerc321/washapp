@@ -878,6 +878,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
   // Get customer's previous cars (unique car plates from booking history)
   app.get("/api/customer/history/:phoneNumber", async (req: Request, res: Response) => {
     try {
@@ -3364,7 +3365,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Mark OTP as verified
       await storage.markEmailOtpAsVerified(email, code);
       
-      res.json({ success: true, verified: true });
+      // Check if this is a returning customer and fetch their phone number
+      const customer = await storage.getCustomerByEmail(email);
+      const phoneNumber = customer?.phoneNumber || null;
+      
+      res.json({ 
+        success: true, 
+        verified: true,
+        phoneNumber // Return phone number if customer exists (null for new users)
+      });
     } catch (error: any) {
       console.error("Error verifying OTP:", error);
       res.status(500).json({ message: "Failed to verify OTP" });

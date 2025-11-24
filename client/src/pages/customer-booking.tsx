@@ -76,6 +76,7 @@ export default function CustomerBooking() {
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
+  const [emailSkipped, setEmailSkipped] = useState(false); // Track if user skipped email verification
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   
@@ -255,10 +256,16 @@ export default function CustomerBooking() {
         throw new Error("Invalid OTP");
       }
 
+      const data = await res.json();
       setOtpVerified(true);
       
       // Set email in form data
       setFormData(prev => ({ ...prev, customerEmail: email }));
+      
+      // Set phone number if customer exists (returning user)
+      if (data.phoneNumber) {
+        setFormData(prev => ({ ...prev, customerPhone: data.phoneNumber }));
+      }
       
       toast({
         title: "Email Verified",
@@ -280,6 +287,21 @@ export default function CustomerBooking() {
     }
   };
 
+  // Skip email verification
+  const handleSkipEmailVerification = () => {
+    setEmailSkipped(true);
+    setOtpVerified(false); // Not verified since skipped
+    
+    toast({
+      title: "Email Verification Skipped",
+      description: "You can enter your details manually in the next step",
+    });
+
+    setTimeout(() => {
+      setCurrentStep(2);
+    }, 300);
+  };
+
   // Step 2: Car Details Submit
   const handleStep2Submit = () => {
     if (!formData.carPlateEmirate || !formData.carPlateCode || !formData.carPlateNumber) {
@@ -291,7 +313,18 @@ export default function CustomerBooking() {
       return;
     }
     
-    if (!formData.customerEmail) {
+    // If email was skipped, validate email field in Step 2
+    if (emailSkipped && !formData.customerEmail) {
+      toast({
+        title: "Email Required",
+        description: "Please enter your email address",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // If email was verified, it should already be set
+    if (!emailSkipped && !formData.customerEmail) {
       toast({
         title: "Email Missing",
         description: "Email from step 1 is required",
@@ -299,6 +332,27 @@ export default function CustomerBooking() {
       });
       return;
     }
+
+    // Validate email format if entered
+    if (formData.customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.customerEmail)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Phone number is required (for customer/login API call later)
+    if (!formData.customerPhone || formData.customerPhone.trim() === '') {
+      toast({
+        title: "Mobile Number Required",
+        description: "Please enter your mobile number to proceed",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setCurrentStep(3);
   };
 
@@ -496,6 +550,7 @@ export default function CustomerBooking() {
               otpSent={otpSent}
               onSendOtp={handleSendOtp}
               onVerifyOtp={handleVerifyOtp}
+              onSkip={handleSkipEmailVerification}
               sendingOtp={sendingOtp}
               verifyingOtp={verifyingOtp}
             />
@@ -512,6 +567,7 @@ export default function CustomerBooking() {
               showCarHistoryOptions={showCarHistoryOptions}
               setShowCarHistoryOptions={setShowCarHistoryOptions}
               verifiedEmail={email}
+              emailSkipped={emailSkipped}
               onSubmit={handleStep2Submit}
             />
           )}
@@ -632,6 +688,7 @@ function Step0EmailOTP({
   otpSent,
   onSendOtp,
   onVerifyOtp,
+  onSkip,
   sendingOtp,
   verifyingOtp,
 }: {
@@ -642,6 +699,7 @@ function Step0EmailOTP({
   otpSent: boolean;
   onSendOtp: () => void;
   onVerifyOtp: () => void;
+  onSkip: () => void;
   sendingOtp: boolean;
   verifyingOtp: boolean;
 }) {
@@ -728,6 +786,16 @@ function Step0EmailOTP({
                 </>
               )}
             </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              onClick={onSkip}
+              data-testid="button-skip-verification"
+            >
+              Skip Verification
+            </Button>
           </>
         ) : (
           <>
@@ -804,6 +872,7 @@ function Step1CarDetails({
   showCarHistoryOptions,
   setShowCarHistoryOptions,
   verifiedEmail,
+  emailSkipped,
   onSubmit,
 }: {
   formData: BookingFormData;
@@ -813,6 +882,7 @@ function Step1CarDetails({
   showCarHistoryOptions: boolean;
   setShowCarHistoryOptions: (show: boolean) => void;
   verifiedEmail: string;
+  emailSkipped: boolean;
   onSubmit: () => void;
 }) {
   const handleUseHistory = (history: { customerEmail: string; parkingNumber: string }) => {
@@ -833,7 +903,9 @@ function Step1CarDetails({
     >
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-bold">Car Details</h2>
-        <p className="text-sm text-muted-foreground">Booking for: {verifiedEmail}</p>
+        {!emailSkipped && verifiedEmail && (
+          <p className="text-sm text-muted-foreground">Booking for: {verifiedEmail}</p>
+        )}
       </div>
 
       <Card className="p-6 space-y-5 border-2 hover-elevate relative overflow-hidden">
@@ -968,6 +1040,45 @@ function Step1CarDetails({
             </div>
           </motion.div>
         )}
+
+        {/* Email field - only shown if user skipped email verification */}
+        {emailSkipped && (
+          <div>
+            <Label htmlFor="customerEmail" className="text-base font-medium mb-2 block">
+              Email Address *
+            </Label>
+            <Input
+              id="customerEmail"
+              data-testid="input-customer-email"
+              type="email"
+              placeholder="your@email.com"
+              value={formData.customerEmail}
+              onChange={(e) => setFormData(prev => ({ ...prev, customerEmail: e.target.value }))}
+              className="h-12 text-lg"
+            />
+          </div>
+        )}
+
+        {/* Mobile number field */}
+        <div>
+          <Label htmlFor="customerPhone" className="text-base font-medium mb-2 block">
+            Mobile Number *
+          </Label>
+          <Input
+            id="customerPhone"
+            data-testid="input-customer-phone"
+            type="tel"
+            placeholder="+971 50 123 4567"
+            value={formData.customerPhone}
+            onChange={(e) => setFormData(prev => ({ ...prev, customerPhone: e.target.value }))}
+            className="h-12 text-lg"
+          />
+          {!emailSkipped && formData.customerPhone && (
+            <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-2">
+              ✓ Auto-filled from your profile
+            </p>
+          )}
+        </div>
         
         <div>
           <Label htmlFor="parkingNumber" className="text-base font-medium mb-2 block">

@@ -34,9 +34,11 @@ I prefer simple language and clear explanations. I want iterative development wi
 -   **Admin Auto-Setup**: Server automatically creates/updates admin account on startup (server/utils/ensureAdmin.ts) ensuring production always has correct credentials (omer.eldirdieri@gmail.com / Network#123).
 
 ### Feature Specifications
--   **Customer Booking Flow**: Email/OTP-first 4-step wizard at `/customer/booking`:
-    -   **Step 1 - Email Verification**: Email entry with OTP verification via Resend. Users enter email, receive 6-digit code, verify, and proceed.
-    -   **Step 2 - Car Details**: Car plate entry (emirate, code, number) with smart auto-fill. When plate is entered, system looks up history for that specific plate and shows auto-fill option for previous parking details. Email from step 1 is automatically used.
+-   **Customer Booking Flow**: Flexible email/OTP-first 4-step wizard at `/customer/booking` with optional skip:
+    -   **Step 1 - Email Verification (Optional)**: Email entry with OTP verification via Resend. Users can either (A) verify email via OTP to get auto-fill benefits, or (B) click "Skip Verification" to enter details manually in Step 2.
+    -   **Step 2 - Car Details**: Car plate entry (emirate, code, number) with smart auto-fill based on car history. 
+        -   **If email verified**: Shows verified email header, auto-fills mobile number for returning users, displays car history auto-fill options
+        -   **If email skipped**: Shows email and mobile number fields for manual entry, no auto-fill available
     -   **Step 3 - Location & Company**: Integrated map location picker with geofence-based company matching (only companies with service areas containing the customer location are shown), company selection with pricing display
     -   **Step 4 - Payment**: Redirects to existing `/customer/checkout` page to complete Stripe payment (reuses checkout component to avoid code duplication)
     -   **Features**: Persistent progress indicator showing "Step X of 4", framer-motion animations for smooth transitions, mobile-first responsive design, gradient accents and vibrant colors, dual search tracking (email OR car plate) with URL sync
