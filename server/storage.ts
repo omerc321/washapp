@@ -577,6 +577,7 @@ export class DatabaseStorage implements IStorage {
         c.description,
         c.price_per_wash,
         c.platform_fee,
+        c.fee_package_type,
         c.package_type,
         c.subscription_cleaner_slots,
         c.total_jobs_completed,
@@ -591,7 +592,7 @@ export class DatabaseStorage implements IStorage {
         AND cl.status = 'on_duty'
         AND cl.last_location_update > NOW() - INTERVAL '10 minutes'
       WHERE c.is_active = 1
-      GROUP BY c.id, c.name, c.description, c.price_per_wash, c.platform_fee, c.package_type, c.subscription_cleaner_slots, c.total_jobs_completed, 
+      GROUP BY c.id, c.name, c.description, c.price_per_wash, c.platform_fee, c.fee_package_type, c.package_type, c.subscription_cleaner_slots, c.total_jobs_completed, 
                c.total_revenue, c.rating, cg.id, cg.polygon
     `;
     
@@ -635,6 +636,7 @@ export class DatabaseStorage implements IStorage {
             description: row.description,
             pricePerWash: row.price_per_wash,
             platformFee: row.platform_fee || "3.00",
+            feePackageType: row.fee_package_type || 'custom',
             packageType: row.package_type || 'pay_per_wash',
             subscriptionCleanerSlots: row.subscription_cleaner_slots,
             adminId: 0,
@@ -2408,6 +2410,7 @@ export class DatabaseStorage implements IStorage {
       description: row.description,
       pricePerWash: row.price_per_wash,
       platformFee: row.platform_fee || "3.00",
+      feePackageType: row.fee_package_type || 'custom',
       packageType: row.package_type || 'pay_per_wash',
       subscriptionCleanerSlots: row.subscription_cleaner_slots,
       adminId: row.admin_id,
