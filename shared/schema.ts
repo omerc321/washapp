@@ -842,6 +842,7 @@ export const jobFinancialsWithCleanerSchema = selectJobFinancialsSchema.extend({
   cleanerName: z.string().nullable(),
   cleanerEmail: z.string().nullable(),
   cleanerPhone: z.string().nullable(),
+  feePackageType: z.enum(['custom', 'package1', 'package2']).nullable(),
 });
 
 export type JobFinancialsWithCleaner = z.infer<typeof jobFinancialsWithCleanerSchema>;

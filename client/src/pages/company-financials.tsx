@@ -362,8 +362,9 @@ export default function CompanyFinancials() {
                       <TableHead>Cleaner</TableHead>
                       <TableHead>Base Amount</TableHead>
                       <TableHead>Base Tax</TableHead>
-                      <TableHead>Tip Amount</TableHead>
-                      <TableHead>Tip Tax</TableHead>
+                      <TableHead>Total Tip</TableHead>
+                      <TableHead>Tip VAT</TableHead>
+                      <TableHead>Remaining Tip</TableHead>
                       <TableHead>Platform Fee</TableHead>
                       <TableHead>Platform Tax</TableHead>
                       <TableHead>Stripe Fee</TableHead>
@@ -376,6 +377,12 @@ export default function CompanyFinancials() {
                     {jobs.map((job) => {
                       const isRefunded = job.refundedAt !== null;
                       const isPackage2 = (job.feePackageType || 'custom').toLowerCase() === 'package2';
+                      const tipAmount = parseFloat(job.tipAmount || "0");
+                      const tipTax = parseFloat(job.tipTax || "0");
+                      const totalTip = tipAmount + tipTax;
+                      const remainingTip = parseFloat(job.remainingTip || "0");
+                      const hasTip = totalTip > 0;
+                      
                       return (
                         <TableRow key={job.id} data-testid={`job-${job.id}`}>
                           <TableCell className="font-medium">#{job.jobId}</TableCell>
@@ -383,10 +390,13 @@ export default function CompanyFinancials() {
                           <TableCell className="min-w-[100px]">{parseFloat(job.baseJobAmount || "0").toFixed(2)} AED</TableCell>
                           <TableCell className="min-w-[80px]">{parseFloat(job.baseTax || "0").toFixed(2)} AED</TableCell>
                           <TableCell className="text-primary font-medium min-w-[100px]">
-                            {parseFloat(job.tipAmount || "0") > 0 ? `${parseFloat(job.tipAmount).toFixed(2)} AED` : "-"}
+                            {hasTip ? `${totalTip.toFixed(2)} AED` : "-"}
                           </TableCell>
                           <TableCell className="min-w-[80px]">
-                            {parseFloat(job.tipTax || "0") > 0 ? `${parseFloat(job.tipTax).toFixed(2)} AED` : "-"}
+                            {hasTip ? `${tipTax.toFixed(2)} AED` : "-"}
+                          </TableCell>
+                          <TableCell className="text-green-600 dark:text-green-400 font-medium min-w-[120px]">
+                            {hasTip ? `${remainingTip.toFixed(2)} AED` : "-"}
                           </TableCell>
                           <TableCell className="min-w-[110px]">{parseFloat(job.platformFeeAmount || "0").toFixed(2)} AED</TableCell>
                           <TableCell className="min-w-[100px]">{parseFloat(job.platformFeeTax || "0").toFixed(2)} AED</TableCell>
