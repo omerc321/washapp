@@ -935,6 +935,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: error.message });
     }
   });
+
+  // Get customer's most recent car by email (for auto-fill after email verification)
+  app.get("/api/customer/recent-car-by-email/:email", async (req: Request, res: Response) => {
+    try {
+      const { email } = req.params;
+      
+      // Get customer by email
+      const customer = await storage.getCustomerByEmail(email);
+      if (!customer) {
+        return res.json({ car: null });
+      }
+
+      // Get most recent job for this customer
+      const jobsResult = await storage.getJobsByCustomer(customer.id, 1, 1);
+      const jobs = jobsResult.data;
+      
+      if (jobs.length === 0) {
+        return res.json({ car: null });
+      }
+
+      const mostRecentJob = jobs[0];
+      res.json({
+        car: {
+          carPlateEmirate: mostRecentJob.carPlateEmirate,
+          carPlateCode: mostRecentJob.carPlateCode,
+          carPlateNumber: mostRecentJob.carPlateNumber,
+          parkingNumber: mostRecentJob.parkingNumber || "",
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
   
   // Get all companies (for registration dropdown)
   app.get("/api/companies/all", async (req: Request, res: Response) => {

@@ -131,11 +131,12 @@ export default function CustomerBooking() {
     }
   }, [locationData, currentStep]);
 
-  // Fetch car plate history when car plate is complete
+  // Fetch car plate history when car plate is complete (ONLY if email was skipped)
   useEffect(() => {
     const fetchCarPlateHistory = async () => {
       if (
         currentStep === 2 &&
+        emailSkipped && // Only show history popup if email was skipped
         formData.carPlateEmirate &&
         formData.carPlateCode &&
         formData.carPlateNumber
@@ -170,7 +171,7 @@ export default function CustomerBooking() {
     };
 
     fetchCarPlateHistory();
-  }, [currentStep, formData.carPlateEmirate, formData.carPlateCode, formData.carPlateNumber]);
+  }, [currentStep, emailSkipped, formData.carPlateEmirate, formData.carPlateCode, formData.carPlateNumber]);
 
   const fetchCompanies = async () => {
     setLoadingCompanies(true);
@@ -267,10 +268,38 @@ export default function CustomerBooking() {
         setFormData(prev => ({ ...prev, customerPhone: data.phoneNumber }));
       }
       
-      toast({
-        title: "Email Verified",
-        description: "Proceeding to car details",
-      });
+      // Fetch and auto-fill most recent car details for returning customers
+      try {
+        const carRes = await fetch(`/api/customer/recent-car-by-email/${encodeURIComponent(email)}`);
+        if (carRes.ok) {
+          const carData = await carRes.json();
+          if (carData.car) {
+            setFormData(prev => ({
+              ...prev,
+              carPlateEmirate: carData.car.carPlateEmirate,
+              carPlateCode: carData.car.carPlateCode,
+              carPlateNumber: carData.car.carPlateNumber,
+              parkingNumber: carData.car.parkingNumber,
+            }));
+            
+            toast({
+              title: "Email Verified",
+              description: "Your car details have been loaded",
+            });
+          } else {
+            toast({
+              title: "Email Verified",
+              description: "Proceeding to car details",
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch recent car:", error);
+        toast({
+          title: "Email Verified",
+          description: "Proceeding to car details",
+        });
+      }
 
       // Move to next step after short delay
       setTimeout(() => {
