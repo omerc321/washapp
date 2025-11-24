@@ -139,7 +139,7 @@ export interface IStorage {
   updateJob(id: number, updates: Partial<Job>): Promise<void>;
   atomicSetReceipt(jobId: number, receiptNumber: string, receiptGeneratedAt: Date): Promise<string>;
   completeJobIfNotCompleted(jobId: number, data: { proofPhotoURL: string; receiptNumber: string; completedAt: Date }): Promise<{ updated: boolean; job?: Job }>;
-  getJobsByCustomer(customerId: number): Promise<Job[]>;
+  getJobsByCustomer(customerId: number, page?: number, pageSize?: number): Promise<{ data: Job[]; total: number }>;
   getJobsByPlateNumber(plateNumber: string): Promise<Job[]>;
   getJobsByPhoneNumber(phoneNumber: string): Promise<Job[]>;
   getJobsByCleaner(cleanerId: number): Promise<Job[]>;
@@ -197,20 +197,27 @@ export interface IStorage {
     cleanerId?: number;
     startDate?: Date;
     endDate?: Date;
-  }): Promise<JobFinancialsWithCleaner[]>;
+    page?: number;
+    pageSize?: number;
+  }): Promise<{ data: JobFinancialsWithCleaner[]; total: number }>;
   getCleanerTips(cleanerId: number, filters?: {
     startDate?: Date;
     endDate?: Date;
-  }): Promise<Array<{
-    jobId: number;
-    completedAt: Date;
-    carPlateNumber: string;
-    customerEmail: string;
-    tipAmount: number;
-    cleanerStripeFeeShare: number;
-    remainingTip: number;
-    receiptNumber: string | null;
-  }>>;
+    page?: number;
+    pageSize?: number;
+  }): Promise<{ 
+    data: Array<{
+      jobId: number;
+      completedAt: Date;
+      carPlateNumber: string;
+      customerEmail: string;
+      tipAmount: number;
+      cleanerStripeFeeShare: number;
+      remainingTip: number;
+      receiptNumber: string | null;
+    }>;
+    total: number;
+  }>;
   
   // Company withdrawal operations
   createWithdrawal(withdrawal: InsertCompanyWithdrawal): Promise<CompanyWithdrawal>;
@@ -917,12 +924,26 @@ export class DatabaseStorage implements IStorage {
     return { updated: true, job: result[0] };
   }
 
-  async getJobsByCustomer(customerId: number): Promise<Job[]> {
-    return await db
+  async getJobsByCustomer(customerId: number, page = 1, pageSize = 20): Promise<{ data: Job[]; total: number }> {
+    // Get total count
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobs)
+      .where(eq(jobs.customerId, customerId));
+
+    // Calculate pagination
+    const offset = (page - 1) * pageSize;
+
+    // Get paginated data
+    const data = await db
       .select()
       .from(jobs)
       .where(eq(jobs.customerId, customerId))
-      .orderBy(desc(jobs.createdAt));
+      .orderBy(desc(jobs.createdAt))
+      .limit(pageSize)
+      .offset(offset);
+
+    return { data, total: Number(count) };
   }
 
   async getJobsByPlateNumber(plateNumber: string): Promise<Job[]> {
@@ -1659,8 +1680,10 @@ export class DatabaseStorage implements IStorage {
       cleanerId?: number;
       startDate?: Date;
       endDate?: Date;
+      page?: number;
+      pageSize?: number;
     }
-  ): Promise<JobFinancialsWithCleaner[]> {
+  ): Promise<{ data: JobFinancialsWithCleaner[]; total: number }> {
     const conditions = [eq(jobFinancials.companyId, companyId)];
 
     if (filters?.cleanerId) {
@@ -1674,6 +1697,17 @@ export class DatabaseStorage implements IStorage {
     if (filters?.endDate) {
       conditions.push(sql`${jobFinancials.paidAt} <= ${filters.endDate}`);
     }
+
+    // Get total count
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobFinancials)
+      .where(and(...conditions));
+
+    // Calculate pagination
+    const page = filters?.page || 1;
+    const pageSize = filters?.pageSize || 20;
+    const offset = (page - 1) * pageSize;
 
     // Join with cleaners, users, companies, and jobs to get cleaner details, fee package type, and transaction references
     const results = await db
@@ -1715,9 +1749,11 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(users, eq(cleaners.userId, users.id))
       .leftJoin(companies, eq(jobFinancials.companyId, companies.id))
       .where(and(...conditions))
-      .orderBy(desc(jobFinancials.paidAt));
+      .orderBy(desc(jobFinancials.paidAt))
+      .limit(pageSize)
+      .offset(offset);
 
-    return results;
+    return { data: results, total: Number(count) };
   }
 
   async getCleanerTips(
@@ -1725,17 +1761,22 @@ export class DatabaseStorage implements IStorage {
     filters?: {
       startDate?: Date;
       endDate?: Date;
+      page?: number;
+      pageSize?: number;
     }
-  ): Promise<Array<{
-    jobId: number;
-    completedAt: Date;
-    carPlateNumber: string;
-    customerEmail: string;
-    tipAmount: number;
-    cleanerStripeFeeShare: number;
-    remainingTip: number;
-    receiptNumber: string | null;
-  }>> {
+  ): Promise<{ 
+    data: Array<{
+      jobId: number;
+      completedAt: Date;
+      carPlateNumber: string;
+      customerEmail: string;
+      tipAmount: number;
+      cleanerStripeFeeShare: number;
+      remainingTip: number;
+      receiptNumber: string | null;
+    }>;
+    total: number;
+  }> {
     const conditions = [
       eq(jobFinancials.cleanerId, cleanerId),
       sql`${jobFinancials.tipAmount} > 0`, // Only jobs with tips
@@ -1748,6 +1789,18 @@ export class DatabaseStorage implements IStorage {
     if (filters?.endDate) {
       conditions.push(sql`${jobs.completedAt} <= ${filters.endDate}`);
     }
+
+    // Get total count
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobFinancials)
+      .innerJoin(jobs, eq(jobFinancials.jobId, jobs.id))
+      .where(and(...conditions));
+
+    // Calculate pagination
+    const page = filters?.page || 1;
+    const pageSize = filters?.pageSize || 20;
+    const offset = (page - 1) * pageSize;
 
     const results = await db
       .select({
@@ -1763,15 +1816,20 @@ export class DatabaseStorage implements IStorage {
       .from(jobFinancials)
       .innerJoin(jobs, eq(jobFinancials.jobId, jobs.id))
       .where(and(...conditions))
-      .orderBy(desc(jobs.completedAt));
+      .orderBy(desc(jobs.completedAt))
+      .limit(pageSize)
+      .offset(offset);
 
-    return results.map(r => ({
-      ...r,
-      completedAt: r.completedAt!,
-      tipAmount: Number(r.tipAmount),
-      cleanerStripeFeeShare: Number(r.cleanerStripeFeeShare),
-      remainingTip: Number(r.remainingTip),
-    }));
+    return {
+      data: results.map(r => ({
+        ...r,
+        completedAt: r.completedAt!,
+        tipAmount: Number(r.tipAmount),
+        cleanerStripeFeeShare: Number(r.cleanerStripeFeeShare),
+        remainingTip: Number(r.remainingTip),
+      })),
+      total: Number(count),
+    };
   }
 
   // ===== COMPANY WITHDRAWAL OPERATIONS =====
