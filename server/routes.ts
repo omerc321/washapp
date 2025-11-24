@@ -1500,8 +1500,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Customer ID is required" });
       }
       const customerId = parseInt(customerIdParam as string);
-      const jobs = await storage.getJobsByCustomer(customerId);
-      res.json(jobs);
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const pageSize = req.query.pageSize ? parseInt(req.query.pageSize as string) : 20;
+      
+      const result = await storage.getJobsByCustomer(customerId, page, pageSize);
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -1706,9 +1709,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Cleaner profile not found" });
       }
 
-      const { startDate, endDate } = req.query;
+      const { startDate, endDate, page, pageSize } = req.query;
       
-      const filters: { startDate?: Date; endDate?: Date } = {};
+      const filters: { startDate?: Date; endDate?: Date; page?: number; pageSize?: number } = {};
       if (startDate && typeof startDate === 'string') {
         filters.startDate = new Date(startDate);
       }
@@ -1718,21 +1721,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         end.setHours(23, 59, 59, 999);
         filters.endDate = end;
       }
+      if (page) filters.page = parseInt(page as string);
+      if (pageSize) filters.pageSize = parseInt(pageSize as string);
 
-      const tips = await storage.getCleanerTips(cleaner.id, filters);
+      const result = await storage.getCleanerTips(cleaner.id, filters);
       
       // Calculate totals
-      const totalTips = tips.reduce((sum, t) => sum + Number(t.tipAmount), 0);
-      const totalStripeFees = tips.reduce((sum, t) => sum + Number(t.cleanerStripeFeeShare), 0);
-      const totalReceived = tips.reduce((sum, t) => sum + Number(t.remainingTip), 0);
+      const totalTips = result.data.reduce((sum, t) => sum + Number(t.tipAmount), 0);
+      const totalStripeFees = result.data.reduce((sum, t) => sum + Number(t.cleanerStripeFeeShare), 0);
+      const totalReceived = result.data.reduce((sum, t) => sum + Number(t.remainingTip), 0);
 
       res.json({
-        tips,
+        tips: result.data,
+        total: result.total,
         summary: {
           totalTips,
           totalStripeFees,
           totalReceived,
-          count: tips.length,
+          count: result.data.length,
         },
       });
     } catch (error: any) {
@@ -2964,13 +2970,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/financials/company/:companyId", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
     try {
       const { companyId } = req.params;
+      const { page, pageSize } = req.query;
+      
+      const filters: any = {};
+      if (page) filters.page = parseInt(page as string);
+      if (pageSize) filters.pageSize = parseInt(pageSize as string);
+      
       const summary = await storage.getCompanyFinancialSummary(parseInt(companyId));
-      const jobs = await storage.getCompanyFinancials(parseInt(companyId));
+      const jobsResult = await storage.getCompanyFinancials(parseInt(companyId), filters);
       const withdrawals = await storage.getCompanyWithdrawals(parseInt(companyId));
       
       res.json({
         summary,
-        jobs,
+        jobs: jobsResult.data,
+        jobsTotal: jobsResult.total,
         withdrawals,
       });
     } catch (error: any) {
@@ -3088,15 +3101,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Company not found for user" });
       }
       
-      const { cleanerId, startDate, endDate } = req.query;
+      const { cleanerId, startDate, endDate, page, pageSize } = req.query;
       
       const filters: any = {};
       if (cleanerId) filters.cleanerId = parseInt(cleanerId as string);
       if (startDate) filters.startDate = new Date(startDate as string);
       if (endDate) filters.endDate = new Date(endDate as string);
+      if (page) filters.page = parseInt(page as string);
+      if (pageSize) filters.pageSize = parseInt(pageSize as string);
       
-      const jobs = await storage.getCompanyFinancials(companyId, filters);
-      res.json(jobs);
+      const result = await storage.getCompanyFinancials(companyId, filters);
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
