@@ -89,6 +89,9 @@ export default function CustomerBooking() {
     customerEmail: "",
     requestedCleanerEmail: "",
   });
+  const [carPlateHistory, setCarPlateHistory] = useState<Array<{ customerEmail: string; parkingNumber: string }>>([]);
+  const [loadingCarHistory, setLoadingCarHistory] = useState(false);
+  const [showCarHistoryOptions, setShowCarHistoryOptions] = useState(false);
   
   // Step 3: Location & Company
   const [locationData, setLocationData] = useState({
@@ -126,6 +129,47 @@ export default function CustomerBooking() {
       fetchCompanies();
     }
   }, [locationData, currentStep]);
+
+  // Fetch car plate history when car plate is complete
+  useEffect(() => {
+    const fetchCarPlateHistory = async () => {
+      if (
+        currentStep === 2 &&
+        formData.carPlateEmirate &&
+        formData.carPlateCode &&
+        formData.carPlateNumber
+      ) {
+        setLoadingCarHistory(true);
+        try {
+          const res = await fetch(
+            `/api/customer/car-history/${encodeURIComponent(formData.carPlateEmirate)}/${encodeURIComponent(formData.carPlateCode)}/${encodeURIComponent(formData.carPlateNumber)}`
+          );
+          
+          if (res.ok) {
+            const data = await res.json();
+            if (data.history && data.history.length > 0) {
+              setCarPlateHistory(data.history);
+              setShowCarHistoryOptions(true);
+            } else {
+              setCarPlateHistory([]);
+              setShowCarHistoryOptions(false);
+            }
+          } else {
+            setCarPlateHistory([]);
+            setShowCarHistoryOptions(false);
+          }
+        } catch (error) {
+          console.error("Failed to fetch car plate history:", error);
+          setCarPlateHistory([]);
+          setShowCarHistoryOptions(false);
+        } finally {
+          setLoadingCarHistory(false);
+        }
+      }
+    };
+
+    fetchCarPlateHistory();
+  }, [currentStep, formData.carPlateEmirate, formData.carPlateCode, formData.carPlateNumber]);
 
   const fetchCompanies = async () => {
     setLoadingCompanies(true);
@@ -238,16 +282,6 @@ export default function CustomerBooking() {
 
   // Step 2: Car Details Submit
   const handleStep2Submit = () => {
-    // Prevent accidental skip if user has multiple cars but hasn't selected one
-    if (previousCars.length > 1 && selectedCarIndex === null && !formData.carPlateNumber) {
-      toast({
-        title: "Selection Required",
-        description: "Please select a car or add a new one",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     if (!formData.carPlateEmirate || !formData.carPlateCode || !formData.carPlateNumber) {
       toast({
         title: "Car Plate Required",
@@ -256,10 +290,11 @@ export default function CustomerBooking() {
       });
       return;
     }
-    if (formData.customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.customerEmail)) {
+    
+    if (!formData.customerEmail) {
       toast({
-        title: "Invalid Email",
-        description: "Please enter a valid email address",
+        title: "Email Missing",
+        description: "Email from step 1 is required",
         variant: "destructive",
       });
       return;
@@ -466,15 +501,17 @@ export default function CustomerBooking() {
             />
           )}
 
-          {/* Step 2: Car Details (with auto-fill or selection) */}
+          {/* Step 2: Car Details (with auto-fill from car plate history) */}
           {currentStep === 2 && (
             <Step1CarDetails
               key="step2"
               formData={formData}
               setFormData={setFormData}
-              previousCars={previousCars}
-              selectedCarIndex={selectedCarIndex}
-              setSelectedCarIndex={setSelectedCarIndex}
+              carPlateHistory={carPlateHistory}
+              loadingCarHistory={loadingCarHistory}
+              showCarHistoryOptions={showCarHistoryOptions}
+              setShowCarHistoryOptions={setShowCarHistoryOptions}
+              verifiedEmail={email}
               onSubmit={handleStep2Submit}
             />
           )}
@@ -762,96 +799,29 @@ function Step0EmailOTP({
 function Step1CarDetails({
   formData,
   setFormData,
-  previousCars,
-  selectedCarIndex,
-  setSelectedCarIndex,
+  carPlateHistory,
+  loadingCarHistory,
+  showCarHistoryOptions,
+  setShowCarHistoryOptions,
+  verifiedEmail,
   onSubmit,
 }: {
   formData: BookingFormData;
   setFormData: React.Dispatch<React.SetStateAction<BookingFormData>>;
-  previousCars: PreviousCar[];
-  selectedCarIndex: number | null;
-  setSelectedCarIndex: (index: number | null) => void;
+  carPlateHistory: Array<{ customerEmail: string; parkingNumber: string }>;
+  loadingCarHistory: boolean;
+  showCarHistoryOptions: boolean;
+  setShowCarHistoryOptions: (show: boolean) => void;
+  verifiedEmail: string;
   onSubmit: () => void;
 }) {
-  const handleCarSelect = (index: number) => {
-    const car = previousCars[index];
+  const handleUseHistory = (history: { customerEmail: string; parkingNumber: string }) => {
     setFormData(prev => ({
       ...prev,
-      carPlateEmirate: car.carPlateEmirate,
-      carPlateCode: car.carPlateCode,
-      carPlateNumber: car.carPlateNumber,
-      customerEmail: car.customerEmail,
-      parkingNumber: car.parkingNumber,
+      parkingNumber: history.parkingNumber,
     }));
-    setSelectedCarIndex(index);
+    setShowCarHistoryOptions(false);
   };
-
-  const handleNewCar = () => {
-    setFormData(prev => ({
-      ...prev,
-      carPlateEmirate: "",
-      carPlateCode: "",
-      carPlateNumber: "",
-      customerEmail: "",
-      parkingNumber: "",
-    }));
-    setSelectedCarIndex(null);
-  };
-  // Show car selection if multiple cars and none selected yet
-  if (previousCars.length > 1 && selectedCarIndex === null) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        className="space-y-6 pt-4"
-      >
-        <div className="text-center space-y-2">
-          <h2 className="text-2xl font-bold">Select Your Car</h2>
-          <p className="text-muted-foreground">We found {previousCars.length} cars linked to your number</p>
-        </div>
-
-        <div className="space-y-3">
-          {previousCars.map((car, index) => (
-            <Card
-              key={index}
-              className="p-4 border-2 hover-elevate cursor-pointer transition-all"
-              onClick={() => handleCarSelect(index)}
-              data-testid={`car-option-${index}`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center">
-                    <Car className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-lg">
-                      {car.carPlateEmirate} {car.carPlateCode} {car.carPlateNumber}
-                    </p>
-                    {car.parkingNumber && (
-                      <p className="text-sm text-muted-foreground">Parking: {car.parkingNumber}</p>
-                    )}
-                  </div>
-                </div>
-                <ChevronLeft className="h-5 w-5 rotate-180 text-muted-foreground" />
-              </div>
-            </Card>
-          ))}
-
-          <Button
-            variant="outline"
-            className="w-full h-12"
-            onClick={handleNewCar}
-            data-testid="button-new-car"
-          >
-            <Car className="mr-2 h-4 w-4" />
-            Add a Different Car
-          </Button>
-        </div>
-      </motion.div>
-    );
-  }
 
   // Show car details form (either pre-filled from selection or empty for new car)
   return (
@@ -863,16 +833,7 @@ function Step1CarDetails({
     >
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-bold">Car Details</h2>
-        {previousCars.length > 1 && selectedCarIndex !== null && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSelectedCarIndex(null)}
-            data-testid="button-change-car"
-          >
-            Change Car
-          </Button>
-        )}
+        <p className="text-sm text-muted-foreground">Booking for: {verifiedEmail}</p>
       </div>
 
       <Card className="p-6 space-y-5 border-2 hover-elevate relative overflow-hidden">
@@ -957,6 +918,56 @@ function Step1CarDetails({
             </div>
           </div>
         </div>
+
+        {/* Car History Auto-fill Alert */}
+        {showCarHistoryOptions && carPlateHistory.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-blue-50 dark:bg-blue-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4"
+            data-testid="car-history-alert"
+          >
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
+                <Car className="h-5 w-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-blue-900 dark:text-blue-100 mb-2">
+                  We found this car's history!
+                </p>
+                <div className="space-y-2">
+                  {carPlateHistory.map((history, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between bg-white dark:bg-gray-900 rounded-lg p-3 border border-blue-100 dark:border-blue-900"
+                    >
+                      <div className="text-sm">
+                        <p className="text-muted-foreground">Previous parking:</p>
+                        <p className="font-semibold">{history.parkingNumber || "Not specified"}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => handleUseHistory(history)}
+                        data-testid={`button-use-history-${index}`}
+                      >
+                        Use This
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowCarHistoryOptions(false)}
+                  className="mt-2"
+                  data-testid="button-dismiss-history"
+                >
+                  No thanks, I'll enter manually
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
         
         <div>
           <Label htmlFor="parkingNumber" className="text-base font-medium mb-2 block">
@@ -972,26 +983,6 @@ function Step1CarDetails({
           />
         </div>
 
-        <div>
-          <Label htmlFor="customerEmail" className="text-base font-medium mb-2 block">
-            Email <span className="text-muted-foreground text-xs font-normal">(Optional)</span>
-          </Label>
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input
-              id="customerEmail"
-              data-testid="input-customer-email"
-              type="email"
-              placeholder="your.email@example.com"
-              value={formData.customerEmail || ""}
-              onChange={(e) => setFormData(prev => ({ ...prev, customerEmail: e.target.value }))}
-              className="h-12 text-lg pl-11"
-            />
-          </div>
-          <p className="text-sm text-muted-foreground mt-2">
-            Receive wash status updates and receipt via email
-          </p>
-        </div>
 
         <div>
           <Label htmlFor="cleanerEmail" className="text-base font-medium mb-2 block">
