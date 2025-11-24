@@ -113,7 +113,7 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {};
-  const title = data.title || 'CarWash Pro';
+  const title = data.title || 'Washapp.ae';
   const options = {
     body: data.body || 'You have a new notification',
     icon: '/icon-192.png',

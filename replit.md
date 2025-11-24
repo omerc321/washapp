@@ -1,7 +1,7 @@
-# CarWash Pro - Mobile-First Car Wash Booking Platform
+# Washapp.ae - Mobile-First Car Wash Booking Platform
 
 ## Overview
-CarWash Pro is a professional, mobile-first platform designed for car wash booking, featuring an Uber-style black/white interface. The platform facilitates anonymous customer car wash requests, allows companies to manage their cleaners, and enables cleaners to complete jobs with photo verification. The project aims to capture market potential by streamlining the car wash booking process and providing comprehensive management tools for car wash businesses.
+Washapp.ae is a professional, mobile-first platform designed for car wash booking, featuring an Uber-style black/white interface. The platform facilitates anonymous customer car wash requests, allows companies to manage their cleaners, and enables cleaners to complete jobs with photo verification. The project aims to capture market potential by streamlining the car wash booking process and providing comprehensive management tools for car wash businesses.
 
 ## User Preferences
 I prefer simple language and clear explanations. I want iterative development with frequent, small updates. Ask before making major changes to the architecture or core functionalities. Ensure the code is clean, well-commented, and follows modern React and Node.js best practices. Do not make changes to the `uploads/` folder or modify existing environment variables without explicit confirmation.

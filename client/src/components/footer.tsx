@@ -8,7 +8,7 @@ export function Footer() {
           {/* Logo/Brand */}
           <div className="text-center sm:text-left">
             <h3 className="font-bold text-lg bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              CarWash Pro
+              Washapp.ae
             </h3>
             <p className="text-xs text-muted-foreground mt-1">
               Your trusted car wash marketplace
@@ -36,7 +36,7 @@ export function Footer() {
 
           {/* Copyright */}
           <div className="text-xs text-muted-foreground text-center sm:text-right">
-            © {new Date().getFullYear()} CarWash Pro
+            © {new Date().getFullYear()} Washapp.ae
           </div>
         </div>
       </div>

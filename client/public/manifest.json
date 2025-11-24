@@ -1,6 +1,6 @@
 {
-  "name": "CarWash Pro",
-  "short_name": "CarWash Pro",
+  "name": "Washapp.ae",
+  "short_name": "Washapp.ae",
   "description": "Professional car wash booking platform - Book cleaners, manage jobs, track payments",
   "start_url": "/",
   "display": "standalone",

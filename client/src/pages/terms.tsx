@@ -16,7 +16,7 @@ export default function Terms() {
         <Alert className="mb-8 border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
           <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-500" />
           <AlertDescription className="text-amber-900 dark:text-amber-200">
-            <strong>Important:</strong> CarWash Pro is a marketplace platform that connects customers with independent car wash companies. We do not provide car washing services directly and take no responsibility for damages, quality issues, or service delivery.
+            <strong>Important:</strong> Washapp.ae is a marketplace platform that connects customers with independent car wash companies. We do not provide car washing services directly and take no responsibility for damages, quality issues, or service delivery.
           </AlertDescription>
         </Alert>
 
@@ -28,7 +28,7 @@ export default function Terms() {
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-muted-foreground">
               <p>
-                By accessing or using CarWash Pro ("the Platform", "we", "us", or "our"), you agree to be bound by these Terms and Conditions. If you do not agree to these terms, please do not use the Platform.
+                By accessing or using Washapp.ae ("the Platform", "we", "us", or "our"), you agree to be bound by these Terms and Conditions. If you do not agree to these terms, please do not use the Platform.
               </p>
               <p>
                 These terms apply to all users including customers requesting car wash services, car wash companies, cleaners, and platform administrators.
@@ -43,13 +43,13 @@ export default function Terms() {
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-muted-foreground">
               <p>
-                <strong>2.1 Marketplace Service:</strong> CarWash Pro operates solely as a marketplace platform that facilitates connections between customers ("Car Wash Requesters") and registered car washing companies ("Service Providers"). We are a technology intermediary and not a car wash service provider.
+                <strong>2.1 Marketplace Service:</strong> Washapp.ae operates solely as a marketplace platform that facilitates connections between customers ("Car Wash Requesters") and registered car washing companies ("Service Providers"). We are a technology intermediary and not a car wash service provider.
               </p>
               <p>
                 <strong>2.2 No Direct Service:</strong> We do not employ cleaners, own car wash equipment, or provide car washing services. All services are performed by independent third-party companies and their employees.
               </p>
               <p>
-                <strong>2.3 No Liability for Services:</strong> CarWash Pro expressly disclaims all responsibility and liability for:
+                <strong>2.3 No Liability for Services:</strong> Washapp.ae expressly disclaims all responsibility and liability for:
               </p>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Quality, timeliness, or completion of car wash services</li>
@@ -81,7 +81,7 @@ export default function Terms() {
                 <strong>3.1 Customers:</strong> By booking a car wash, you acknowledge that:
               </p>
               <ul className="list-disc pl-6 space-y-2">
-                <li>You are entering into a direct service agreement with the car wash company, not CarWash Pro</li>
+                <li>You are entering into a direct service agreement with the car wash company, not Washapp.ae</li>
                 <li>You are responsible for removing valuables from your vehicle before service</li>
                 <li>You accept all risks associated with the service</li>
                 <li>You will resolve disputes directly with the service provider</li>
@@ -91,7 +91,7 @@ export default function Terms() {
                 <strong>3.2 Service Providers:</strong> By registering as a company, you acknowledge that:
               </p>
               <ul className="list-disc pl-6 space-y-2">
-                <li>You are an independent business and not an employee or agent of CarWash Pro</li>
+                <li>You are an independent business and not an employee or agent of Washapp.ae</li>
                 <li>You maintain all necessary licenses, insurance, and permits to operate</li>
                 <li>You are solely responsible for service quality and customer satisfaction</li>
                 <li>You will handle customer complaints, disputes, and refunds independently</li>
@@ -128,7 +128,7 @@ export default function Terms() {
                 <strong>5.1 Auto-Refund:</strong> If no cleaner accepts a job within 15 minutes of payment, the booking is automatically cancelled and a full refund is issued.
               </p>
               <p>
-                <strong>5.2 Post-Acceptance:</strong> Once a cleaner accepts a job, cancellations and refunds are at the sole discretion of the service provider. CarWash Pro does not mediate or process refund requests after job acceptance.
+                <strong>5.2 Post-Acceptance:</strong> Once a cleaner accepts a job, cancellations and refunds are at the sole discretion of the service provider. Washapp.ae does not mediate or process refund requests after job acceptance.
               </p>
               <p>
                 <strong>5.3 Disputes:</strong> All service-related disputes must be resolved directly between the customer and service provider. We do not arbitrate disputes or force refunds.
@@ -143,7 +143,7 @@ export default function Terms() {
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-muted-foreground">
               <p>
-                <strong>6.1 Maximum Liability:</strong> To the fullest extent permitted by law, CarWash Pro's total liability for any claims arising from use of the Platform shall not exceed the amount of platform fees collected from the relevant transaction.
+                <strong>6.1 Maximum Liability:</strong> To the fullest extent permitted by law, Washapp.ae's total liability for any claims arising from use of the Platform shall not exceed the amount of platform fees collected from the relevant transaction.
               </p>
               <p>
                 <strong>6.2 No Consequential Damages:</strong> We shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, use, goodwill, or other intangible losses.
@@ -161,7 +161,7 @@ export default function Terms() {
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-muted-foreground">
               <p>
-                You agree to indemnify, defend, and hold harmless CarWash Pro, its officers, directors, employees, and agents from any claims, liabilities, damages, losses, and expenses (including legal fees) arising from:
+                You agree to indemnify, defend, and hold harmless Washapp.ae, its officers, directors, employees, and agents from any claims, liabilities, damages, losses, and expenses (including legal fees) arising from:
               </p>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Your use of the Platform</li>
@@ -197,7 +197,7 @@ export default function Terms() {
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-muted-foreground">
               <p>
-                All content, features, and functionality on the Platform, including but not limited to text, graphics, logos, and software, are owned by CarWash Pro and protected by copyright, trademark, and other intellectual property laws.
+                All content, features, and functionality on the Platform, including but not limited to text, graphics, logos, and software, are owned by Washapp.ae and protected by copyright, trademark, and other intellectual property laws.
               </p>
             </CardContent>
           </Card>
@@ -254,7 +254,7 @@ export default function Terms() {
         {/* Footer */}
         <div className="mt-12 text-center">
           <p className="text-sm text-muted-foreground">
-            By using CarWash Pro, you acknowledge that you have read, understood, and agree to be bound by these Terms and Conditions.
+            By using Washapp.ae, you acknowledge that you have read, understood, and agree to be bound by these Terms and Conditions.
           </p>
         </div>
       </div>

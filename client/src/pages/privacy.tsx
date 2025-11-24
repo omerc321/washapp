@@ -16,7 +16,7 @@ export default function Privacy() {
         <Alert className="mb-8 border-blue-500/50 bg-blue-50 dark:bg-blue-950/20">
           <Info className="h-5 w-5 text-blue-600 dark:text-blue-500" />
           <AlertDescription className="text-blue-900 dark:text-blue-200">
-            <strong>Important:</strong> Car wash booking data is publicly searchable by phone number and car plate number. This data is not considered confidential and is necessary for our service to function. By using CarWash Pro, you consent to this data being accessible to authorized users.
+            <strong>Important:</strong> Car wash booking data is publicly searchable by phone number and car plate number. This data is not considered confidential and is necessary for our service to function. By using Washapp.ae, you consent to this data being accessible to authorized users.
           </AlertDescription>
         </Alert>
 
@@ -28,7 +28,7 @@ export default function Privacy() {
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-muted-foreground">
               <p>
-                CarWash Pro ("we", "us", or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our car wash booking platform.
+                Washapp.ae ("we", "us", or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our car wash booking platform.
               </p>
               <p>
                 Please read this Privacy Policy carefully. By accessing or using the Platform, you acknowledge that you have read, understood, and agree to be bound by this Privacy Policy.
@@ -108,7 +108,7 @@ export default function Privacy() {
                 <li>Providing transparency in service history</li>
               </ul>
               <p>
-                <strong>3.4 Your Consent:</strong> By using CarWash Pro, you explicitly consent to your car wash booking data being searchable and accessible as described above. If you do not agree with this policy, please do not use the Platform.
+                <strong>3.4 Your Consent:</strong> By using Washapp.ae, you explicitly consent to your car wash booking data being searchable and accessible as described above. If you do not agree with this policy, please do not use the Platform.
               </p>
             </CardContent>
           </Card>
@@ -156,7 +156,7 @@ export default function Privacy() {
                 <strong>5.3 Legal Requirements:</strong> We may disclose your information if required by law or in response to valid requests by public authorities.
               </p>
               <p>
-                <strong>5.4 Business Transfers:</strong> If CarWash Pro is involved in a merger, acquisition, or sale of assets, your information may be transferred as part of that transaction.
+                <strong>5.4 Business Transfers:</strong> If Washapp.ae is involved in a merger, acquisition, or sale of assets, your information may be transferred as part of that transaction.
               </p>
             </CardContent>
           </Card>
@@ -248,7 +248,7 @@ export default function Privacy() {
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-muted-foreground">
               <p>
-                CarWash Pro is not intended for use by children under the age of 18. We do not knowingly collect personal information from children. If you believe we have collected information from a child, please contact us immediately.
+                Washapp.ae is not intended for use by children under the age of 18. We do not knowingly collect personal information from children. If you believe we have collected information from a child, please contact us immediately.
               </p>
             </CardContent>
           </Card>
@@ -260,7 +260,7 @@ export default function Privacy() {
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-muted-foreground">
               <p>
-                CarWash Pro operates in the United Arab Emirates. If you access the Platform from outside the UAE, your information may be transferred to and processed in the UAE, which may have different data protection laws than your jurisdiction.
+                Washapp.ae operates in the United Arab Emirates. If you access the Platform from outside the UAE, your information may be transferred to and processed in the UAE, which may have different data protection laws than your jurisdiction.
               </p>
             </CardContent>
           </Card>
@@ -293,7 +293,7 @@ export default function Privacy() {
         {/* Footer */}
         <div className="mt-12 text-center">
           <p className="text-sm text-muted-foreground">
-            By using CarWash Pro, you acknowledge that you have read and understood this Privacy Policy, including the public nature of booking data.
+            By using Washapp.ae, you acknowledge that you have read and understood this Privacy Policy, including the public nature of booking data.
           </p>
         </div>
       </div>

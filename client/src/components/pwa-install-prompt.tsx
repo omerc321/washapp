@@ -75,7 +75,7 @@ export function PWAInstallPrompt() {
           <div className="flex items-start gap-3">
             <div className="flex-1">
               <h3 className="font-semibold text-sm mb-1" data-testid="text-pwa-title">
-                Install CarWash Pro
+                Install Washapp.ae
               </h3>
               <p className="text-xs text-muted-foreground mb-3" data-testid="text-pwa-description">
                 Install our app for a faster experience and easy access from your home screen
