@@ -237,6 +237,29 @@ export const cleanerShiftsRelations = relations(cleanerShifts, ({ one }) => ({
   }),
 }));
 
+// Cleaner Payment Tokens Table - For QR code payment links
+export const cleanerPaymentTokens = pgTable("cleaner_payment_tokens", {
+  id: serial("id").primaryKey(),
+  cleanerId: integer("cleaner_id").notNull().references(() => cleaners.id, { onDelete: "cascade" }),
+  companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  isUsed: integer("is_used").notNull().default(0),
+  usedAt: timestamp("used_at"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const cleanerPaymentTokensRelations = relations(cleanerPaymentTokens, ({ one }) => ({
+  cleaner: one(cleaners, {
+    fields: [cleanerPaymentTokens.cleanerId],
+    references: [cleaners.id],
+  }),
+  company: one(companies, {
+    fields: [cleanerPaymentTokens.companyId],
+    references: [companies.id],
+  }),
+}));
+
 // Jobs Table
 export const jobs = pgTable("jobs", {
   id: serial("id").primaryKey(),
@@ -630,6 +653,13 @@ export const insertCleanerShiftSchema = createInsertSchema(cleanerShifts).omit({
 
 export const selectCleanerShiftSchema = createSelectSchema(cleanerShifts);
 
+export const insertCleanerPaymentTokenSchema = createInsertSchema(cleanerPaymentTokens).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const selectCleanerPaymentTokenSchema = createSelectSchema(cleanerPaymentTokens);
+
 // TypeScript Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -657,6 +687,8 @@ export type InsertCleanerGeofenceAssignment = z.infer<typeof insertCleanerGeofen
 
 export type CleanerShift = typeof cleanerShifts.$inferSelect;
 export type InsertCleanerShift = z.infer<typeof insertCleanerShiftSchema>;
+export type CleanerPaymentToken = typeof cleanerPaymentTokens.$inferSelect;
+export type InsertCleanerPaymentToken = z.infer<typeof insertCleanerPaymentTokenSchema>;
 
 export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
