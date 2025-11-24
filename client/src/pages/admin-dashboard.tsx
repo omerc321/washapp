@@ -26,6 +26,35 @@ interface CompanyFinancialSummary {
   availableBalance: number;
 }
 
+interface JobFinancial {
+  id: number;
+  jobId: number;
+  cleanerId: number | null;
+  baseJobAmount: string;
+  baseTax: string;
+  tipAmount: string;
+  tipTax: string;
+  platformFeeAmount: string;
+  platformFeeTax: string;
+  paymentProcessingFeeAmount: string;
+  companyStripeFeeShare: string;
+  cleanerStripeFeeShare: string;
+  remainingTip: string;
+  grossAmount: string;
+  netPayableAmount: string;
+  taxAmount: string;
+  paidAt: Date;
+  refundedAt: Date | null;
+  cleanerName: string | null;
+  cleanerEmail: string | null;
+  cleanerPhone: string | null;
+  feePackageType: string | null;
+  receiptNumber: string | null;
+  stripePaymentIntentId: string | null;
+  stripeRefundId: string | null;
+  jobStatus: string | null;
+}
+
 function FinancialsTab() {
   const { toast } = useToast();
   const [selectedCompany, setSelectedCompany] = useState<number | null>(null);
@@ -34,9 +63,6 @@ function FinancialsTab() {
   const [referenceNumber, setReferenceNumber] = useState("");
   const [note, setNote] = useState("");
   const [status, setStatus] = useState<'completed' | 'cancelled'>('completed');
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentDescription, setPaymentDescription] = useState("");
   const [feeStructureDialogOpen, setFeeStructureDialogOpen] = useState(false);
   const [editFeePackageType, setEditFeePackageType] = useState("custom");
   const [editPlatformFee, setEditPlatformFee] = useState("3.00");
@@ -47,11 +73,6 @@ function FinancialsTab() {
 
   const { data: companyDetails, isLoading: loadingDetails } = useQuery({
     queryKey: ["/api/admin/financials/company", selectedCompany],
-    enabled: !!selectedCompany,
-  });
-
-  const { data: transactions = [], isLoading: loadingTransactions } = useQuery<Transaction[]>({
-    queryKey: ["/api/admin/financials/company", selectedCompany, "transactions"],
     enabled: !!selectedCompany,
   });
 
@@ -69,31 +90,6 @@ function FinancialsTab() {
       toast({
         title: "Withdrawal Processed",
         description: "The withdrawal has been updated successfully.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const createPaymentMutation = useMutation({
-    mutationFn: async (data: { amount: number; description: string }) => {
-      return await apiRequest("POST", `/api/admin/financials/company/${selectedCompany}/transactions`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/financials/companies"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/financials/company", selectedCompany] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/financials/company", selectedCompany, "transactions"] });
-      setPaymentDialogOpen(false);
-      setPaymentAmount("");
-      setPaymentDescription("");
-      toast({
-        title: "Payment Transaction Created",
-        description: "The payment has been recorded successfully.",
       });
     },
     onError: (error: Error) => {
@@ -250,78 +246,103 @@ function FinancialsTab() {
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <div>
-              <CardTitle>Transaction History</CardTitle>
-              <CardDescription>All financial transactions for this company</CardDescription>
-            </div>
-            <Button
-              onClick={() => setPaymentDialogOpen(true)}
-              data-testid="button-add-payment"
-            >
-              <Banknote className="h-4 w-4 mr-2" />
-              Add Payment
-            </Button>
+          <CardHeader>
+            <CardTitle>Job History</CardTitle>
+            <CardDescription>All job financials for this company</CardDescription>
           </CardHeader>
           <CardContent>
-            {loadingTransactions ? (
-              <p className="text-center text-muted-foreground py-8">Loading transactions...</p>
-            ) : transactions.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Job ID</TableHead>
-                    <TableHead>Txn Ref</TableHead>
-                    <TableHead>Receipt Ref</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {transactions.map((transaction) => {
-                    const typeLabels: Record<string, string> = {
-                      customer_payment: 'Customer Payment',
-                      admin_payment: 'Admin Payment',
-                      refund: 'Refund',
-                      withdrawal: 'Withdrawal',
-                    };
-                    const typeColors: Record<string, string> = {
-                      customer_payment: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100',
-                      admin_payment: 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-100',
-                      refund: 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100',
-                      withdrawal: 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-100',
-                    };
-                    const isCredit = transaction.direction === 'credit';
-                    const displayType = typeLabels[transaction.type] || transaction.type;
-                    
-                    return (
-                      <TableRow key={transaction.id} data-testid={`transaction-${transaction.id}`}>
-                        <TableCell className="text-sm">{new Date(transaction.createdAt).toLocaleDateString('en-AE', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Dubai' })}</TableCell>
-                        <TableCell>
-                          <span className={`inline-block px-2 py-1 text-xs rounded-full ${
-                            typeColors[transaction.type] || 'bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100'
-                          }`}>
-                            {displayType}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-sm font-mono" data-testid={`transaction-job-${transaction.id}`}>
-                          {transaction.jobId ? `#${transaction.jobId}` : '—'}
-                        </TableCell>
-                        <TableCell className="text-sm font-mono">{transaction.referenceNumber}</TableCell>
-                        <TableCell className="text-sm">—</TableCell>
-                        <TableCell className="text-sm">{transaction.description || "—"}</TableCell>
-                        <TableCell className={`text-right font-medium ${isCredit ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                          {isCredit ? '+' : '-'}{Number(transaction.amount).toFixed(2)} {transaction.currency}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+            {loadingDetails ? (
+              <p className="text-center text-muted-foreground py-8">Loading job history...</p>
+            ) : companyDetails?.jobs && companyDetails.jobs.length > 0 ? (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Job ID</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Receipt #</TableHead>
+                      <TableHead>Stripe Ref</TableHead>
+                      <TableHead>Cleaner</TableHead>
+                      <TableHead>Base Amount</TableHead>
+                      <TableHead>Base Tax</TableHead>
+                      <TableHead>Total Tip</TableHead>
+                      <TableHead>Tip VAT</TableHead>
+                      <TableHead>Remaining Tip</TableHead>
+                      <TableHead>Platform Fee</TableHead>
+                      <TableHead>Platform Tax</TableHead>
+                      <TableHead>Stripe Fee</TableHead>
+                      <TableHead>Gross</TableHead>
+                      <TableHead>Net</TableHead>
+                      <TableHead>Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {companyDetails.jobs.map((job: JobFinancial) => {
+                      const isRefunded = job.refundedAt !== null;
+                      const isPackage2 = (job.feePackageType || 'custom').toLowerCase() === 'package2';
+                      const tipAmount = parseFloat(job.tipAmount || "0");
+                      const tipTax = parseFloat(job.tipTax || "0");
+                      const totalTip = tipAmount + tipTax;
+                      const remainingTip = parseFloat(job.remainingTip || "0");
+                      const hasTip = totalTip > 0;
+                      
+                      const statusDisplay = job.jobStatus === 'refunded_unattended' ? 'Refunded (Unattended)' :
+                                          job.jobStatus === 'refunded' ? 'Refunded (Manual)' :
+                                          job.jobStatus?.toUpperCase() || 'N/A';
+                      const statusColor = job.jobStatus?.includes('refunded') ? 'text-red-600 dark:text-red-400' : 
+                                        job.jobStatus === 'completed' ? 'text-green-600 dark:text-green-400' :
+                                        'text-muted-foreground';
+                      
+                      return (
+                        <TableRow key={job.id} data-testid={`job-${job.id}`}>
+                          <TableCell className="font-medium">#{job.jobId}</TableCell>
+                          <TableCell className={`min-w-[120px] ${statusColor}`}>{statusDisplay}</TableCell>
+                          <TableCell className="font-mono text-xs min-w-[150px]">{job.receiptNumber || '-'}</TableCell>
+                          <TableCell className="font-mono text-xs min-w-[180px]">
+                            <div className="flex flex-col gap-1">
+                              {job.stripePaymentIntentId && (
+                                <div className="text-green-600 dark:text-green-400" title="Payment Intent ID">
+                                  Pay: {job.stripePaymentIntentId.substring(0, 20)}...
+                                </div>
+                              )}
+                              {job.stripeRefundId && (
+                                <div className="text-red-600 dark:text-red-400" title="Refund ID">
+                                  Ref: {job.stripeRefundId.substring(0, 20)}...
+                                </div>
+                              )}
+                              {!job.stripePaymentIntentId && !job.stripeRefundId && '-'}
+                            </div>
+                          </TableCell>
+                          <TableCell className="min-w-[120px]">{job.cleanerName || "Unassigned"}</TableCell>
+                          <TableCell className="min-w-[100px]">{parseFloat(job.baseJobAmount || "0").toFixed(2)} AED</TableCell>
+                          <TableCell className="min-w-[80px]">{parseFloat(job.baseTax || "0").toFixed(2)} AED</TableCell>
+                          <TableCell className="text-primary font-medium min-w-[100px]">
+                            {hasTip ? `${totalTip.toFixed(2)} AED` : "-"}
+                          </TableCell>
+                          <TableCell className="min-w-[80px]">
+                            {hasTip ? `${tipTax.toFixed(2)} AED` : "-"}
+                          </TableCell>
+                          <TableCell className="text-green-600 dark:text-green-400 font-medium min-w-[120px]">
+                            {hasTip ? `${remainingTip.toFixed(2)} AED` : "-"}
+                          </TableCell>
+                          <TableCell className="min-w-[110px]">{parseFloat(job.platformFeeAmount || "0").toFixed(2)} AED</TableCell>
+                          <TableCell className="min-w-[100px]">{parseFloat(job.platformFeeTax || "0").toFixed(2)} AED</TableCell>
+                          <TableCell className="min-w-[100px]">
+                            {isPackage2 ? `${parseFloat(job.paymentProcessingFeeAmount || "0").toFixed(2)} AED` : "-"}
+                          </TableCell>
+                          <TableCell className="font-medium min-w-[100px]">{parseFloat(job.grossAmount || "0").toFixed(2)} AED</TableCell>
+                          <TableCell className={`font-medium min-w-[100px] ${isRefunded ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                            {parseFloat(job.netPayableAmount || "0").toFixed(2)} AED
+                          </TableCell>
+                          <TableCell className="text-sm min-w-[100px]">{new Date(job.paidAt).toLocaleDateString('en-AE', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Dubai' })}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
             ) : (
-              <p className="text-center text-muted-foreground py-8">No transactions yet</p>
+              <p className="text-center text-muted-foreground py-8">No job history available</p>
             )}
           </CardContent>
         </Card>
@@ -392,75 +413,6 @@ function FinancialsTab() {
                 data-testid="button-submit-withdrawal"
               >
                 Update Withdrawal
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-          <DialogContent data-testid="dialog-add-payment">
-            <DialogHeader>
-              <DialogTitle>Add Payment Transaction</DialogTitle>
-              <DialogDescription>
-                Record a payment that reduces the company balance
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 pt-4">
-              <div>
-                <Label htmlFor="payment-amount">Amount (AED)</Label>
-                <Input
-                  id="payment-amount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={paymentAmount}
-                  onChange={(e) => setPaymentAmount(e.target.value)}
-                  data-testid="input-payment-amount"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Available balance: {companyDetails?.summary.availableBalance.toFixed(2)} AED
-                </p>
-              </div>
-              <div>
-                <Label htmlFor="payment-description">Description</Label>
-                <Textarea
-                  id="payment-description"
-                  placeholder="Payment description or reference"
-                  value={paymentDescription}
-                  onChange={(e) => setPaymentDescription(e.target.value)}
-                  data-testid="textarea-payment-description"
-                />
-              </div>
-              <Button
-                className="w-full"
-                onClick={() => {
-                  const amount = parseFloat(paymentAmount);
-                  if (!amount || amount <= 0) {
-                    toast({
-                      title: "Invalid Amount",
-                      description: "Please enter a valid amount greater than 0",
-                      variant: "destructive",
-                    });
-                    return;
-                  }
-                  if (!paymentDescription.trim()) {
-                    toast({
-                      title: "Description Required",
-                      description: "Please enter a description for this payment",
-                      variant: "destructive",
-                    });
-                    return;
-                  }
-                  createPaymentMutation.mutate({
-                    amount,
-                    description: paymentDescription.trim(),
-                  });
-                }}
-                disabled={createPaymentMutation.isPending}
-                data-testid="button-submit-payment"
-              >
-                Create Payment Transaction
               </Button>
             </div>
           </DialogContent>
