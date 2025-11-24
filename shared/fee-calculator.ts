@@ -1,5 +1,5 @@
 /**
- * Fee calculation utilities for CarWash Pro
+ * Fee calculation utilities for Washapp.ae
  * Supports three fee package types with consistent VAT calculations
  */
 

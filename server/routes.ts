@@ -370,8 +370,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ] : defaultIcons;
 
       const manifest = {
-        name: platformSettings.companyName || "CarWash Pro",
-        short_name: platformSettings.companyName || "CarWash Pro",
+        name: platformSettings.companyName || "Washapp.ae",
+        short_name: platformSettings.companyName || "Washapp.ae",
         description: "Professional car wash booking platform - Book cleaners, manage jobs, track payments",
         start_url: "/",
         display: "standalone",
@@ -390,8 +390,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // On error, return a valid manifest with default icons
       const fallbackManifest = {
-        name: "CarWash Pro",
-        short_name: "CarWash Pro",
+        name: "Washapp.ae",
+        short_name: "Washapp.ae",
         description: "Professional car wash booking platform - Book cleaners, manage jobs, track payments",
         start_url: "/",
         display: "standalone",
@@ -440,7 +440,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const response = await fetch(nominatimUrl, {
         headers: {
-          'User-Agent': 'CarWash Pro/1.0',
+          'User-Agent': 'Washapp.ae/1.0',
           'Accept-Language': 'en',
         },
       });
@@ -3401,7 +3401,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Send OTP email via Resend
       await sendEmail(
         email,
-        'Verify Your Email - CarWash Pro',
+        'Verify Your Email - Washapp.ae',
         `
           <h2>Email Verification Code</h2>
           <p>Your verification code is: <strong style="font-size: 24px; color: #0ea5e9;">${code}</strong></p>

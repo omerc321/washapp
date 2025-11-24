@@ -151,7 +151,7 @@ export default function About() {
                   <div className="pt-8 px-4 h-full bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800">
                     <div className="space-y-4">
                       <div className="h-12 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                        CarWash Pro
+                        Washapp.ae
                       </div>
                       <div className="space-y-2">
                         <div className="h-10 bg-white dark:bg-gray-700 rounded-lg shadow" />
@@ -328,7 +328,7 @@ export default function About() {
                 How It Works
               </CardTitle>
               <CardDescription>
-                CarWash Pro is a marketplace that connects car wash requesters with verified car washing companies
+                Washapp.ae is a marketplace that connects car wash requesters with verified car washing companies
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
