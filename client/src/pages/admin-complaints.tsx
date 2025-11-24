@@ -3,21 +3,35 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Complaint } from "@shared/schema";
-import { useState } from "react";
-import { CheckCircle2, DollarSign } from "lucide-react";
+import { useState, useMemo } from "react";
+import { CheckCircle2, DollarSign, Search } from "lucide-react";
 
 export default function AdminComplaints() {
   const { toast } = useToast();
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [searchReference, setSearchReference] = useState<string>("");
 
   const { data: complaints = [], isLoading } = useQuery<Complaint[]>({
     queryKey: ["/api/admin/complaints"],
   });
+
+  // Filter complaints based on status and search
+  const filteredComplaints = useMemo(() => {
+    return complaints.filter((complaint) => {
+      const matchesStatus = statusFilter === "all" || complaint.status === statusFilter;
+      const matchesSearch = searchReference === "" || 
+        complaint.referenceNumber.toLowerCase().includes(searchReference.toLowerCase());
+      return matchesStatus && matchesSearch;
+    });
+  }, [complaints, statusFilter, searchReference]);
 
   const refundMutation = useMutation({
     mutationFn: async (complaintId: number) => {
@@ -90,16 +104,46 @@ export default function AdminComplaints() {
           <CardHeader>
             <CardTitle>All Complaints</CardTitle>
             <CardDescription>
-              {complaints.length} total complaints across all companies
+              {filteredComplaints.length} of {complaints.length} complaints
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Filters */}
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by reference number..."
+                    value={searchReference}
+                    onChange={(e) => setSearchReference(e.target.value)}
+                    className="pl-9"
+                    data-testid="input-search-reference"
+                  />
+                </div>
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-48" data-testid="select-status-filter">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="refunded">Refunded</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {isLoading ? (
               <p className="text-center py-8 text-muted-foreground">Loading...</p>
-            ) : complaints.length === 0 ? (
+            ) : filteredComplaints.length === 0 ? (
               <div className="text-center py-12">
                 <CheckCircle2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No complaints yet</p>
+                <p className="text-muted-foreground">
+                  {complaints.length === 0 ? "No complaints yet" : "No complaints match your filters"}
+                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -117,7 +161,7 @@ export default function AdminComplaints() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {complaints.map((complaint) => (
+                    {filteredComplaints.map((complaint) => (
                       <TableRow key={complaint.id} data-testid={`complaint-row-${complaint.id}`}>
                         <TableCell className="font-mono text-sm">
                           {complaint.referenceNumber}
