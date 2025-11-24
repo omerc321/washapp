@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,6 +15,7 @@ import { AdminAnalytics, Company, Transaction, CompanyWithdrawal } from "@shared
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
+import { PaginationControls } from "@/components/PaginationControls";
 
 interface CompanyFinancialSummary {
   companyId: number;
@@ -58,6 +59,7 @@ interface JobFinancial {
 function FinancialsTab() {
   const { toast } = useToast();
   const [selectedCompany, setSelectedCompany] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
   const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false);
   const [selectedWithdrawal, setSelectedWithdrawal] = useState<CompanyWithdrawal | null>(null);
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -67,14 +69,29 @@ function FinancialsTab() {
   const [editFeePackageType, setEditFeePackageType] = useState("custom");
   const [editPlatformFee, setEditPlatformFee] = useState("3.00");
 
+  const pageSize = 20;
+
   const { data: companies, isLoading: loadingCompanies } = useQuery<CompanyFinancialSummary[]>({
     queryKey: ["/api/admin/financials/companies"],
   });
 
   const { data: companyDetails, isLoading: loadingDetails } = useQuery({
-    queryKey: ["/api/admin/financials/company", selectedCompany],
+    queryKey: ["/api/admin/financials/company", selectedCompany, page],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        pageSize: pageSize.toString(),
+      });
+      const response = await fetch(`/api/admin/financials/company/${selectedCompany}?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch company details');
+      return response.json();
+    },
     enabled: !!selectedCompany,
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedCompany]);
 
   const processWithdrawalMutation = useMutation({
     mutationFn: async (data: { id: number; status: string; referenceNumber?: string; note?: string }) => {
@@ -82,7 +99,7 @@ function FinancialsTab() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/financials/companies"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/financials/company", selectedCompany] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/financials/company", selectedCompany, page] });
       setWithdrawalDialogOpen(false);
       setSelectedWithdrawal(null);
       setReferenceNumber("");
@@ -107,7 +124,7 @@ function FinancialsTab() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/financials/companies"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/financials/company", selectedCompany] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/financials/company", selectedCompany, page] });
       setFeeStructureDialogOpen(false);
       setEditPlatformFee("3.00");
       setEditFeePackageType("custom");
@@ -126,6 +143,10 @@ function FinancialsTab() {
   });
 
   if (selectedCompany && companyDetails) {
+    const jobs = companyDetails.jobs || [];
+    const jobsTotal = companyDetails.jobsTotal || 0;
+    const totalPages = Math.ceil(jobsTotal / pageSize);
+
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center">
@@ -253,93 +274,100 @@ function FinancialsTab() {
           <CardContent>
             {loadingDetails ? (
               <p className="text-center text-muted-foreground py-8">Loading job history...</p>
-            ) : companyDetails?.jobs && companyDetails.jobs.length > 0 ? (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Job ID</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Receipt #</TableHead>
-                      <TableHead>Stripe Ref</TableHead>
-                      <TableHead>Cleaner</TableHead>
-                      <TableHead>Base Amount</TableHead>
-                      <TableHead>Base Tax</TableHead>
-                      <TableHead>Total Tip</TableHead>
-                      <TableHead>Tip VAT</TableHead>
-                      <TableHead>Remaining Tip</TableHead>
-                      <TableHead>Platform Fee</TableHead>
-                      <TableHead>Platform Tax</TableHead>
-                      <TableHead>Stripe Fee</TableHead>
-                      <TableHead>Gross</TableHead>
-                      <TableHead>Net</TableHead>
-                      <TableHead>Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {companyDetails.jobs.map((job: JobFinancial) => {
-                      const isRefunded = job.refundedAt !== null;
-                      const isPackage2 = (job.feePackageType || 'custom').toLowerCase() === 'package2';
-                      const tipAmount = parseFloat(job.tipAmount || "0");
-                      const tipTax = parseFloat(job.tipTax || "0");
-                      const totalTip = tipAmount + tipTax;
-                      const remainingTip = parseFloat(job.remainingTip || "0");
-                      const hasTip = totalTip > 0;
-                      
-                      const statusDisplay = job.jobStatus === 'refunded_unattended' ? 'Refunded (Unattended)' :
-                                          job.jobStatus === 'refunded' ? 'Refunded (Manual)' :
-                                          job.jobStatus?.toUpperCase() || 'N/A';
-                      const statusColor = job.jobStatus?.includes('refunded') ? 'text-red-600 dark:text-red-400' : 
-                                        job.jobStatus === 'completed' ? 'text-green-600 dark:text-green-400' :
-                                        'text-muted-foreground';
-                      
-                      return (
-                        <TableRow key={job.id} data-testid={`job-${job.id}`}>
-                          <TableCell className="font-medium">#{job.jobId}</TableCell>
-                          <TableCell className={`min-w-[120px] ${statusColor}`}>{statusDisplay}</TableCell>
-                          <TableCell className="font-mono text-xs min-w-[150px]">{job.receiptNumber || '-'}</TableCell>
-                          <TableCell className="font-mono text-xs min-w-[180px]">
-                            <div className="flex flex-col gap-1">
-                              {job.stripePaymentIntentId && (
-                                <div className="text-green-600 dark:text-green-400" title="Payment Intent ID">
-                                  Pay: {job.stripePaymentIntentId.substring(0, 20)}...
-                                </div>
-                              )}
-                              {job.stripeRefundId && (
-                                <div className="text-red-600 dark:text-red-400" title="Refund ID">
-                                  Ref: {job.stripeRefundId.substring(0, 20)}...
-                                </div>
-                              )}
-                              {!job.stripePaymentIntentId && !job.stripeRefundId && '-'}
-                            </div>
-                          </TableCell>
-                          <TableCell className="min-w-[120px]">{job.cleanerName || "Unassigned"}</TableCell>
-                          <TableCell className="min-w-[100px]">{parseFloat(job.baseJobAmount || "0").toFixed(2)} AED</TableCell>
-                          <TableCell className="min-w-[80px]">{parseFloat(job.baseTax || "0").toFixed(2)} AED</TableCell>
-                          <TableCell className="text-primary font-medium min-w-[100px]">
-                            {hasTip ? `${totalTip.toFixed(2)} AED` : "-"}
-                          </TableCell>
-                          <TableCell className="min-w-[80px]">
-                            {hasTip ? `${tipTax.toFixed(2)} AED` : "-"}
-                          </TableCell>
-                          <TableCell className="text-green-600 dark:text-green-400 font-medium min-w-[120px]">
-                            {hasTip ? `${remainingTip.toFixed(2)} AED` : "-"}
-                          </TableCell>
-                          <TableCell className="min-w-[110px]">{parseFloat(job.platformFeeAmount || "0").toFixed(2)} AED</TableCell>
-                          <TableCell className="min-w-[100px]">{parseFloat(job.platformFeeTax || "0").toFixed(2)} AED</TableCell>
-                          <TableCell className="min-w-[100px]">
-                            {isPackage2 ? `${parseFloat(job.paymentProcessingFeeAmount || "0").toFixed(2)} AED` : "-"}
-                          </TableCell>
-                          <TableCell className="font-medium min-w-[100px]">{parseFloat(job.grossAmount || "0").toFixed(2)} AED</TableCell>
-                          <TableCell className={`font-medium min-w-[100px] ${isRefunded ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                            {parseFloat(job.netPayableAmount || "0").toFixed(2)} AED
-                          </TableCell>
-                          <TableCell className="text-sm min-w-[100px]">{new Date(job.paidAt).toLocaleDateString('en-AE', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Dubai' })}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+            ) : jobs && jobs.length > 0 ? (
+              <div className="space-y-4">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Job ID</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Receipt #</TableHead>
+                        <TableHead>Stripe Ref</TableHead>
+                        <TableHead>Cleaner</TableHead>
+                        <TableHead>Base Amount</TableHead>
+                        <TableHead>Base Tax</TableHead>
+                        <TableHead>Total Tip</TableHead>
+                        <TableHead>Tip VAT</TableHead>
+                        <TableHead>Remaining Tip</TableHead>
+                        <TableHead>Platform Fee</TableHead>
+                        <TableHead>Platform Tax</TableHead>
+                        <TableHead>Stripe Fee</TableHead>
+                        <TableHead>Gross</TableHead>
+                        <TableHead>Net</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {jobs.map((job: JobFinancial) => {
+                        const isRefunded = job.refundedAt !== null;
+                        const isPackage2 = (job.feePackageType || 'custom').toLowerCase() === 'package2';
+                        const tipAmount = parseFloat(job.tipAmount || "0");
+                        const tipTax = parseFloat(job.tipTax || "0");
+                        const totalTip = tipAmount + tipTax;
+                        const remainingTip = parseFloat(job.remainingTip || "0");
+                        const hasTip = totalTip > 0;
+                        
+                        const statusDisplay = job.jobStatus === 'refunded_unattended' ? 'Refunded (Unattended)' :
+                                            job.jobStatus === 'refunded' ? 'Refunded (Manual)' :
+                                            job.jobStatus?.toUpperCase() || 'N/A';
+                        const statusColor = job.jobStatus?.includes('refunded') ? 'text-red-600 dark:text-red-400' : 
+                                          job.jobStatus === 'completed' ? 'text-green-600 dark:text-green-400' :
+                                          'text-muted-foreground';
+                        
+                        return (
+                          <TableRow key={job.id} data-testid={`job-${job.id}`}>
+                            <TableCell className="font-medium">#{job.jobId}</TableCell>
+                            <TableCell className={`min-w-[120px] ${statusColor}`}>{statusDisplay}</TableCell>
+                            <TableCell className="font-mono text-xs min-w-[150px]">{job.receiptNumber || '-'}</TableCell>
+                            <TableCell className="font-mono text-xs min-w-[180px]">
+                              <div className="flex flex-col gap-1">
+                                {job.stripePaymentIntentId && (
+                                  <div className="text-green-600 dark:text-green-400" title="Payment Intent ID">
+                                    Pay: {job.stripePaymentIntentId.substring(0, 20)}...
+                                  </div>
+                                )}
+                                {job.stripeRefundId && (
+                                  <div className="text-red-600 dark:text-red-400" title="Refund ID">
+                                    Ref: {job.stripeRefundId.substring(0, 20)}...
+                                  </div>
+                                )}
+                                {!job.stripePaymentIntentId && !job.stripeRefundId && '-'}
+                              </div>
+                            </TableCell>
+                            <TableCell className="min-w-[120px]">{job.cleanerName || "Unassigned"}</TableCell>
+                            <TableCell className="min-w-[100px]">{parseFloat(job.baseJobAmount || "0").toFixed(2)} AED</TableCell>
+                            <TableCell className="min-w-[80px]">{parseFloat(job.baseTax || "0").toFixed(2)} AED</TableCell>
+                            <TableCell className="text-primary font-medium min-w-[100px]">
+                              {hasTip ? `${totalTip.toFixed(2)} AED` : "-"}
+                            </TableCell>
+                            <TableCell className="min-w-[80px]">
+                              {hasTip ? `${tipTax.toFixed(2)} AED` : "-"}
+                            </TableCell>
+                            <TableCell className="text-green-600 dark:text-green-400 font-medium min-w-[120px]">
+                              {hasTip ? `${remainingTip.toFixed(2)} AED` : "-"}
+                            </TableCell>
+                            <TableCell className="min-w-[110px]">{parseFloat(job.platformFeeAmount || "0").toFixed(2)} AED</TableCell>
+                            <TableCell className="min-w-[100px]">{parseFloat(job.platformFeeTax || "0").toFixed(2)} AED</TableCell>
+                            <TableCell className="min-w-[100px]">
+                              {isPackage2 ? `${parseFloat(job.paymentProcessingFeeAmount || "0").toFixed(2)} AED` : "-"}
+                            </TableCell>
+                            <TableCell className="font-medium min-w-[100px]">{parseFloat(job.grossAmount || "0").toFixed(2)} AED</TableCell>
+                            <TableCell className={`font-medium min-w-[100px] ${isRefunded ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                              {parseFloat(job.netPayableAmount || "0").toFixed(2)} AED
+                            </TableCell>
+                            <TableCell className="text-sm min-w-[100px]">{new Date(job.paidAt).toLocaleDateString('en-AE', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Dubai' })}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+                <PaginationControls
+                  currentPage={page}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                />
               </div>
             ) : (
               <p className="text-center text-muted-foreground py-8">No job history available</p>

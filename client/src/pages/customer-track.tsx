@@ -17,6 +17,7 @@ import { useWebSocket } from "@/hooks/use-websocket";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import logoUrl from "@assets/IMG_2508_1762619079711.png";
 import { motion } from "framer-motion";
+import { PaginationControls } from "@/components/PaginationControls";
 
 // UAE Emirates list
 const UAE_EMIRATES = [
@@ -69,6 +70,10 @@ export default function CustomerTrack() {
   // Phone number state
   const [phoneNumber, setPhoneNumber] = useState("");
 
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+
   const fullPlateNumber = params?.plateNumber || "";
 
   // Sync search method with URL on mount and when URL changes
@@ -116,12 +121,17 @@ export default function CustomerTrack() {
   const searchPhone = isPhoneSearch ? fullPlateNumber.substring(6) : '';
   const searchPlate = isPhoneSearch ? '' : fullPlateNumber;
 
-  const { data: jobs, isLoading } = useQuery<Job[]>({
-    queryKey: ["/api/jobs/track", fullPlateNumber],
+  // Reset page to 1 when switching between different tracking modes
+  useEffect(() => {
+    setPage(1);
+  }, [fullPlateNumber]);
+
+  const { data: jobsResponse, isLoading } = useQuery<{data: Job[], total: number}>({
+    queryKey: ["/api/jobs/track", fullPlateNumber, page],
     queryFn: async () => {
       if (isPhoneSearch) {
         // Fetch by phone number (searchPhone is already decoded from URL)
-        const res = await fetch(`/api/jobs/track-by-phone/${searchPhone}`, {
+        const res = await fetch(`/api/jobs/track-by-phone/${searchPhone}?page=${page}&pageSize=${pageSize}`, {
           cache: 'no-store',
           headers: {
             'Cache-Control': 'no-cache',
@@ -132,7 +142,7 @@ export default function CustomerTrack() {
         return res.json();
       } else {
         // Fetch by plate number
-        const res = await fetch(`/api/jobs/track/${searchPlate}`, {
+        const res = await fetch(`/api/jobs/track/${searchPlate}?page=${page}&pageSize=${pageSize}`, {
           cache: 'no-store',
           headers: {
             'Cache-Control': 'no-cache',
@@ -150,6 +160,10 @@ export default function CustomerTrack() {
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
+
+  const jobs = jobsResponse?.data || [];
+  const totalJobs = jobsResponse?.total || 0;
+  const totalPages = Math.ceil(totalJobs / pageSize);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -606,6 +620,14 @@ export default function CustomerTrack() {
                     </motion.div>
                   ))}
                 </div>
+                
+                {/* Pagination Controls */}
+                <PaginationControls
+                  currentPage={page}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                  className="mt-6"
+                />
               </motion.div>
             )}
           </>

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DollarSign, Calendar, Receipt, Car } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { PaginationControls } from "@/components/PaginationControls";
 
 interface TipRecord {
   jobId: number;
@@ -22,6 +23,7 @@ interface TipRecord {
 
 interface TipsResponse {
   tips: TipRecord[];
+  total: number;
   summary: {
     totalTips: number;
     totalStripeFees: number;
@@ -34,26 +36,34 @@ export default function CleanerTips() {
   const { currentUser } = useAuth();
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
 
   // Construct query string
   const queryParams = new URLSearchParams();
   if (startDate) queryParams.append("startDate", startDate);
   if (endDate) queryParams.append("endDate", endDate);
+  queryParams.append("page", page.toString());
+  queryParams.append("pageSize", pageSize.toString());
   const queryString = queryParams.toString();
 
   const { data, isLoading, refetch } = useQuery<TipsResponse>({
-    queryKey: ["/api/cleaner/tips", queryString],
+    queryKey: ["/api/cleaner/tips", page, queryString],
     enabled: !!currentUser,
     staleTime: 0,
   });
 
+  const totalPages = data ? Math.ceil(data.total / pageSize) : 0;
+
   const handleFilter = () => {
+    setPage(1);
     refetch();
   };
 
   const handleClearFilter = () => {
     setStartDate("");
     setEndDate("");
+    setPage(1);
   };
 
   return (
@@ -276,6 +286,16 @@ export default function CleanerTips() {
             )}
           </CardContent>
         </Card>
+
+        {/* Pagination Controls */}
+        {data && data.tips.length > 0 && (
+          <PaginationControls
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            className="mt-4"
+          />
+        )}
       </div>
     </div>
   );
