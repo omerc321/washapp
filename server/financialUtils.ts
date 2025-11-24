@@ -85,7 +85,7 @@ export async function calculateJobFees(
   
   if (absorbsStripeFee) {
     // Package 2: Customer pays ONLY car wash + VAT + tip (no Stripe fee added to customer)
-    // Stripe fee is split proportionally between company and cleaner based on their shares
+    // Company absorbs entire Stripe fee, split proportionally between company and cleaner
     // For 15 AED wash + 5 tip (package2 has no platform fee):
     //   - Service price + VAT (company's share) = 15.75
     //   - Tip + Tip VAT (cleaner's share) = 5.25
@@ -99,18 +99,19 @@ export async function calculateJobFees(
     //   - Cleaner gets (remaining tip) = 5.25 - 0.40 = 4.85
     
     grossAmount = totalAmount;  // Customer pays car wash + VAT + tip (no Stripe fee)
-    const companyShare = Number(baseFees.totalAmount.toFixed(2));  // Service price + VAT (includes platform fee + VAT)
-    const tipWithVAT = Number((tipAmountValue + tipTax).toFixed(2));
+    const companyShare = baseFees.totalAmount;  // Service price + VAT (includes platform fee + VAT)
+    const tipWithVAT = tipAmountValue + tipTax;
     
     if (tipWithVAT > 0 && totalAmount > 0) {
-      // Split Stripe fee proportionally based on exact shares
+      // Calculate proportions with full precision
       const companyProportion = companyShare / totalAmount;
       const cleanerProportion = tipWithVAT / totalAmount;
       
+      // Split Stripe fee proportionally, then round
       companyStripeFeeShare = Number((paymentProcessingFeeAmount * companyProportion).toFixed(2));
       cleanerStripeFeeShare = Number((paymentProcessingFeeAmount * cleanerProportion).toFixed(2));
       
-      // Remaining tip after cleaner's Stripe fee share
+      // Remaining tip (includes VAT) after cleaner's Stripe fee share
       remainingTip = Number((tipWithVAT - cleanerStripeFeeShare).toFixed(2));
     } else {
       // No tip - company absorbs all Stripe fees
