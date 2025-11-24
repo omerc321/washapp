@@ -868,7 +868,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!customer) {
         // Generate a temporary email from phone
         const tempEmail = `${phoneNumber.replace(/[^0-9]/g, '')}@temp.washapp.ae`;
-        customer = await storage.createOrGetCustomer(tempEmail, null, phoneNumber);
+        customer = await storage.createOrGetCustomer(tempEmail, undefined, phoneNumber);
       }
 
       res.json(customer);
