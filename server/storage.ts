@@ -198,6 +198,19 @@ export interface IStorage {
     startDate?: Date;
     endDate?: Date;
   }): Promise<JobFinancialsWithCleaner[]>;
+  getCleanerTips(cleanerId: number, filters?: {
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<Array<{
+    jobId: number;
+    completedAt: Date;
+    carPlateNumber: string;
+    customerEmail: string;
+    tipAmount: number;
+    cleanerStripeFeeShare: number;
+    remainingTip: number;
+    receiptNumber: string | null;
+  }>>;
   
   // Company withdrawal operations
   createWithdrawal(withdrawal: InsertCompanyWithdrawal): Promise<CompanyWithdrawal>;
@@ -1705,6 +1718,57 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(jobFinancials.paidAt));
 
     return results;
+  }
+
+  async getCleanerTips(
+    cleanerId: number,
+    filters?: {
+      startDate?: Date;
+      endDate?: Date;
+    }
+  ): Promise<Array<{
+    jobId: number;
+    completedAt: Date;
+    carPlateNumber: string;
+    customerEmail: string;
+    tipAmount: number;
+    cleanerStripeFeeShare: number;
+    remainingTip: number;
+    receiptNumber: string | null;
+  }>> {
+    const conditions = [
+      eq(jobFinancials.cleanerId, cleanerId),
+      sql`${jobFinancials.tipAmount} > 0`, // Only jobs with tips
+    ];
+
+    if (filters?.startDate) {
+      conditions.push(gte(jobs.completedAt, filters.startDate));
+    }
+
+    if (filters?.endDate) {
+      conditions.push(sql`${jobs.completedAt} <= ${filters.endDate}`);
+    }
+
+    const results = await db
+      .select({
+        jobId: jobFinancials.jobId,
+        completedAt: jobs.completedAt,
+        carPlateNumber: jobs.carPlateNumber,
+        customerEmail: jobs.customerEmail,
+        tipAmount: jobFinancials.tipAmount,
+        cleanerStripeFeeShare: jobFinancials.cleanerStripeFeeShare,
+        remainingTip: jobFinancials.remainingTip,
+        receiptNumber: jobs.receiptNumber,
+      })
+      .from(jobFinancials)
+      .innerJoin(jobs, eq(jobFinancials.jobId, jobs.id))
+      .where(and(...conditions))
+      .orderBy(desc(jobs.completedAt));
+
+    return results.map(r => ({
+      ...r,
+      completedAt: r.completedAt!,
+    }));
   }
 
   // ===== COMPANY WITHDRAWAL OPERATIONS =====

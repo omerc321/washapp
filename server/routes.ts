@@ -1698,6 +1698,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get cleaner tips with date filtering
+  app.get("/api/cleaner/tips", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
+    try {
+      const cleaner = await storage.getCleanerByUserId(req.user!.id);
+      if (!cleaner) {
+        return res.status(404).json({ message: "Cleaner profile not found" });
+      }
+
+      const { startDate, endDate } = req.query;
+      
+      const filters: { startDate?: Date; endDate?: Date } = {};
+      if (startDate && typeof startDate === 'string') {
+        filters.startDate = new Date(startDate);
+      }
+      if (endDate && typeof endDate === 'string') {
+        // Set to end of day
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        filters.endDate = end;
+      }
+
+      const tips = await storage.getCleanerTips(cleaner.id, filters);
+      
+      // Calculate totals
+      const totalTips = tips.reduce((sum, t) => sum + Number(t.tipAmount), 0);
+      const totalStripeFees = tips.reduce((sum, t) => sum + Number(t.cleanerStripeFeeShare), 0);
+      const totalReceived = tips.reduce((sum, t) => sum + Number(t.remainingTip), 0);
+
+      res.json({
+        tips,
+        summary: {
+          totalTips,
+          totalStripeFees,
+          totalReceived,
+          count: tips.length,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Start shift
   app.post("/api/cleaner/start-shift", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
     try {
