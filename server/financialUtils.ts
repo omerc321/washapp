@@ -49,6 +49,9 @@ export async function calculateJobFees(
   // Total tax = VAT on service + VAT on tip
   const taxAmount = Number((baseFees.vatAmount + tipTax).toFixed(2));
   
+  // Determine if Stripe fees should be absorbed by company (package2) or passed to customer (others)
+  const absorbsStripeFee = (feePackageType || '').toLowerCase() === 'package2';
+  
   // Stripe fees are calculated on the total amount
   const paymentProcessingFeeAmount = Number(
     ((totalAmount * stripePercentRate) + stripeFixedFee).toFixed(2)
@@ -67,14 +70,28 @@ export async function calculateJobFees(
     platformFeeToCompany = 0;
   }
   
-  // Gross amount = service price + VAT + tip + tip VAT + Stripe fees
-  const grossAmount = Number((totalAmount + paymentProcessingFeeAmount).toFixed(2));
+  // Platform VAT
+  const platformFeeTax = Number((baseFees.platformFeeAmount * taxRate).toFixed(2));
   
-  // Net payable = gross - platform fee - VAT on platform - Stripe fees
-  // Company gets: car wash + VAT on car wash + tip + tip VAT
-  const netPayableAmount = Number(
-    (grossAmount - baseFees.platformFeeAmount - baseFees.vatAmount + (baseFees.carWashPrice * taxRate) - paymentProcessingFeeAmount).toFixed(2)
-  );
+  // Gross amount and net payable depend on whether Stripe fee is absorbed
+  let grossAmount: number;
+  let netPayableAmount: number;
+  
+  if (absorbsStripeFee) {
+    // Package 2: Customer pays ONLY car wash + VAT + tip (no Stripe fee added to customer)
+    // Company gets: car wash + car wash VAT - Stripe fee (tips go to cleaner, not company)
+    // For 15 AED wash: (15 + 0.75) - 1.46 = 14.29
+    // For 15 AED wash + 5 tip: customer pays 21, company gets (15 + 0.75) - 1.61 = 14.14
+    grossAmount = totalAmount;  // Customer pays car wash + VAT + tip (no Stripe fee)
+    const carWashWithVAT = Number((baseFees.carWashPrice + (baseFees.carWashPrice * taxRate)).toFixed(2));
+    netPayableAmount = Number((carWashWithVAT - paymentProcessingFeeAmount).toFixed(2));
+  } else {
+    // Other packages: Stripe fee is passed to customer
+    grossAmount = Number((totalAmount + paymentProcessingFeeAmount).toFixed(2));
+    netPayableAmount = Number(
+      (grossAmount - baseFees.platformFeeAmount - baseFees.vatAmount + (baseFees.carWashPrice * taxRate) - paymentProcessingFeeAmount).toFixed(2)
+    );
+  }
   
   return {
     baseJobAmount: baseFees.carWashPrice,

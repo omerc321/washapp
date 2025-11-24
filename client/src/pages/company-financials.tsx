@@ -28,9 +28,11 @@ interface JobFinancial {
   netPayableAmount: string;
   taxAmount: string;
   paidAt: Date;
+  refundedAt: Date | null;
   cleanerName: string | null;
   cleanerEmail: string | null;
   cleanerPhone: string | null;
+  feePackageType: string | null;
 }
 
 interface FinancialSummary {
@@ -80,10 +82,6 @@ export default function CompanyFinancials() {
 
   const { data: adminPayouts, isLoading: loadingAdminPayouts } = useQuery<Transaction[]>({
     queryKey: ["/api/company/financials/admin-payouts"],
-  });
-
-  const { data: allTransactions, isLoading: loadingTransactions } = useQuery<Transaction[]>({
-    queryKey: ["/api/company/financials/transactions"],
   });
 
   const filters: any = {};
@@ -295,94 +293,6 @@ export default function CompanyFinancials() {
           </Card>
         )}
 
-        {/* Transaction History Section */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Transaction History</CardTitle>
-            <CardDescription>Complete ledger of all financial transactions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loadingTransactions ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-16 w-full" />
-                ))}
-              </div>
-            ) : allTransactions && allTransactions.length > 0 ? (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Job ID</TableHead>
-                      <TableHead>Cleaner</TableHead>
-                      <TableHead className="text-right">Gross (incl. VAT)</TableHead>
-                      <TableHead className="text-right">VAT (5%)</TableHead>
-                      <TableHead className="text-right">Net Amount</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {allTransactions.map((transaction) => {
-                      const isCredit = transaction.direction === 'credit';
-                      const badgeColor = 
-                        transaction.type === 'customer_payment' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                        transaction.type === 'refund' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                        transaction.type === 'admin_payment' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' :
-                        transaction.type === 'withdrawal' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
-                        'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-                      
-                      const typeLabel = 
-                        transaction.type === 'customer_payment' ? 'Customer Payment' :
-                        transaction.type === 'refund' ? 'Refund' :
-                        transaction.type === 'admin_payment' ? 'Pay Out' :
-                        transaction.type === 'withdrawal' ? 'Withdrawal' :
-                        transaction.type;
-
-                      const netAmountDisplay = transaction.netAmount 
-                        ? `${Number(transaction.netAmount).toFixed(2)} AED`
-                        : `${Number(transaction.amount).toFixed(2)} AED`;
-                      
-                      const netAmountValue = transaction.netAmount 
-                        ? Number(transaction.netAmount)
-                        : Number(transaction.amount);
-                      
-                      const isPositive = isCredit;
-
-                      return (
-                        <TableRow key={transaction.id} data-testid={`transaction-${transaction.id}`}>
-                          <TableCell className="text-sm">{new Date(transaction.createdAt).toLocaleDateString('en-AE', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Dubai' })}</TableCell>
-                          <TableCell>
-                            <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${badgeColor}`}>
-                              {typeLabel}
-                            </span>
-                          </TableCell>
-                          <TableCell data-testid={`transaction-job-${transaction.id}`}>
-                            {transaction.jobId ? `#${transaction.jobId}` : '-'}
-                          </TableCell>
-                          <TableCell className="text-sm" data-testid={`transaction-cleaner-${transaction.id}`}>
-                            {transaction.cleanerName || '-'}
-                          </TableCell>
-                          <TableCell className="text-right text-sm">
-                            {transaction.grossAmount ? `${Number(transaction.grossAmount).toFixed(2)} AED` : '-'}
-                          </TableCell>
-                          <TableCell className="text-right text-sm text-muted-foreground">
-                            {transaction.taxAmount ? `${Number(transaction.taxAmount).toFixed(2)} AED` : '-'}
-                          </TableCell>
-                          <TableCell className={`text-right font-medium ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                            {isPositive ? '+' : '-'}{netAmountDisplay}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : (
-              <p className="text-center text-muted-foreground py-8">No transactions available</p>
-            )}
-          </CardContent>
-        </Card>
 
         <Card className="mb-6">
           <CardHeader>
@@ -463,26 +373,34 @@ export default function CompanyFinancials() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {jobs.map((job) => (
-                      <TableRow key={job.id} data-testid={`job-${job.id}`}>
-                        <TableCell className="font-medium">#{job.jobId}</TableCell>
-                        <TableCell className="min-w-[120px]">{job.cleanerName || "Unassigned"}</TableCell>
-                        <TableCell className="min-w-[100px]">{parseFloat(job.baseJobAmount || "0").toFixed(2)} AED</TableCell>
-                        <TableCell className="min-w-[80px]">{parseFloat(job.baseTax || "0").toFixed(2)} AED</TableCell>
-                        <TableCell className="text-primary font-medium min-w-[100px]">
-                          {parseFloat(job.tipAmount || "0") > 0 ? `${parseFloat(job.tipAmount).toFixed(2)} AED` : "-"}
-                        </TableCell>
-                        <TableCell className="min-w-[80px]">
-                          {parseFloat(job.tipTax || "0") > 0 ? `${parseFloat(job.tipTax).toFixed(2)} AED` : "-"}
-                        </TableCell>
-                        <TableCell className="min-w-[110px]">{parseFloat(job.platformFeeAmount || "0").toFixed(2)} AED</TableCell>
-                        <TableCell className="min-w-[100px]">{parseFloat(job.platformFeeTax || "0").toFixed(2)} AED</TableCell>
-                        <TableCell className="min-w-[100px]">{parseFloat(job.paymentProcessingFeeAmount || "0").toFixed(2)} AED</TableCell>
-                        <TableCell className="font-medium min-w-[100px]">{parseFloat(job.grossAmount || "0").toFixed(2)} AED</TableCell>
-                        <TableCell className="font-medium text-green-600 dark:text-green-400 min-w-[100px]">{parseFloat(job.netPayableAmount || "0").toFixed(2)} AED</TableCell>
-                        <TableCell className="text-sm min-w-[100px]">{new Date(job.paidAt).toLocaleDateString('en-AE', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Dubai' })}</TableCell>
-                      </TableRow>
-                    ))}
+                    {jobs.map((job) => {
+                      const isRefunded = job.refundedAt !== null;
+                      const isPackage2 = (job.feePackageType || 'custom').toLowerCase() === 'package2';
+                      return (
+                        <TableRow key={job.id} data-testid={`job-${job.id}`}>
+                          <TableCell className="font-medium">#{job.jobId}</TableCell>
+                          <TableCell className="min-w-[120px]">{job.cleanerName || "Unassigned"}</TableCell>
+                          <TableCell className="min-w-[100px]">{parseFloat(job.baseJobAmount || "0").toFixed(2)} AED</TableCell>
+                          <TableCell className="min-w-[80px]">{parseFloat(job.baseTax || "0").toFixed(2)} AED</TableCell>
+                          <TableCell className="text-primary font-medium min-w-[100px]">
+                            {parseFloat(job.tipAmount || "0") > 0 ? `${parseFloat(job.tipAmount).toFixed(2)} AED` : "-"}
+                          </TableCell>
+                          <TableCell className="min-w-[80px]">
+                            {parseFloat(job.tipTax || "0") > 0 ? `${parseFloat(job.tipTax).toFixed(2)} AED` : "-"}
+                          </TableCell>
+                          <TableCell className="min-w-[110px]">{parseFloat(job.platformFeeAmount || "0").toFixed(2)} AED</TableCell>
+                          <TableCell className="min-w-[100px]">{parseFloat(job.platformFeeTax || "0").toFixed(2)} AED</TableCell>
+                          <TableCell className="min-w-[100px]">
+                            {isPackage2 ? `${parseFloat(job.paymentProcessingFeeAmount || "0").toFixed(2)} AED` : "-"}
+                          </TableCell>
+                          <TableCell className="font-medium min-w-[100px]">{parseFloat(job.grossAmount || "0").toFixed(2)} AED</TableCell>
+                          <TableCell className={`font-medium min-w-[100px] ${isRefunded ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                            {parseFloat(job.netPayableAmount || "0").toFixed(2)} AED
+                          </TableCell>
+                          <TableCell className="text-sm min-w-[100px]">{new Date(job.paidAt).toLocaleDateString('en-AE', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Dubai' })}</TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

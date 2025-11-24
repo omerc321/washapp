@@ -1542,7 +1542,7 @@ export class DatabaseStorage implements IStorage {
       conditions.push(sql`${jobFinancials.paidAt} <= ${filters.endDate}`);
     }
 
-    // Join with cleaners and users to get cleaner details
+    // Join with cleaners, users, and companies to get cleaner details and fee package type
     const results = await db
       .select({
         id: jobFinancials.id,
@@ -1567,10 +1567,12 @@ export class DatabaseStorage implements IStorage {
         cleanerName: users.displayName,
         cleanerEmail: users.email,
         cleanerPhone: users.phoneNumber,
+        feePackageType: companies.feePackageType,
       })
       .from(jobFinancials)
       .leftJoin(cleaners, eq(jobFinancials.cleanerId, cleaners.id))
       .leftJoin(users, eq(cleaners.userId, users.id))
+      .leftJoin(companies, eq(jobFinancials.companyId, companies.id))
       .where(and(...conditions))
       .orderBy(desc(jobFinancials.paidAt));
 
