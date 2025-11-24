@@ -831,16 +831,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // ===== CUSTOMER ROUTES (ANONYMOUS) =====
 
-  // Customer phone-based login/registration
+  // Customer email-based login/registration
   app.post("/api/customer/login", async (req: Request, res: Response) => {
     try {
-      const { phoneNumber, displayName } = req.body;
+      const { email, displayName, phoneNumber } = req.body;
       
-      if (!phoneNumber) {
-        return res.status(400).json({ message: "Phone number is required" });
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
       }
       
-      const customer = await storage.createOrGetCustomer(phoneNumber, displayName);
+      const customer = await storage.createOrGetCustomer(email, displayName, phoneNumber);
       res.json(customer);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -855,6 +855,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Customer not found" });
       }
       res.json(customer);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get car history by car plate (returns previous bookings for this specific plate)
+  app.get("/api/customer/car-history/:emirate/:code/:number", async (req: Request, res: Response) => {
+    try {
+      const { emirate, code, number } = req.params;
+      
+      if (!emirate || !code || !number) {
+        return res.status(400).json({ message: "Car plate details are required" });
+      }
+
+      // Get history for this specific car plate
+      const history = await storage.getCarHistoryByPlate(emirate, code, number);
+      
+      res.json({ history });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
