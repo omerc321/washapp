@@ -147,9 +147,11 @@ export interface IStorage {
   acceptJob(jobId: number, cleanerId: number): Promise<boolean>;
   
   // Customer operations
-  createOrGetCustomer(phoneNumber: string, displayName?: string): Promise<Customer>;
+  createOrGetCustomer(email: string, displayName?: string, phoneNumber?: string): Promise<Customer>;
+  getCustomerByEmail(email: string): Promise<Customer | undefined>;
   getCustomerByPhone(phoneNumber: string): Promise<Customer | undefined>;
   updateCustomerLastLogin(id: number): Promise<void>;
+  getCarHistoryByPlate(carPlateEmirate: string, carPlateCode: string, carPlateNumber: string): Promise<any[]>;
   
   // Shift session operations
   startShift(cleanerId: number, latitude?: number, longitude?: number): Promise<CleanerShift>;
@@ -1016,8 +1018,8 @@ export class DatabaseStorage implements IStorage {
 
   // ===== CUSTOMER OPERATIONS =====
 
-  async createOrGetCustomer(phoneNumber: string, displayName?: string): Promise<Customer> {
-    const existing = await this.getCustomerByPhone(phoneNumber);
+  async createOrGetCustomer(email: string, displayName?: string, phoneNumber?: string): Promise<Customer> {
+    const existing = await this.getCustomerByEmail(email);
     if (existing) {
       await this.updateCustomerLastLogin(existing.id);
       return existing;
@@ -1026,11 +1028,20 @@ export class DatabaseStorage implements IStorage {
     const [customer] = await db
       .insert(customers)
       .values({
+        email,
         phoneNumber,
         displayName,
       })
       .returning();
 
+    return customer;
+  }
+
+  async getCustomerByEmail(email: string): Promise<Customer | undefined> {
+    const [customer] = await db
+      .select()
+      .from(customers)
+      .where(eq(customers.email, email));
     return customer;
   }
 
@@ -1047,6 +1058,50 @@ export class DatabaseStorage implements IStorage {
       .update(customers)
       .set({ lastLoginAt: new Date() })
       .where(eq(customers.id, id));
+  }
+
+  async getCarHistoryByPlate(carPlateEmirate: string, carPlateCode: string, carPlateNumber: string): Promise<any[]> {
+    const jobList = await db
+      .select()
+      .from(jobs)
+      .where(
+        and(
+          eq(jobs.carPlateEmirate, carPlateEmirate),
+          eq(jobs.carPlateCode, carPlateCode),
+          eq(jobs.carPlateNumber, carPlateNumber)
+        )
+      )
+      .orderBy(jobs.createdAt);
+
+    // Extract unique customer emails and parking numbers
+    const carsMap = new Map();
+    for (const job of jobList) {
+      const key = job.customerEmail;
+      if (!carsMap.has(key)) {
+        carsMap.set(key, {
+          customerEmail: job.customerEmail,
+          customerPhone: job.customerPhone || "",
+          parkingNumber: job.parkingNumber || "",
+          lastUsed: job.createdAt,
+        });
+      } else {
+        // Update if this job is more recent
+        const existing = carsMap.get(key);
+        if (new Date(job.createdAt) > new Date(existing.lastUsed)) {
+          carsMap.set(key, {
+            customerEmail: job.customerEmail,
+            customerPhone: job.customerPhone || "",
+            parkingNumber: job.parkingNumber || "",
+            lastUsed: job.createdAt,
+          });
+        }
+      }
+    }
+
+    // Convert to array and sort by most recent
+    return Array.from(carsMap.values()).sort(
+      (a, b) => new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime()
+    );
   }
 
   // ===== SHIFT SESSION OPERATIONS =====
