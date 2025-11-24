@@ -43,10 +43,11 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   }),
 }));
 
-// Customers Table (phone-based profiles)
+// Customers Table (email-based profiles)
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
-  phoneNumber: varchar("phone_number", { length: 50 }).notNull().unique(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  phoneNumber: varchar("phone_number", { length: 50 }),
   displayName: varchar("display_name", { length: 255 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   lastLoginAt: timestamp("last_login_at"),
@@ -251,8 +252,8 @@ export const jobs = pgTable("jobs", {
   locationLatitude: numeric("location_latitude", { precision: 10, scale: 8 }).notNull(),
   locationLongitude: numeric("location_longitude", { precision: 11, scale: 8 }).notNull(),
   parkingNumber: varchar("parking_number", { length: 50 }),
-  customerPhone: varchar("customer_phone", { length: 50 }).notNull(),
-  customerEmail: varchar("customer_email", { length: 255 }),
+  customerEmail: varchar("customer_email", { length: 255 }).notNull(),
+  customerPhone: varchar("customer_phone", { length: 50 }),
   
   // Payment and pricing
   price: numeric("price", { precision: 10, scale: 2 }).notNull(),
