@@ -2332,7 +2332,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const cleaners = await storage.getCompanyCleaners(req.user.companyId);
-      res.json(cleaners);
+      
+      // Fetch geofence assignments for each cleaner
+      const cleanersWithGeofences = await Promise.all(
+        cleaners.map(async (cleaner) => {
+          const geofences = await storage.getCleanerGeofenceAssignments(cleaner.id);
+          const isAssignedAll = await storage.isCleanerAssignedToAllGeofences(cleaner.id);
+          
+          return {
+            ...cleaner,
+            assignedGeofences: geofences,
+            isAssignedToAll: isAssignedAll,
+          };
+        })
+      );
+      
+      res.json(cleanersWithGeofences);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

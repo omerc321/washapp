@@ -37,6 +37,8 @@ export default function CompanyDashboard() {
   const [reactivatingCleanerId, setReactivatingCleanerId] = useState<number | null>(null);
   const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
   const [showGeofence, setShowGeofence] = useState(false);
+  const [nameFilter, setNameFilter] = useState("");
+  const [locationFilter, setLocationFilter] = useState<string>("all");
 
   // Helper function to check if a cleaner is truly online (active within last 10 minutes)
   const isCleanerOnline = (cleaner: Cleaner): boolean => {
@@ -59,10 +61,20 @@ export default function CompanyDashboard() {
     enabled: !!currentUser?.companyId,
   });
 
+  type CompanyGeofence = {
+    id: number;
+    companyId: number;
+    name: string;
+    polygon: Array<[number, number]>;
+    createdAt: Date;
+  };
+
   type CleanerWithUser = Cleaner & {
     displayName: string | null;
     phoneNumber: string | null;
     email: string | null;
+    assignedGeofences: CompanyGeofence[];
+    isAssignedToAll: boolean;
   };
 
   const { data: cleaners, isLoading: isLoadingCleaners } = useQuery<CleanerWithUser[]>({
@@ -74,14 +86,6 @@ export default function CompanyDashboard() {
     queryKey: ["/api/company/invitations"],
     enabled: !!currentUser?.companyId && company?.isActive === 1,
   });
-
-  type CompanyGeofence = {
-    id: number;
-    companyId: number;
-    name: string;
-    polygon: Array<[number, number]>;
-    createdAt: Date;
-  };
 
   const { data: geofences = [], isLoading: isLoadingGeofences } = useQuery<CompanyGeofence[]>({
     queryKey: ["/api/company/geofences"],
@@ -246,6 +250,31 @@ export default function CompanyDashboard() {
   const handleCancelReactivate = () => {
     setReactivateDialogOpen(false);
     setReactivatingCleanerId(null);
+  };
+
+  // Filter cleaners by name and location
+  const filterCleaners = (cleanersList: CleanerWithUser[] | undefined) => {
+    if (!cleanersList) return [];
+    
+    return cleanersList.filter((cleaner) => {
+      // Filter by name
+      const nameMatch = !nameFilter || 
+        (cleaner.displayName && cleaner.displayName.toLowerCase().includes(nameFilter.toLowerCase())) ||
+        (cleaner.phoneNumber && cleaner.phoneNumber.includes(nameFilter));
+      
+      // Filter by location
+      let locationMatch = true;
+      if (locationFilter && locationFilter !== "all") {
+        const geofenceId = parseInt(locationFilter);
+        if (cleaner.isAssignedToAll) {
+          locationMatch = true;
+        } else {
+          locationMatch = cleaner.assignedGeofences.some(g => g.id === geofenceId);
+        }
+      }
+      
+      return nameMatch && locationMatch;
+    });
   };
 
   if (isLoading) {
@@ -696,30 +725,71 @@ export default function CompanyDashboard() {
                 </div>
               ) : (
                 <div className="space-y-6">
+                  {/* Filters */}
+                  <div className="flex flex-col sm:flex-row gap-3 p-4 bg-muted/50 rounded-lg">
+                    <div className="flex-1">
+                      <Label htmlFor="name-filter" className="text-sm mb-1.5">Search by Name or Phone</Label>
+                      <Input
+                        id="name-filter"
+                        placeholder="Search cleaners..."
+                        value={nameFilter}
+                        onChange={(e) => setNameFilter(e.target.value)}
+                        data-testid="input-name-filter"
+                        className="bg-background"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Label htmlFor="location-filter" className="text-sm mb-1.5">Filter by Location</Label>
+                      <Select value={locationFilter} onValueChange={setLocationFilter}>
+                        <SelectTrigger id="location-filter" data-testid="select-location-filter" className="bg-background">
+                          <SelectValue placeholder="All locations" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All locations</SelectItem>
+                          {geofences.map((geofence) => (
+                            <SelectItem key={geofence.id} value={geofence.id.toString()}>
+                              {geofence.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
                   {/* Active Cleaners Section */}
-                  {cleaners && cleaners.filter(c => isCleanerOnline(c)).length > 0 && (
+                  {(() => {
+                    const filteredActiveCleaners = filterCleaners(cleaners)?.filter(c => isCleanerOnline(c));
+                    return filteredActiveCleaners && filteredActiveCleaners.length > 0 && (
                     <div>
                       <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
                         <div className="h-2 w-2 rounded-full bg-green-500" />
-                        Active Now ({cleaners.filter(c => isCleanerOnline(c)).length})
+                        Active Now ({filteredActiveCleaners.length})
                       </h3>
                       <div className="space-y-2">
-                        {cleaners.filter(c => isCleanerOnline(c)).map((cleaner) => {
+                        {filteredActiveCleaners.map((cleaner) => {
                           const shiftInfo = analytics.shiftRoster?.find(s => s.cleanerId === cleaner.id);
                           const isThisCleanerBeingDeactivated = deactivatingCleanerId === cleaner.id && deactivateCleanerMutation.isPending;
+                          const locationText = cleaner.isAssignedToAll 
+                            ? "All locations" 
+                            : cleaner.assignedGeofences.map(g => g.name).join(", ") || "No location assigned";
+                          
                           return (
                             <div
                               key={`active-${cleaner.id}`}
                               className="flex items-center justify-between gap-4 p-4 border rounded-lg hover-elevate"
                               data-testid={`team-member-active-${cleaner.id}`}
                             >
-                              <div className="flex items-center gap-3">
-                                <div className="h-3 w-3 rounded-full bg-green-500" />
-                                <div>
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div className="h-3 w-3 rounded-full bg-green-500 flex-shrink-0" />
+                                <div className="min-w-0 flex-1">
                                   <p className="font-medium">{cleaner.displayName || `Car Washer #${cleaner.id}`}</p>
                                   <p className="text-sm text-muted-foreground">
                                     {cleaner.phoneNumber || 'No phone'} • {cleaner.totalJobsCompleted} jobs • Rating: {cleaner.rating || "N/A"}
                                     {shiftInfo?.activeShift && ` • On shift: ${shiftInfo.activeShift.duration}m`}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                                    <Map className="h-3 w-3" />
+                                    {locationText}
                                   </p>
                                 </div>
                               </div>
@@ -760,30 +830,41 @@ export default function CompanyDashboard() {
                         })}
                       </div>
                     </div>
-                  )}
+                  );
+                  })()}
 
                   {/* Available/Off Duty Cleaners Section */}
-                  {cleaners && cleaners.filter(c => !isCleanerOnline(c)).length > 0 && (
+                  {(() => {
+                    const filteredOffDutyCleaners = filterCleaners(cleaners)?.filter(c => !isCleanerOnline(c));
+                    return filteredOffDutyCleaners && filteredOffDutyCleaners.length > 0 && (
                     <div>
                       <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
                         <div className="h-2 w-2 rounded-full bg-gray-400" />
-                        Off Duty ({cleaners.filter(c => !isCleanerOnline(c)).length})
+                        Off Duty ({filteredOffDutyCleaners.length})
                       </h3>
                       <div className="space-y-2">
-                        {cleaners.filter(c => !isCleanerOnline(c)).map((cleaner) => {
+                        {filteredOffDutyCleaners.map((cleaner) => {
                           const isThisCleanerBeingDeactivated = deactivatingCleanerId === cleaner.id && deactivateCleanerMutation.isPending;
+                          const locationText = cleaner.isAssignedToAll 
+                            ? "All locations" 
+                            : cleaner.assignedGeofences.map(g => g.name).join(", ") || "No location assigned";
+                          
                           return (
                             <div
                               key={`offline-${cleaner.id}`}
                               className="flex items-center justify-between gap-4 p-4 border rounded-lg hover-elevate"
                               data-testid={`team-member-offline-${cleaner.id}`}
                             >
-                              <div className="flex items-center gap-3">
-                                <div className="h-3 w-3 rounded-full bg-gray-400" />
-                                <div>
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div className="h-3 w-3 rounded-full bg-gray-400 flex-shrink-0" />
+                                <div className="min-w-0 flex-1">
                                   <p className="font-medium">{cleaner.displayName || `Car Washer #${cleaner.id}`}</p>
                                   <p className="text-sm text-muted-foreground">
                                     {cleaner.phoneNumber || 'No phone'} • {cleaner.totalJobsCompleted} jobs • Rating: {cleaner.rating || "N/A"}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                                    <Map className="h-3 w-3" />
+                                    {locationText}
                                   </p>
                                 </div>
                               </div>
@@ -824,7 +905,8 @@ export default function CompanyDashboard() {
                         })}
                       </div>
                     </div>
-                  )}
+                  );
+                  })()}
 
                   {/* Pending Invitations Section */}
                   {invitations && invitations.filter(i => i.status === "pending").length > 0 && (
