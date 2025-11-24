@@ -895,7 +895,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get all jobs for this customer
-      const jobs = await storage.getJobsByCustomer(customer.id);
+      const jobsResult = await storage.getJobsByCustomer(customer.id, 1, 1000); // Get first 1000 jobs for history
+      const jobs = jobsResult.data;
       
       // Extract unique cars (car plate + email combinations)
       const carsMap = new Map();
@@ -3187,7 +3188,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (startDate) filters.startDate = new Date(startDate);
       if (endDate) filters.endDate = new Date(endDate);
       
-      const jobs = await storage.getCompanyFinancials(companyId, filters);
+      // Get all jobs (no pagination for Excel export)
+      const jobsResult = await storage.getCompanyFinancials(companyId, { ...filters, page: 1, pageSize: 10000 });
+      const jobs = jobsResult.data;
       const summary = await storage.getCompanyFinancialSummary(companyId);
       const company = await storage.getCompany(companyId);
       
