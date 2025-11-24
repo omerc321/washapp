@@ -54,11 +54,15 @@ I prefer simple language and clear explanations. I want iterative development wi
 ### System Design Choices
 -   **Data Models**: Comprehensive models for Users, Companies, Cleaners, Cleaner Invitations, Cleaner Geofence Assignments, Jobs, Job Financials, Company Withdrawals, Fee Settings, Transactions, and Password Reset Tokens. Customer data model uses email as primary identifier (required, unique), with optional phone number field.
 -   **Currency**: All transactions in AED (United Arab Emirates Dirham) with "AED" displayed.
+-   **Tax Policy**: 
+    -   **Service VAT**: 5% VAT applied to car wash and platform fee (taxable services)
+    -   **Tip VAT**: **Tips are VAT-exempt** (no tax on gratuity per UAE tax practices). The `tipTax` field is persisted as 0 for schema compatibility.
+    -   **Receipts**: Tips shown as separate line item between VAT and Total
 -   **Fee Structure**: Flexible three-tier package system:
     -   **Custom Package**: Any platform fee > 0 AED set by admin + 5% VAT on (car wash + platform fee)
     -   **Package 1**: 2 AED base + 5% of car wash price + 5% VAT on (car wash + calculated fee)
     -   **Package 2**: Offline payment mode - car wash price + 5% VAT only (no platform fees)
-    -   Example (Package 1, 15 AED wash): 2 + (15 × 0.05) = 2.75 AED fee → 17.75 subtotal → 0.89 VAT → 18.64 total
+    -   Example (Package 1, 15 AED wash with 5 AED tip): 2 + (15 × 0.05) = 2.75 AED fee → 17.75 subtotal → 0.89 VAT → 18.64 + 5 tip = 23.64 total
     -   Stripe fees (2.9% + 1 AED) are calculated on final total amount
     -   Admin can change fee package and amounts anytime via `/api/admin/company/:id/fee-structure`
 -   **Transaction Tracking**: All payments, refunds, and withdrawals tracked with unique reference numbers and Stripe IDs. Receipt numbers generated atomically on payment confirmation (format: RCP-YYYYMMDD-XXXXX). Jobs track stripePaymentIntentId and stripeRefundId. Company financials display all transaction references, job status, and distinguish manual refunds from auto-refunds. Note: Dual-ledger architecture - withdrawals tracked in companyWithdrawals table, payment transactions tracked in transactions table. These are separate with no overlap to prevent double-counting.
