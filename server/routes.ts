@@ -835,14 +835,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/customer/login", async (req: Request, res: Response) => {
     try {
       const { email, displayName, phoneNumber } = req.body;
+      console.log('[DEBUG] /api/customer/login received:', { email, displayName, phoneNumber, body: req.body });
       
       if (!email) {
+        console.log('[DEBUG] Email missing in request');
         return res.status(400).json({ message: "Email is required" });
       }
       
       const customer = await storage.createOrGetCustomer(email, displayName, phoneNumber);
+      console.log('[DEBUG] Customer created/found:', customer);
       res.json(customer);
     } catch (error: any) {
+      console.error('[DEBUG] Error in /api/customer/login:', error);
       res.status(500).json({ message: error.message });
     }
   });

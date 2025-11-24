@@ -381,6 +381,12 @@ export default function CustomerBooking() {
     
     try {
       // Create or get customer profile
+      console.log('[DEBUG] Sending to /api/customer/login:', {
+        email: formData.customerEmail,
+        phoneNumber: formData.customerPhone,
+        formDataFull: formData
+      });
+      
       const customerResponse = await fetch("/api/customer/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
