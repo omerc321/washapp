@@ -86,9 +86,9 @@ export async function calculateJobFees(
   if (absorbsStripeFee) {
     // Package 2: Customer pays ONLY car wash + VAT + tip (no Stripe fee added to customer)
     // Stripe fee is split proportionally between company and cleaner based on their shares
-    // For 15 AED wash + 5 tip:
-    //   - Car wash + VAT = 15.75 (company's share)
-    //   - Tip + Tip VAT = 5.25 (cleaner's share)
+    // For 15 AED wash + 5 tip (package2 has no platform fee):
+    //   - Service price + VAT (company's share) = 15.75
+    //   - Tip + Tip VAT (cleaner's share) = 5.25
     //   - Total = 21.00
     //   - Stripe fee = 1.61
     //   - Company's proportion = 15.75 / 21 = 0.75
@@ -99,12 +99,12 @@ export async function calculateJobFees(
     //   - Cleaner gets (remaining tip) = 5.25 - 0.40 = 4.85
     
     grossAmount = totalAmount;  // Customer pays car wash + VAT + tip (no Stripe fee)
-    const carWashWithVAT = Number((baseFees.carWashPrice + (baseFees.carWashPrice * taxRate)).toFixed(2));
+    const companyShare = Number(baseFees.totalAmount.toFixed(2));  // Service price + VAT (includes platform fee + VAT)
     const tipWithVAT = Number((tipAmountValue + tipTax).toFixed(2));
     
     if (tipWithVAT > 0 && totalAmount > 0) {
-      // Split Stripe fee proportionally
-      const companyProportion = carWashWithVAT / totalAmount;
+      // Split Stripe fee proportionally based on exact shares
+      const companyProportion = companyShare / totalAmount;
       const cleanerProportion = tipWithVAT / totalAmount;
       
       companyStripeFeeShare = Number((paymentProcessingFeeAmount * companyProportion).toFixed(2));
@@ -119,7 +119,7 @@ export async function calculateJobFees(
       remainingTip = 0;
     }
     
-    netPayableAmount = Number((carWashWithVAT - companyStripeFeeShare).toFixed(2));
+    netPayableAmount = Number((companyShare - companyStripeFeeShare).toFixed(2));
   } else {
     // Other packages: Stripe fee is passed to customer
     grossAmount = Number((totalAmount + paymentProcessingFeeAmount).toFixed(2));
