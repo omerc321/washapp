@@ -20,6 +20,7 @@ import RegisterCompanyPage from "@/pages/register-company";
 import RegisterAdminPage from "@/pages/register-admin";
 import CustomerHome from "@/pages/customer-home";
 import CustomerBooking from "@/pages/customer-booking";
+import CustomerQRPayment from "@/pages/customer-qr-payment";
 import SelectCompany from "@/pages/select-company";
 import Checkout from "@/pages/checkout";
 import CustomerJobs from "@/pages/customer-jobs";
@@ -89,6 +90,7 @@ function Router() {
           {/* Customer Routes - No auth required */}
           <Route path="/customer" component={CustomerBooking} />
           <Route path="/customer/booking" component={CustomerBooking} />
+          <Route path="/customer/pay/:token" component={CustomerQRPayment} />
           <Route path="/customer/home" component={CustomerHome} />
           <Route path="/customer/select-company" component={SelectCompany} />
           <Route path="/customer/checkout" component={Checkout} />

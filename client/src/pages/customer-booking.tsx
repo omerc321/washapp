@@ -68,6 +68,10 @@ export default function CustomerBooking() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
+  // Get token from URL if present (for QR code payments)
+  const urlParams = new URLSearchParams(window.location.search);
+  const paymentToken = urlParams.get('token');
+  
   const [currentStep, setCurrentStep] = useState(1); // Start at step 1 for email/OTP entry
   const checkoutTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -467,7 +471,10 @@ export default function CustomerBooking() {
       
       // Navigate to checkout after brief animation
       checkoutTimeoutRef.current = setTimeout(() => {
-        setLocation("/customer/checkout");
+        const checkoutUrl = paymentToken 
+          ? `/customer/checkout?token=${paymentToken}` 
+          : "/customer/checkout";
+        setLocation(checkoutUrl);
       }, 1500);
     } catch (error: any) {
       toast({

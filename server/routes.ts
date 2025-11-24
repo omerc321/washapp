@@ -1495,6 +1495,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/confirm-payment/:paymentIntentId", async (req: Request, res: Response) => {
     try {
       const { paymentIntentId } = req.params;
+      const { paymentToken } = req.body;
       
       // Verify payment with Stripe
       const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
@@ -1510,11 +1511,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Job not found" });
       }
       
+      // Handle QR code payment token if provided
+      let cleanerIdToAssign: number | null = null;
+      if (paymentToken) {
+        const token = await storage.getCleanerPaymentToken(paymentToken);
+        
+        if (token && !token.isUsed && new Date(token.expiresAt) > new Date()) {
+          cleanerIdToAssign = token.cleanerId;
+          
+          // Mark token as used
+          await storage.markTokenAsUsed(token.id);
+        }
+      }
+      
       // Only update status if not already PAID
       if (job.status === JobStatus.PENDING_PAYMENT) {
-        await storage.updateJob(job.id, {
-          status: JobStatus.PAID,
-        });
+        const updateData: any = {
+          status: cleanerIdToAssign ? JobStatus.ASSIGNED : JobStatus.PAID,
+        };
+        
+        // Auto-assign to cleaner if token was provided
+        if (cleanerIdToAssign) {
+          updateData.cleanerId = cleanerIdToAssign;
+        }
+        
+        await storage.updateJob(job.id, updateData);
       }
       
       // Always ensure receipt exists (atomic operation to prevent duplicates)

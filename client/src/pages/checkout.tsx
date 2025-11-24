@@ -20,12 +20,14 @@ function CheckoutForm({
   paymentIntentId, 
   clientSecret, 
   jobData, 
-  onTipUpdate 
+  onTipUpdate,
+  paymentToken
 }: { 
   paymentIntentId?: string;
   clientSecret: string;
   jobData: any;
   onTipUpdate: (fees: any) => void;
+  paymentToken?: string | null;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -123,7 +125,8 @@ function CheckoutForm({
           
           // Manually confirm on backend
           if (paymentIntentId) {
-            await apiRequest("POST", `/api/confirm-payment/${paymentIntentId}`, {});
+            const confirmBody = paymentToken ? { paymentToken } : {};
+            await apiRequest("POST", `/api/confirm-payment/${paymentIntentId}`, confirmBody);
           }
           
           toast({
@@ -167,7 +170,8 @@ function CheckoutForm({
       // Payment succeeded - manually confirm on backend for development
       try {
         if (paymentIntentId) {
-          await apiRequest("POST", `/api/confirm-payment/${paymentIntentId}`, {});
+          const confirmBody = paymentToken ? { paymentToken } : {};
+          await apiRequest("POST", `/api/confirm-payment/${paymentIntentId}`, confirmBody);
         }
         
         toast({
@@ -305,6 +309,11 @@ function CheckoutForm({
 export default function Checkout() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  
+  // Get payment token from URL if present (for QR code payments)
+  const urlParams = new URLSearchParams(window.location.search);
+  const paymentToken = urlParams.get('token');
+  
   const [clientSecret, setClientSecret] = useState("");
   const [paymentIntentId, setPaymentIntentId] = useState("");
   const [jobData, setJobData] = useState<any>(null);
@@ -473,6 +482,7 @@ export default function Checkout() {
                 clientSecret={clientSecret}
                 jobData={jobData}
                 onTipUpdate={handleTipUpdate}
+                paymentToken={paymentToken}
               />
             </Elements>
           </div>
