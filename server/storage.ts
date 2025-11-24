@@ -7,6 +7,7 @@ import {
   customers,
   shiftSessions,
   cleanerShifts,
+  cleanerPaymentTokens,
   deviceTokens,
   pushSubscriptions,
   platformSettings,
@@ -35,6 +36,8 @@ import {
   type InsertShiftSession,
   type CleanerShift,
   type InsertCleanerShift,
+  type CleanerPaymentToken,
+  type InsertCleanerPaymentToken,
   type PlatformSetting,
   type InsertPlatformSetting,
   type FeeSetting,
@@ -169,6 +172,12 @@ export interface IStorage {
     endDate?: Date;
     limit?: number;
   }): Promise<Array<CleanerShift & { cleanerName: string }>>;
+  
+  // Cleaner payment token operations
+  createCleanerPaymentToken(cleanerId: number, companyId: number, token: string, expiresAt?: Date): Promise<CleanerPaymentToken>;
+  getCleanerPaymentToken(token: string): Promise<CleanerPaymentToken | undefined>;
+  markTokenAsUsed(tokenId: number): Promise<void>;
+  deleteExpiredTokens(): Promise<void>;
   
   // Analytics
   getAdminAnalytics(): Promise<any>;
@@ -1357,6 +1366,53 @@ export class DatabaseStorage implements IStorage {
       ...r,
       cleanerName: r.cleanerName || 'Unknown',
     }));
+  }
+
+  // ===== CLEANER PAYMENT TOKEN OPERATIONS =====
+  
+  async createCleanerPaymentToken(cleanerId: number, companyId: number, token: string, expiresAt?: Date): Promise<CleanerPaymentToken> {
+    const [paymentToken] = await db
+      .insert(cleanerPaymentTokens)
+      .values({
+        cleanerId,
+        companyId,
+        token,
+        expiresAt: expiresAt || new Date(Date.now() + 24 * 60 * 60 * 1000),
+        isUsed: 0,
+      })
+      .returning();
+    
+    return paymentToken;
+  }
+  
+  async getCleanerPaymentToken(token: string): Promise<CleanerPaymentToken | undefined> {
+    const [paymentToken] = await db
+      .select()
+      .from(cleanerPaymentTokens)
+      .where(eq(cleanerPaymentTokens.token, token));
+    
+    return paymentToken;
+  }
+  
+  async markTokenAsUsed(tokenId: number): Promise<void> {
+    await db
+      .update(cleanerPaymentTokens)
+      .set({
+        isUsed: 1,
+        usedAt: new Date(),
+      })
+      .where(eq(cleanerPaymentTokens.id, tokenId));
+  }
+  
+  async deleteExpiredTokens(): Promise<void> {
+    await db
+      .delete(cleanerPaymentTokens)
+      .where(
+        and(
+          sql`${cleanerPaymentTokens.expiresAt} < NOW()`,
+          eq(cleanerPaymentTokens.isUsed, 0)
+        )
+      );
   }
 
   // ===== ANALYTICS =====
