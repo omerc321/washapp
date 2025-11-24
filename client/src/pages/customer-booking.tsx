@@ -15,7 +15,7 @@ import logoUrl from "@assets/IMG_2508_1762619079711.png";
 import type { CompanyWithCleaners } from "@shared/schema";
 import { calculateFees, type FeePackageType } from "@shared/fee-calculator";
 
-const STEPS = ["Phone Number", "Car Details", "Location & Company", "Payment"];
+const STEPS = ["Email Verification", "Car Details", "Location & Company", "Payment"];
 
 interface PreviousCar {
   carPlateEmirate: string;
@@ -68,14 +68,16 @@ export default function CustomerBooking() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
-  const [currentStep, setCurrentStep] = useState(1); // Start at step 1 for phone entry
+  const [currentStep, setCurrentStep] = useState(1); // Start at step 1 for email/OTP entry
   const checkoutTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Step 1: Phone number
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [previousCars, setPreviousCars] = useState<PreviousCar[]>([]);
-  const [selectedCarIndex, setSelectedCarIndex] = useState<number | null>(null);
-  const [loadingHistory, setLoadingHistory] = useState(false);
+  // Step 1: Email and OTP
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
   
   // Step 2: Car Details
   const [formData, setFormData] = useState<BookingFormData>({
@@ -147,60 +149,90 @@ export default function CustomerBooking() {
     }
   };
 
-  // Step 1: Phone Number Submit
-  const handleStep1Submit = async () => {
-    if (!phoneNumber || phoneNumber.trim().length < 8) {
+  // Step 1: Send OTP to Email
+  const handleSendOtp = async () => {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       toast({
-        title: "Phone Required",
-        description: "Please enter a valid phone number",
+        title: "Invalid Email",
+        description: "Please enter a valid email address",
         variant: "destructive",
       });
       return;
     }
 
-    setLoadingHistory(true);
+    setSendingOtp(true);
     try {
-      // Fetch customer's car history
-      const res = await fetch(`/api/customer/history/${encodeURIComponent(phoneNumber)}`);
-      
-      // Handle 404 as new customer (no previous bookings)
-      let data: CustomerHistoryResponse = { cars: [] };
-      if (res.ok) {
-        data = await res.json();
-      } else if (res.status !== 404) {
-        // Only throw error for non-404 errors
-        throw new Error("Failed to fetch history");
+      const res = await fetch("/api/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to send OTP");
       }
-      
-      setPreviousCars(data.cars || []);
-      
-      // Set phone number in form data
-      setFormData(prev => ({ ...prev, customerPhone: phoneNumber }));
-      
-      // Auto-fill if only one car
-      if (data.cars && data.cars.length === 1) {
-        const car = data.cars[0];
-        setFormData(prev => ({
-          ...prev,
-          customerPhone: phoneNumber,
-          carPlateEmirate: car.carPlateEmirate,
-          carPlateCode: car.carPlateCode,
-          carPlateNumber: car.carPlateNumber,
-          customerEmail: car.customerEmail,
-          parkingNumber: car.parkingNumber,
-        }));
-        setSelectedCarIndex(0);
-      }
-      
-      setCurrentStep(2);
+
+      setOtpSent(true);
+      toast({
+        title: "OTP Sent",
+        description: "Check your email for the verification code",
+      });
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to load your booking history",
+        description: "Failed to send OTP. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setLoadingHistory(false);
+      setSendingOtp(false);
+    }
+  };
+
+  // Step 1: Verify OTP
+  const handleVerifyOtp = async () => {
+    if (!otp || otp.length !== 6) {
+      toast({
+        title: "Invalid OTP",
+        description: "Please enter the 6-digit code",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setVerifyingOtp(true);
+    try {
+      const res = await fetch("/api/otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code: otp }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Invalid OTP");
+      }
+
+      setOtpVerified(true);
+      
+      // Set email in form data
+      setFormData(prev => ({ ...prev, customerEmail: email }));
+      
+      toast({
+        title: "Email Verified",
+        description: "Proceeding to car details",
+      });
+
+      // Move to next step after short delay
+      setTimeout(() => {
+        setCurrentStep(2);
+      }, 500);
+    } catch (error) {
+      toast({
+        title: "Verification Failed",
+        description: "Invalid or expired OTP code",
+        variant: "destructive",
+      });
+    } finally {
+      setVerifyingOtp(false);
     }
   };
 
@@ -418,14 +450,19 @@ export default function CustomerBooking() {
       {/* Content */}
       <div className="flex-1 max-w-md mx-auto w-full px-4 pb-24">
         <AnimatePresence mode="wait" custom={currentStep}>
-          {/* Step 1: Phone Number Entry */}
+          {/* Step 1: Email & OTP Verification */}
           {currentStep === 1 && (
-            <Step0PhoneEntry
+            <Step0EmailOTP
               key="step1"
-              phoneNumber={phoneNumber}
-              setPhoneNumber={setPhoneNumber}
-              onSubmit={handleStep1Submit}
-              isLoading={loadingHistory}
+              email={email}
+              setEmail={setEmail}
+              otp={otp}
+              setOtp={setOtp}
+              otpSent={otpSent}
+              onSendOtp={handleSendOtp}
+              onVerifyOtp={handleVerifyOtp}
+              sendingOtp={sendingOtp}
+              verifyingOtp={verifyingOtp}
             />
           )}
 
@@ -549,17 +586,27 @@ export default function CustomerBooking() {
   );
 }
 
-// Step 0: Phone Number Entry Component
-function Step0PhoneEntry({
-  phoneNumber,
-  setPhoneNumber,
-  onSubmit,
-  isLoading,
+// Step 0: Email & OTP Verification Component
+function Step0EmailOTP({
+  email,
+  setEmail,
+  otp,
+  setOtp,
+  otpSent,
+  onSendOtp,
+  onVerifyOtp,
+  sendingOtp,
+  verifyingOtp,
 }: {
-  phoneNumber: string;
-  setPhoneNumber: (phone: string) => void;
-  onSubmit: () => void;
-  isLoading: boolean;
+  email: string;
+  setEmail: (email: string) => void;
+  otp: string;
+  setOtp: (otp: string) => void;
+  otpSent: boolean;
+  onSendOtp: () => void;
+  onVerifyOtp: () => void;
+  sendingOtp: boolean;
+  verifyingOtp: boolean;
 }) {
   return (
     <motion.div
@@ -591,55 +638,121 @@ function Step0PhoneEntry({
           />
         </motion.div>
         <h2 className="text-2xl font-bold">Welcome!</h2>
-        <p className="text-muted-foreground">Enter your phone number to get started</p>
+        <p className="text-muted-foreground">
+          {otpSent ? "Enter the verification code" : "Enter your email to get started"}
+        </p>
       </div>
 
       <Card className="p-6 space-y-5 border-2 hover-elevate">
-        <div>
-          <Label htmlFor="phoneNumber" className="text-base font-medium mb-2 block">
-            Phone Number *
-          </Label>
-          <Input
-            id="phoneNumber"
-            type="tel"
-            placeholder="+971 50 123 4567"
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            className="h-12 text-lg"
-            autoFocus
-            data-testid="input-phone-number"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                e.stopPropagation();
-                onSubmit();
-              }
-            }}
-          />
-          <p className="text-sm text-muted-foreground mt-2">
-            We'll check if you've booked with us before
-          </p>
-        </div>
+        {!otpSent ? (
+          <>
+            <div>
+              <Label htmlFor="email" className="text-base font-medium mb-2 block">
+                Email Address *
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="example@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-12 text-lg"
+                autoFocus
+                data-testid="input-email"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onSendOtp();
+                  }
+                }}
+              />
+              <p className="text-sm text-muted-foreground mt-2">
+                We'll send you a verification code
+              </p>
+            </div>
 
-        <Button
-          type="button"
-          className="w-full h-12 text-base bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90"
-          onClick={onSubmit}
-          disabled={isLoading}
-          data-testid="button-continue-phone"
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Checking history...
-            </>
-          ) : (
-            <>
-              Continue
-              <ChevronLeft className="ml-2 h-4 w-4 rotate-180" />
-            </>
-          )}
-        </Button>
+            <Button
+              type="button"
+              className="w-full h-12 text-base bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90"
+              onClick={onSendOtp}
+              disabled={sendingOtp}
+              data-testid="button-send-otp"
+            >
+              {sendingOtp ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending code...
+                </>
+              ) : (
+                <>
+                  Send Verification Code
+                  <ChevronLeft className="ml-2 h-4 w-4 rotate-180" />
+                </>
+              )}
+            </Button>
+          </>
+        ) : (
+          <>
+            <div>
+              <Label htmlFor="otp" className="text-base font-medium mb-2 block">
+                Verification Code *
+              </Label>
+              <Input
+                id="otp"
+                type="text"
+                placeholder="Enter 6-digit code"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                className="h-12 text-lg text-center tracking-widest"
+                autoFocus
+                maxLength={6}
+                data-testid="input-otp"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onVerifyOtp();
+                  }
+                }}
+              />
+              <p className="text-sm text-muted-foreground mt-2">
+                Code sent to {email}
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              className="w-full h-12 text-base bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90"
+              onClick={onVerifyOtp}
+              disabled={verifyingOtp}
+              data-testid="button-verify-otp"
+            >
+              {verifyingOtp ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                <>
+                  Verify & Continue
+                  <ChevronLeft className="ml-2 h-4 w-4 rotate-180" />
+                </>
+              )}
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              onClick={onSendOtp}
+              disabled={sendingOtp}
+              data-testid="button-resend-otp"
+            >
+              Resend Code
+            </Button>
+          </>
+        )}
       </Card>
     </motion.div>
   );
