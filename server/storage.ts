@@ -1019,23 +1019,26 @@ export class DatabaseStorage implements IStorage {
   // ===== CUSTOMER OPERATIONS =====
 
   async createOrGetCustomer(email: string, displayName?: string, phoneNumber?: string): Promise<Customer> {
-    const existing = await this.getCustomerByEmail(email);
-    if (existing) {
+    // Check by email (primary identifier after OTP verification)
+    const existingByEmail = await this.getCustomerByEmail(email);
+    if (existingByEmail) {
       // Update lastLogin and phone number if provided
       const updateData: Partial<Customer> = { lastLoginAt: new Date() };
-      if (phoneNumber && phoneNumber !== existing.phoneNumber) {
+      if (phoneNumber && phoneNumber !== existingByEmail.phoneNumber) {
         updateData.phoneNumber = phoneNumber;
       }
       
       const [updated] = await db
         .update(customers)
         .set(updateData)
-        .where(eq(customers.id, existing.id))
+        .where(eq(customers.id, existingByEmail.id))
         .returning();
       
       return updated;
     }
 
+    // Email doesn't exist - create new customer
+    // Note: Phone numbers can be duplicated (no unique constraint)
     const [customer] = await db
       .insert(customers)
       .values({

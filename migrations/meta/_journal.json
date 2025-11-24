@@ -43,6 +43,13 @@
       "when": 1763957277584,
       "tag": "0005_fine_electro",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1763977778417,
+      "tag": "0006_remove_phone_unique_constraint",
+      "breakpoints": true
     }
   ]
 }
