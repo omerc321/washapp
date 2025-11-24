@@ -65,15 +65,15 @@ export default function About() {
               {[
                 {
                   step: 1,
-                  title: "Phone Number",
-                  desc: "Enter your phone for smart auto-fill",
-                  icon: "📱",
+                  title: "Email Verification",
+                  desc: "Verify your email with OTP or skip to enter manually",
+                  icon: "📧",
                   color: "from-blue-500 to-blue-600"
                 },
                 {
                   step: 2,
                   title: "Car Details",
-                  desc: "Plate number, type, make & color",
+                  desc: "Plate number, type, make & color with smart auto-fill",
                   icon: "🚗",
                   color: "from-indigo-500 to-indigo-600"
                 },
@@ -128,7 +128,7 @@ export default function About() {
                   <ul className="space-y-3">
                     <li className="flex items-start gap-3">
                       <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-                      <span className="text-sm">Phone-first booking with smart auto-fill for returning customers</span>
+                      <span className="text-sm">Email/OTP verification with smart auto-fill for returning customers</span>
                     </li>
                     <li className="flex items-start gap-3">
                       <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
@@ -190,7 +190,7 @@ export default function About() {
                       <div className="w-3 h-3 rounded-full bg-green-500" />
                     </div>
                     <div className="flex-1 mx-4 bg-white dark:bg-gray-600 rounded px-3 py-1 text-xs text-muted-foreground">
-                      https://carwashpro.replit.app/company
+                      https://washapp.ae/company
                     </div>
                   </div>
 
@@ -342,20 +342,20 @@ export default function About() {
                   {[
                     {
                       num: 1,
-                      title: "Enter Your Phone Number",
-                      desc: "Start by providing your phone number. If you've booked before, we'll auto-fill your car details to save time.",
+                      title: "Verify Your Email (Optional)",
+                      desc: "Enter your email and verify with OTP code to unlock smart auto-fill. Or skip this step and enter details manually.",
                       color: "from-blue-500 to-indigo-600"
                     },
                     {
                       num: 2,
                       title: "Enter Car Details",
-                      desc: "Provide your car plate number, type, make, and color so companies know what they're washing.",
+                      desc: "Provide your car plate number, type, make, and color. If email verified, returning customers get auto-fill benefits.",
                       color: "from-blue-500 to-indigo-600"
                     },
                     {
                       num: 3,
                       title: "Choose Location & Company",
-                      desc: "Select your car's location on the map. We'll show you available companies in your area with their pricing.",
+                      desc: "Select your car's location on the interactive map. We'll show you available companies in your area with their pricing.",
                       color: "from-blue-500 to-indigo-600"
                     },
                     {
@@ -367,7 +367,7 @@ export default function About() {
                     {
                       num: "✓",
                       title: "Track Your Service",
-                      desc: "A cleaner will be assigned to your job. Track the progress in real-time and receive photo proof when completed.",
+                      desc: "A cleaner will be assigned to your job. Track the progress in real-time and receive push notifications and photo proof when completed.",
                       color: "from-emerald-500 to-teal-600"
                     }
                   ].map((step, idx) => (

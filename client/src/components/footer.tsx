@@ -17,20 +17,26 @@ export function Footer() {
 
           {/* Links */}
           <nav className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
-            <Link href="/about">
-              <a className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-about">
-                About
-              </a>
+            <Link 
+              href="/about" 
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors" 
+              data-testid="link-about"
+            >
+              About
             </Link>
-            <Link href="/terms">
-              <a className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-terms">
-                Terms
-              </a>
+            <Link 
+              href="/terms" 
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors" 
+              data-testid="link-terms"
+            >
+              Terms
             </Link>
-            <Link href="/privacy">
-              <a className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-privacy">
-                Privacy
-              </a>
+            <Link 
+              href="/privacy" 
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors" 
+              data-testid="link-privacy"
+            >
+              Privacy
             </Link>
           </nav>
 
