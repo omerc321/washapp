@@ -2124,15 +2124,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const jobFinancials = await storage.getJobFinancialsByJobId(completedJob.id);
           
           // Use actual amounts from financials, or fallback to calculated values
-          const baseJobAmount = jobFinancials?.baseJobAmount 
-            ? Number(jobFinancials.baseJobAmount) 
-            : Number(completedJob.price);
-          const platformFeeAmount = jobFinancials?.platformFeeAmount 
-            ? Number(jobFinancials.platformFeeAmount) 
-            : 3;
-          const vatAmount = jobFinancials?.taxAmount 
-            ? Number(jobFinancials.taxAmount) 
-            : 0;
+          let baseJobAmount: number;
+          let platformFeeAmount: number;
+          let tipAmount: number;
+          let vatAmount: number;
+          
+          if (jobFinancials) {
+            // Use actual values from financial record
+            baseJobAmount = Number(jobFinancials.baseJobAmount);
+            platformFeeAmount = Number(jobFinancials.platformFeeAmount);
+            tipAmount = Number(jobFinancials.tipAmount);
+            vatAmount = Number(jobFinancials.taxAmount);
+          } else {
+            // Fallback for legacy jobs: use stored values from job record
+            baseJobAmount = Number(completedJob.price);
+            tipAmount = Number(completedJob.tipAmount || 0);
+            vatAmount = Number(completedJob.taxAmount || 0);
+            
+            // Derive platform fee from total
+            // total = service + VAT + tip
+            // service = carWash + platformFee
+            // platformFee = total - carWash - VAT - tip
+            const totalAmount = Number(completedJob.totalAmount);
+            platformFeeAmount = Number((totalAmount - baseJobAmount - vatAmount - tipAmount).toFixed(2));
+            
+            // Ensure platform fee is non-negative (guard against data inconsistencies)
+            if (platformFeeAmount < 0) platformFeeAmount = 0;
+          }
+          
           const totalAmount = Number(completedJob.totalAmount);
 
           await generateReceipt({
@@ -2145,6 +2164,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               locationAddress: completedJob.locationAddress,
               servicePrice: baseJobAmount,
               platformFee: platformFeeAmount,
+              tipAmount,
               vatAmount,
               totalAmount,
               paymentMethod: completedJob.paymentMethod || 'card',

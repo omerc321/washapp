@@ -6,22 +6,22 @@ export interface FeeCalculation {
   baseJobAmount: number;       // Company's price per wash (car wash only)
   basePrice: number;           // Legacy alias for baseJobAmount
   baseTax: number;             // 5% tax on base amount (DEPRECATED - now part of taxAmount)
-  tipAmount: number;           // Tip amount (goes 100% to cleaner)
-  tipTax: number;              // 5% tax on tip
+  tipAmount: number;           // Tip amount (goes 100% to cleaner, VAT-exempt)
+  tipTax: number;              // ALWAYS 0 - Tips are VAT-exempt (kept for schema compatibility)
   platformFeeAmount: number;   // Platform fee (varies by package)
   platformFee: number;         // Legacy alias for platformFeeAmount
   platformFeeTax: number;      // 5% tax on platform fee (DEPRECATED - now part of taxAmount)
   platformFeeToCompany: number; // 95% of platform fee (2.85 AED goes to company)
   platformRevenue: number;     // 5% of platform fee (0.15 AED deducted from company revenue)
   servicePrice: number;        // Combined: carWash + platformFee (for customer display)
-  totalAmount: number;         // Total customer pays (including tip)
-  taxAmount: number;           // Total VAT (5% of servicePrice + tip)
-  grossAmount: number;         // Sum of all: baseJobAmount + baseTax + tipAmount + tipTax + platformFeeAmount + platformFeeTax + stripeProcessingFee
+  totalAmount: number;         // Total customer pays: service + VAT + tip (no VAT on tip)
+  taxAmount: number;           // Total VAT (5% of servicePrice ONLY - tips are VAT-exempt)
+  grossAmount: number;         // Sum of all amounts before fees/deductions
   paymentProcessingFeeAmount: number; // Stripe fees (total)
   companyStripeFeeShare: number;  // Company's portion of Stripe fee (Package 2 only)
   cleanerStripeFeeShare: number;  // Cleaner's portion of Stripe fee (Package 2 only)
-  netPayableAmount: number;    // What company gets: grossAmount - platformFeeAmount - platformFeeTax - stripeProcessingFee
-  remainingTip: number;        // Tip after Stripe fee deduction (Package 2 only)
+  netPayableAmount: number;    // What company gets after all deductions
+  remainingTip: number;        // Tip to cleaner (minus Stripe fee share in Package 2)
 }
 
 export async function calculateJobFees(
@@ -42,15 +42,17 @@ export async function calculateJobFees(
     platformFee: platformFee,
   });
   
-  // Add tip calculations
+  // Add tip calculations  
   const tipAmountValue = Number(tipAmount.toFixed(2));
-  const tipTax = Number((tipAmount * taxRate).toFixed(2));
+  // IMPORTANT: Tips are VAT-exempt (no tax on gratuity)
+  // tipTax is kept as 0 and persisted for backwards compatibility with existing schema
+  const tipTax = 0;
   
-  // Total amount customer pays = service price + VAT + tip + tip VAT
-  const totalAmount = Number((baseFees.totalAmount + tipAmountValue + tipTax).toFixed(2));
+  // Total amount customer pays = service price + VAT + tip (no VAT on tip)
+  const totalAmount = Number((baseFees.totalAmount + tipAmountValue).toFixed(2));
   
-  // Total tax = VAT on service + VAT on tip
-  const taxAmount = Number((baseFees.vatAmount + tipTax).toFixed(2));
+  // Total tax = VAT on service only (tips are VAT-exempt)
+  const taxAmount = Number(baseFees.vatAmount.toFixed(2));
   
   // Determine if Stripe fees should be absorbed by company (package2) or passed to customer (others)
   const absorbsStripeFee = (feePackageType || '').toLowerCase() === 'package2';
@@ -81,38 +83,38 @@ export async function calculateJobFees(
   let netPayableAmount: number;
   let companyStripeFeeShare = 0;
   let cleanerStripeFeeShare = 0;
-  let remainingTip = tipAmountValue + tipTax;
+  let remainingTip = tipAmountValue; // Tips have no VAT
   
   if (absorbsStripeFee) {
     // Package 2: Customer pays ONLY car wash + VAT + tip (no Stripe fee added to customer)
     // Company absorbs entire Stripe fee, split proportionally between company and cleaner
     // For 15 AED wash + 5 tip (package2 has no platform fee):
     //   - Service price + VAT (company's share) = 15.75
-    //   - Tip + Tip VAT (cleaner's share) = 5.25
-    //   - Total = 21.00
-    //   - Stripe fee = 1.61
-    //   - Company's proportion = 15.75 / 21 = 0.75
-    //   - Cleaner's proportion = 5.25 / 21 = 0.25
-    //   - Company's Stripe fee = 1.61 × 0.75 = 1.21
-    //   - Cleaner's Stripe fee = 1.61 × 0.25 = 0.40
-    //   - Company net = 15.75 - 1.21 = 14.54
-    //   - Cleaner gets (remaining tip) = 5.25 - 0.40 = 4.85
+    //   - Tip (cleaner's share, NO VAT on tip) = 5.00
+    //   - Total = 20.75
+    //   - Stripe fee = 1.60
+    //   - Company's proportion = 15.75 / 20.75 = 0.76
+    //   - Cleaner's proportion = 5.00 / 20.75 = 0.24
+    //   - Company's Stripe fee = 1.60 × 0.76 = 1.22
+    //   - Cleaner's Stripe fee = 1.60 × 0.24 = 0.38
+    //   - Company net = 15.75 - 1.22 = 14.53
+    //   - Cleaner gets (remaining tip) = 5.00 - 0.38 = 4.62
     
     grossAmount = totalAmount;  // Customer pays car wash + VAT + tip (no Stripe fee)
     const companyShare = baseFees.totalAmount;  // Service price + VAT (includes platform fee + VAT)
-    const tipWithVAT = tipAmountValue + tipTax;
+    const tipNoVAT = tipAmountValue; // Tips have NO VAT
     
-    if (tipWithVAT > 0 && totalAmount > 0) {
+    if (tipNoVAT > 0 && totalAmount > 0) {
       // Calculate proportions with full precision
       const companyProportion = companyShare / totalAmount;
-      const cleanerProportion = tipWithVAT / totalAmount;
+      const cleanerProportion = tipNoVAT / totalAmount;
       
       // Split Stripe fee proportionally, then round
       companyStripeFeeShare = Number((paymentProcessingFeeAmount * companyProportion).toFixed(2));
       cleanerStripeFeeShare = Number((paymentProcessingFeeAmount * cleanerProportion).toFixed(2));
       
-      // Remaining tip (includes VAT) after cleaner's Stripe fee share
-      remainingTip = Number((tipWithVAT - cleanerStripeFeeShare).toFixed(2));
+      // Remaining tip (no VAT) after cleaner's Stripe fee share
+      remainingTip = Number((tipNoVAT - cleanerStripeFeeShare).toFixed(2));
     } else {
       // No tip - company absorbs all Stripe fees
       companyStripeFeeShare = paymentProcessingFeeAmount;
@@ -122,13 +124,21 @@ export async function calculateJobFees(
     
     netPayableAmount = Number((companyShare - companyStripeFeeShare).toFixed(2));
   } else {
-    // Other packages: Stripe fee is passed to customer
+    // Other packages: Stripe fee is passed to customer, tip goes to cleaner
+    // grossAmount includes service + VAT + tip + Stripe fee (all collected from customer)
     grossAmount = Number((totalAmount + paymentProcessingFeeAmount).toFixed(2));
+    
+    // Company gets: service - platform fee - platform VAT - Stripe fee (tip excluded, goes to cleaner)
+    // Formula: grossAmount - platformFee - platformVAT - stripeFee - tip
+    // Simplified: (service + VAT + tip + stripe) - platformFee - allVAT + carWashVAT - stripe - tip
+    //           = service - platformFee - platformVAT
     netPayableAmount = Number(
-      (grossAmount - baseFees.platformFeeAmount - baseFees.vatAmount + (baseFees.carWashPrice * taxRate) - paymentProcessingFeeAmount).toFixed(2)
+      (grossAmount - baseFees.platformFeeAmount - baseFees.vatAmount + (baseFees.carWashPrice * taxRate) - paymentProcessingFeeAmount - tipAmountValue).toFixed(2)
     );
     companyStripeFeeShare = 0;
     cleanerStripeFeeShare = 0;
+    // Cleaner gets full tip (not tracked in netPayableAmount)
+    remainingTip = tipAmountValue;
   }
   
   return {

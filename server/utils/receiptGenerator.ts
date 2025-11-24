@@ -14,8 +14,9 @@ export interface ReceiptData {
   locationAddress: string;
   servicePrice: number; // Base car wash price
   platformFee: number; // Platform fee amount
-  vatAmount: number; // Total VAT amount
-  totalAmount: number; // Total paid
+  tipAmount: number; // Tip amount (VAT-exempt)
+  vatAmount: number; // Total VAT amount (on service only, NOT on tip)
+  totalAmount: number; // Total paid (service + VAT + tip)
   paymentMethod: string;
   completedAt: Date;
 }
@@ -225,13 +226,23 @@ export async function generateReceipt({ receiptData, platformSettings }: Generat
       doc.rect(tableLeft, currentY, tableWidth, 25).stroke('#CCCCCC');
       currentY += 25;
 
-      // VAT row (use actual VAT amount from financials)
+      // VAT row (use actual VAT amount from financials - only on service, NOT on tip)
       doc.font('Helvetica')
         .text('VAT (5%)', tableLeft + 10, currentY + 8, { width: 240 })
         .text(receiptData.vatAmount.toFixed(2), tableLeft + 260, currentY + 8, { width: 200, align: 'right' });
 
       doc.rect(tableLeft, currentY, tableWidth, 25).stroke('#CCCCCC');
       currentY += 25;
+
+      // Tip row (separate line, VAT-exempt)
+      if (receiptData.tipAmount > 0) {
+        doc.font('Helvetica')
+          .text('Tip for Cleaner', tableLeft + 10, currentY + 8, { width: 240 })
+          .text(receiptData.tipAmount.toFixed(2), tableLeft + 260, currentY + 8, { width: 200, align: 'right' });
+
+        doc.rect(tableLeft, currentY, tableWidth, 25).stroke('#CCCCCC');
+        currentY += 25;
+      }
 
       // Total row with background
       doc.rect(tableLeft, currentY, tableWidth, 30)
