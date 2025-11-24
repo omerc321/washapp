@@ -24,6 +24,9 @@ interface JobFinancial {
   platformFeeAmount: string;
   platformFeeTax: string;
   paymentProcessingFeeAmount: string;
+  companyStripeFeeShare: string;
+  cleanerStripeFeeShare: string;
+  remainingTip: string;
   grossAmount: string;
   netPayableAmount: string;
   taxAmount: string;

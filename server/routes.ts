@@ -3084,8 +3084,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { header: 'Cleaner Name', key: 'cleanerName', width: 20 },
         { header: 'Base Amount', key: 'baseAmount', width: 12 },
         { header: 'Base Tax', key: 'baseTax', width: 12 },
-        { header: 'Tip Amount', key: 'tipAmount', width: 12 },
-        { header: 'Tip Tax', key: 'tipTax', width: 12 },
+        { header: 'Total Tip', key: 'totalTip', width: 12 },
+        { header: 'Tip VAT', key: 'tipVat', width: 12 },
+        { header: 'Remaining Tip', key: 'remainingTip', width: 15 },
         { header: 'Platform Fee', key: 'platformFee', width: 12 },
         { header: 'Platform Tax', key: 'platformTax', width: 12 },
         { header: 'Stripe Fee', key: 'stripeFee', width: 12 },
@@ -3094,17 +3095,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ];
       
       jobs.forEach(job => {
+        const isPackage2 = (job.feePackageType || 'custom').toLowerCase() === 'package2';
+        const tipAmount = parseFloat(job.tipAmount || "0");
+        const tipTax = parseFloat(job.tipTax || "0");
+        const totalTip = tipAmount + tipTax;
+        const remainingTip = parseFloat(job.remainingTip || "0");
+        
         worksheet.addRow({
           jobId: job.jobId,
           paidAt: new Date(job.paidAt).toLocaleString(),
           cleanerName: job.cleanerName || 'N/A',
           baseAmount: parseFloat(job.baseJobAmount || "0").toFixed(2),
           baseTax: parseFloat(job.baseTax || "0").toFixed(2),
-          tipAmount: parseFloat(job.tipAmount || "0").toFixed(2),
-          tipTax: parseFloat(job.tipTax || "0").toFixed(2),
+          totalTip: totalTip > 0 ? totalTip.toFixed(2) : '-',
+          tipVat: totalTip > 0 ? tipTax.toFixed(2) : '-',
+          remainingTip: totalTip > 0 ? remainingTip.toFixed(2) : '-',
           platformFee: parseFloat(job.platformFeeAmount || "0").toFixed(2),
           platformTax: parseFloat(job.platformFeeTax || "0").toFixed(2),
-          stripeFee: parseFloat(job.paymentProcessingFeeAmount || "0").toFixed(2),
+          stripeFee: isPackage2 ? parseFloat(job.paymentProcessingFeeAmount || "0").toFixed(2) : '-',
           grossAmount: parseFloat(job.grossAmount || "0").toFixed(2),
           netAmount: parseFloat(job.netPayableAmount || "0").toFixed(2),
         });
