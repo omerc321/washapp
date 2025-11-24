@@ -95,6 +95,10 @@ app.use((req, res, next) => {
   // Start auto-refund service for jobs not accepted within 15 minutes
   const { startAutoRefundService } = await import("./autoRefundService");
   startAutoRefundService();
+  
+  // Start auto-shift-timeout service to end shifts when location is stale (>10 min)
+  const { startAutoShiftTimeoutService } = await import("./autoShiftTimeoutService");
+  startAutoShiftTimeoutService();
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
