@@ -1021,8 +1021,19 @@ export class DatabaseStorage implements IStorage {
   async createOrGetCustomer(email: string, displayName?: string, phoneNumber?: string): Promise<Customer> {
     const existing = await this.getCustomerByEmail(email);
     if (existing) {
-      await this.updateCustomerLastLogin(existing.id);
-      return existing;
+      // Update lastLogin and phone number if provided
+      const updateData: Partial<Customer> = { lastLoginAt: new Date() };
+      if (phoneNumber && phoneNumber !== existing.phoneNumber) {
+        updateData.phoneNumber = phoneNumber;
+      }
+      
+      const [updated] = await db
+        .update(customers)
+        .set(updateData)
+        .where(eq(customers.id, existing.id))
+        .returning();
+      
+      return updated;
     }
 
     const [customer] = await db

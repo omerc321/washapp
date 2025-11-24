@@ -384,7 +384,10 @@ export default function CustomerBooking() {
       const customerResponse = await fetch("/api/customer/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber: formData.customerPhone }),
+        body: JSON.stringify({ 
+          email: formData.customerEmail,
+          phoneNumber: formData.customerPhone 
+        }),
       });
       
       if (!customerResponse.ok) {
