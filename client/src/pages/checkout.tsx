@@ -131,9 +131,9 @@ function CheckoutForm({
             description: "Your car wash has been booked!",
           });
           
-          const carPlate = jobData.carPlateNumber;
+          const fullPlate = `${jobData.carPlateEmirate} ${jobData.carPlateCode} ${jobData.carPlateNumber}`;
           sessionStorage.removeItem("pendingJob");
-          setTimeout(() => setLocation(`/customer/track/${carPlate}`), 1000);
+          setTimeout(() => setLocation(`/customer/track/${fullPlate}`), 1000);
         }
       } catch (error) {
         e.complete('fail');
@@ -176,17 +176,17 @@ function CheckoutForm({
         });
         
         // Clear pending job and redirect to tracking
-        const carPlate = jobData.carPlateNumber;
+        const fullPlate = `${jobData.carPlateEmirate} ${jobData.carPlateCode} ${jobData.carPlateNumber}`;
         sessionStorage.removeItem("pendingJob");
-        setTimeout(() => setLocation(`/customer/track/${carPlate}`), 1000);
+        setTimeout(() => setLocation(`/customer/track/${fullPlate}`), 1000);
       } catch (confirmError) {
         console.error("Payment confirmation error:", confirmError);
         toast({
           title: "Payment Processed",
           description: "Confirming your booking...",
         });
-        const carPlate = jobData.carPlateNumber;
-        setTimeout(() => setLocation(`/customer/track/${carPlate}`), 2000);
+        const fullPlate = `${jobData.carPlateEmirate} ${jobData.carPlateCode} ${jobData.carPlateNumber}`;
+        setTimeout(() => setLocation(`/customer/track/${fullPlate}`), 2000);
       }
     }
   };
@@ -400,7 +400,7 @@ export default function Checkout() {
               <Car className="h-5 w-5 mt-0.5 text-muted-foreground" />
               <div>
                 <p className="text-sm text-muted-foreground">Car Plate</p>
-                <p className="font-medium">{jobData.carPlateNumber}</p>
+                <p className="font-medium">{jobData.carPlateEmirate} {jobData.carPlateCode} {jobData.carPlateNumber}</p>
               </div>
             </div>
 

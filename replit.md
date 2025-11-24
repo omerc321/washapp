@@ -3,6 +3,11 @@
 ## Overview
 Washapp.ae is a professional, mobile-first platform for car wash booking, featuring an Uber-style interface. It enables anonymous customer requests, allows companies to manage cleaners, and empowers cleaners to complete jobs with photo verification. The project aims to streamline car wash booking and provide comprehensive management tools, tapping into market potential.
 
+## Recent Changes (November 24, 2025)
+-   **Pagination Implementation**: Added comprehensive pagination across all reporting views (company financials, admin dashboard, cleaner tips, customer tracking) with standard page size of 20 items. Created reusable PaginationControls component using shadcn/ui primitives. Storage layer returns {data, total} format with automatic page reset when filters change.
+-   **Package 1 Fee Calculation Fix**: Fixed critical bug where `feePackageType` field was missing from `getNearbyCompanies()` API response, causing Package 1 pricing to show incorrect amounts (e.g., 17.00 AED instead of 17.75 AED for 15 AED wash). Fixed by adding `fee_package_type` to SELECT query and company mapping in `server/storage.ts`.
+-   **Post-Payment Tracking Redirect Fix**: Fixed bug where checkout redirected to `/customer/track/{number}` instead of full plate identifier. Updated all redirect locations in `checkout.tsx` to use complete plate format: `${carPlateEmirate} ${carPlateCode} ${carPlateNumber}`. Also fixed car plate display in checkout summary.
+
 ## User Preferences
 I prefer simple language and clear explanations. I want iterative development with frequent, small updates. Ask before making major changes to the architecture or core functionalities. Ensure the code is clean, well-commented, and follows modern React and Node.js best practices. Do not make changes to the `uploads/` folder or modify existing environment variables without explicit confirmation.
 
