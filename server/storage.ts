@@ -1768,6 +1768,9 @@ export class DatabaseStorage implements IStorage {
     return results.map(r => ({
       ...r,
       completedAt: r.completedAt!,
+      tipAmount: Number(r.tipAmount),
+      cleanerStripeFeeShare: Number(r.cleanerStripeFeeShare),
+      remainingTip: Number(r.remainingTip),
     }));
   }
 

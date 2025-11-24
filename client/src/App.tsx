@@ -27,6 +27,7 @@ import CustomerTrack from "@/pages/customer-track";
 import CustomerComplaint from "@/pages/customer-complaint";
 import CleanerDashboard from "@/pages/cleaner-dashboard";
 import CleanerShiftHistory from "@/pages/cleaner-shift-history";
+import CleanerTips from "@/pages/cleaner-tips";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AdminSettings from "@/pages/admin-settings";
 import AdminComplaints from "@/pages/admin-complaints";
@@ -107,6 +108,9 @@ function Router() {
           </Route>
           <Route path="/cleaner/shift-history">
             {() => <ProtectedRoute component={CleanerShiftHistory} allowedRoles={[UserRole.CLEANER]} />}
+          </Route>
+          <Route path="/cleaner/tips">
+            {() => <ProtectedRoute component={CleanerTips} allowedRoles={[UserRole.CLEANER]} />}
           </Route>
 
           {/* Company Routes - Auth required */}

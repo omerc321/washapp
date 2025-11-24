@@ -1,4 +1,4 @@
-import { Home, Briefcase, BarChart3, LogOut, AlertCircle } from "lucide-react";
+import { Home, Briefcase, BarChart3, LogOut, AlertCircle, DollarSign } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth-context";
 import { UserRole } from "@shared/schema";
@@ -19,6 +19,7 @@ export function BottomNav() {
       case UserRole.CLEANER:
         return [
           { icon: Home, label: "Dashboard", path: "/cleaner", testId: "nav-dashboard" },
+          { icon: DollarSign, label: "Tips", path: "/cleaner/tips", testId: "nav-tips" },
         ];
       case UserRole.COMPANY_ADMIN:
         return [
