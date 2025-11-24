@@ -2342,18 +2342,24 @@ export class DatabaseStorage implements IStorage {
   // ===== COMPLAINT OPERATIONS =====
   
   async createComplaint(complaintData: InsertComplaint): Promise<Complaint> {
-    // Generate unique reference number
-    const referenceNumber = `CMP-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-    
+    // Insert complaint first to get the ID
     const [complaint] = await db
       .insert(complaints)
       .values({
         ...complaintData,
-        referenceNumber,
+        referenceNumber: 'TEMP', // Temporary value
       })
       .returning();
     
-    return complaint;
+    // Update with simplified reference number format: CMP-{id}
+    const referenceNumber = `CMP-${complaint.id}`;
+    const [updatedComplaint] = await db
+      .update(complaints)
+      .set({ referenceNumber })
+      .where(eq(complaints.id, complaint.id))
+      .returning();
+    
+    return updatedComplaint;
   }
   
   async getComplaint(id: number): Promise<Complaint | undefined> {
