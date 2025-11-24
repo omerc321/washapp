@@ -1303,14 +1303,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           }
           
-          // Generate and store receipt number (only if not already generated)
-          if (!job.receiptNumber) {
-            const receiptNumber = generateReceiptNumber();
-            await storage.updateJob(job.id, {
-              receiptNumber,
-              receiptGeneratedAt: new Date(),
-            });
-          }
+          // Generate and store receipt number (atomic operation to prevent duplicates)
+          const generatedReceipt = generateReceiptNumber();
+          const receiptNumber = await storage.atomicSetReceipt(job.id, generatedReceipt, new Date());
           
           // Get company to retrieve platform fee
           const company = await storage.getCompany(job.companyId);
@@ -1416,23 +1411,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Job not found" });
       }
       
-      if (job.status !== JobStatus.PENDING_PAYMENT) {
+      // Only update status if not already PAID
+      if (job.status === JobStatus.PENDING_PAYMENT) {
+        await storage.updateJob(job.id, {
+          status: JobStatus.PAID,
+        });
+      }
+      
+      // Always ensure receipt exists (atomic operation to prevent duplicates)
+      const generatedReceipt = generateReceiptNumber();
+      const receiptNumber = await storage.atomicSetReceipt(job.id, generatedReceipt, new Date());
+      
+      // If job was already confirmed and has receipt, we can skip financial record creation
+      if (job.status !== JobStatus.PENDING_PAYMENT && job.receiptNumber) {
         return res.json({ message: "Job already confirmed", job });
       }
-
-      // Generate and store receipt number (only if not already generated)
-      const updateData: any = {
-        status: JobStatus.PAID,
-      };
-      
-      if (!job.receiptNumber) {
-        const receiptNumber = generateReceiptNumber();
-        updateData.receiptNumber = receiptNumber;
-        updateData.receiptGeneratedAt = new Date();
-      }
-      
-      // Update job status to PAID (cleaners will accept it themselves)
-      await storage.updateJob(job.id, updateData);
       
       // Get company to retrieve platform fee
       const company = await storage.getCompany(job.companyId);

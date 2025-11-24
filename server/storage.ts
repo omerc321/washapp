@@ -137,6 +137,7 @@ export interface IStorage {
   createJob(job: InsertJob): Promise<Job>;
   getJob(id: number): Promise<Job | undefined>;
   updateJob(id: number, updates: Partial<Job>): Promise<void>;
+  atomicSetReceipt(jobId: number, receiptNumber: string, receiptGeneratedAt: Date): Promise<string>;
   getJobsByCustomer(customerId: number): Promise<Job[]>;
   getJobsByPlateNumber(plateNumber: string): Promise<Job[]>;
   getJobsByPhoneNumber(phoneNumber: string): Promise<Job[]>;
@@ -849,6 +850,25 @@ export class DatabaseStorage implements IStorage {
       .update(jobs)
       .set(updates)
       .where(eq(jobs.id, id));
+  }
+
+  async atomicSetReceipt(jobId: number, receiptNumber: string, receiptGeneratedAt: Date): Promise<string> {
+    const result = await db
+      .update(jobs)
+      .set({ receiptNumber, receiptGeneratedAt })
+      .where(and(
+        eq(jobs.id, jobId),
+        isNull(jobs.receiptNumber)
+      ))
+      .returning({ receiptNumber: jobs.receiptNumber });
+    
+    if (result.length > 0 && result[0].receiptNumber) {
+      return result[0].receiptNumber;
+    }
+    
+    // Receipt was already set, fetch the existing one
+    const job = await this.getJob(jobId);
+    return job?.receiptNumber || receiptNumber;
   }
 
   async getJobsByCustomer(customerId: number): Promise<Job[]> {
