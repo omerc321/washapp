@@ -2085,18 +2085,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Job not found" });
       }
 
+      // Atomic idempotency check - prevent duplicate completion using storage layer
       const receiptNumber = generateReceiptNumber();
       const completedAt = new Date();
       
-      await storage.updateJob(parseInt(jobId), {
-        status: JobStatus.COMPLETED,
-        completedAt,
+      const result = await storage.completeJobIfNotCompleted(parseInt(jobId), {
         proofPhotoURL,
         receiptNumber,
-        receiptGeneratedAt: completedAt,
+        completedAt,
       });
+
+      // If job was already completed, return success without processing
+      if (!result.updated) {
+        console.log(`[Job Complete] Job ${jobId} already completed - ignoring duplicate request`);
+        return res.json({ success: true, message: "Job already completed" });
+      }
       
-      const completedJob = await storage.getJob(parseInt(jobId));
+      const completedJob = result.job;
       
       // Generate receipt PDF
       if (completedJob) {

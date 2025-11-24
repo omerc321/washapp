@@ -62,7 +62,7 @@ import {
   type CompanyWithCleaners,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, gte, inArray, isNull, isNotNull, not } from "drizzle-orm";
+import { eq, and, desc, sql, gte, inArray, isNull, isNotNull, not, ne } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { pool } from "./db";
 
@@ -138,6 +138,7 @@ export interface IStorage {
   getJob(id: number): Promise<Job | undefined>;
   updateJob(id: number, updates: Partial<Job>): Promise<void>;
   atomicSetReceipt(jobId: number, receiptNumber: string, receiptGeneratedAt: Date): Promise<string>;
+  completeJobIfNotCompleted(jobId: number, data: { proofPhotoURL: string; receiptNumber: string; completedAt: Date }): Promise<{ updated: boolean; job?: Job }>;
   getJobsByCustomer(customerId: number): Promise<Job[]>;
   getJobsByPlateNumber(plateNumber: string): Promise<Job[]>;
   getJobsByPhoneNumber(phoneNumber: string): Promise<Job[]>;
@@ -871,6 +872,36 @@ export class DatabaseStorage implements IStorage {
     // Receipt was already set, fetch the existing one
     const job = await this.getJob(jobId);
     return job?.receiptNumber || receiptNumber;
+  }
+
+  async completeJobIfNotCompleted(
+    jobId: number, 
+    data: { proofPhotoURL: string; receiptNumber: string; completedAt: Date }
+  ): Promise<{ updated: boolean; job?: Job }> {
+    // Atomic update: only update if job is NOT already completed
+    const result = await db
+      .update(jobs)
+      .set({
+        status: JobStatus.COMPLETED,
+        completedAt: data.completedAt,
+        proofPhotoURL: data.proofPhotoURL,
+        receiptNumber: data.receiptNumber,
+        receiptGeneratedAt: data.completedAt,
+      })
+      .where(
+        and(
+          eq(jobs.id, jobId),
+          ne(jobs.status, JobStatus.COMPLETED)
+        )
+      )
+      .returning();
+
+    // If no rows updated, job was already completed
+    if (result.length === 0) {
+      return { updated: false };
+    }
+
+    return { updated: true, job: result[0] };
   }
 
   async getJobsByCustomer(customerId: number): Promise<Job[]> {
