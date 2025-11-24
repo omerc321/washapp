@@ -36,6 +36,10 @@ interface JobFinancial {
   cleanerEmail: string | null;
   cleanerPhone: string | null;
   feePackageType: string | null;
+  receiptNumber: string | null;
+  stripePaymentIntentId: string | null;
+  stripeRefundId: string | null;
+  jobStatus: string | null;
 }
 
 interface FinancialSummary {
@@ -362,6 +366,9 @@ export default function CompanyFinancials() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Job ID</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Receipt #</TableHead>
+                      <TableHead>Stripe Ref</TableHead>
                       <TableHead>Cleaner</TableHead>
                       <TableHead>Base Amount</TableHead>
                       <TableHead>Base Tax</TableHead>
@@ -386,9 +393,34 @@ export default function CompanyFinancials() {
                       const remainingTip = parseFloat(job.remainingTip || "0");
                       const hasTip = totalTip > 0;
                       
+                      // Format job status for display
+                      const statusDisplay = job.jobStatus === 'refunded_unattended' ? 'Refunded (Unattended)' :
+                                          job.jobStatus === 'refunded' ? 'Refunded (Manual)' :
+                                          job.jobStatus?.toUpperCase() || 'N/A';
+                      const statusColor = job.jobStatus?.includes('refunded') ? 'text-red-600 dark:text-red-400' : 
+                                        job.jobStatus === 'completed' ? 'text-green-600 dark:text-green-400' :
+                                        'text-muted-foreground';
+                      
                       return (
                         <TableRow key={job.id} data-testid={`job-${job.id}`}>
                           <TableCell className="font-medium">#{job.jobId}</TableCell>
+                          <TableCell className={`min-w-[120px] ${statusColor}`}>{statusDisplay}</TableCell>
+                          <TableCell className="font-mono text-xs min-w-[150px]">{job.receiptNumber || '-'}</TableCell>
+                          <TableCell className="font-mono text-xs min-w-[180px]">
+                            <div className="flex flex-col gap-1">
+                              {job.stripePaymentIntentId && (
+                                <div className="text-green-600 dark:text-green-400" title="Payment Intent ID">
+                                  Pay: {job.stripePaymentIntentId.substring(0, 20)}...
+                                </div>
+                              )}
+                              {job.stripeRefundId && (
+                                <div className="text-red-600 dark:text-red-400" title="Refund ID">
+                                  Ref: {job.stripeRefundId.substring(0, 20)}...
+                                </div>
+                              )}
+                              {!job.stripePaymentIntentId && !job.stripeRefundId && '-'}
+                            </div>
+                          </TableCell>
                           <TableCell className="min-w-[120px]">{job.cleanerName || "Unassigned"}</TableCell>
                           <TableCell className="min-w-[100px]">{parseFloat(job.baseJobAmount || "0").toFixed(2)} AED</TableCell>
                           <TableCell className="min-w-[80px]">{parseFloat(job.baseTax || "0").toFixed(2)} AED</TableCell>

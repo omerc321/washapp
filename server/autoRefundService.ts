@@ -42,10 +42,10 @@ export async function checkAndRefundExpiredJobs() {
           continue;
         }
 
-        // IMPORTANT: Mark job as 'refunded' FIRST to prevent cleaners from accepting it
+        // IMPORTANT: Mark job as 'refunded_unattended' FIRST to prevent cleaners from accepting it
         await db.update(jobs)
           .set({
-            status: 'refunded',
+            status: 'refunded_unattended',
             refundReason: 'No cleaner accepted within 15 minutes',
           })
           .where(eq(jobs.id, job.id));

@@ -5,7 +5,7 @@ import { z } from "zod";
 
 // PostgreSQL Enums
 export const userRoleEnum = pgEnum("user_role", ["customer", "cleaner", "company_admin", "admin"]);
-export const jobStatusEnum = pgEnum("job_status", ["pending_payment", "paid", "assigned", "in_progress", "completed", "cancelled", "refunded"]);
+export const jobStatusEnum = pgEnum("job_status", ["pending_payment", "paid", "assigned", "in_progress", "completed", "cancelled", "refunded", "refunded_unattended"]);
 export const cleanerStatusEnum = pgEnum("cleaner_status", ["on_duty", "off_duty", "busy"]);
 export const invitationStatusEnum = pgEnum("invitation_status", ["pending", "consumed", "revoked"]);
 export const paymentMethodEnum = pgEnum("payment_method", ["card", "cash", "bank_transfer"]);

@@ -1303,6 +1303,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           }
           
+          // Generate and store receipt number (only if not already generated)
+          if (!job.receiptNumber) {
+            const receiptNumber = generateReceiptNumber();
+            await storage.updateJob(job.id, {
+              receiptNumber,
+              receiptGeneratedAt: new Date(),
+            });
+          }
+          
           // Get company to retrieve platform fee
           const company = await storage.getCompany(job.companyId);
           const platformFee = company ? Number(company.platformFee || 3.00) : 3.00;
@@ -1411,10 +1420,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ message: "Job already confirmed", job });
       }
 
-      // Update job status to PAID (cleaners will accept it themselves)
-      await storage.updateJob(job.id, {
+      // Generate and store receipt number (only if not already generated)
+      const updateData: any = {
         status: JobStatus.PAID,
-      });
+      };
+      
+      if (!job.receiptNumber) {
+        const receiptNumber = generateReceiptNumber();
+        updateData.receiptNumber = receiptNumber;
+        updateData.receiptGeneratedAt = new Date();
+      }
+      
+      // Update job status to PAID (cleaners will accept it themselves)
+      await storage.updateJob(job.id, updateData);
       
       // Get company to retrieve platform fee
       const company = await storage.getCompany(job.companyId);
@@ -3080,6 +3098,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       worksheet.columns = [
         { header: 'Job ID', key: 'jobId', width: 10 },
+        { header: 'Status', key: 'status', width: 20 },
+        { header: 'Receipt Number', key: 'receiptNumber', width: 20 },
+        { header: 'Stripe Payment ID', key: 'stripePaymentId', width: 30 },
+        { header: 'Stripe Refund ID', key: 'stripeRefundId', width: 30 },
         { header: 'Paid At', key: 'paidAt', width: 20 },
         { header: 'Cleaner Name', key: 'cleanerName', width: 20 },
         { header: 'Base Amount', key: 'baseAmount', width: 12 },
@@ -3101,8 +3123,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const totalTip = tipAmount + tipTax;
         const remainingTip = parseFloat(job.remainingTip || "0");
         
+        const jobStatus = (job as any).jobStatus;
+        const statusDisplay = jobStatus === 'refunded_unattended' ? 'Refunded (Unattended)' :
+                            jobStatus === 'refunded' ? 'Refunded (Manual)' :
+                            jobStatus?.toUpperCase() || 'N/A';
+        
         worksheet.addRow({
           jobId: job.jobId,
+          status: statusDisplay,
+          receiptNumber: (job as any).receiptNumber || '-',
+          stripePaymentId: (job as any).stripePaymentIntentId || '-',
+          stripeRefundId: (job as any).stripeRefundId || '-',
           paidAt: new Date(job.paidAt).toLocaleString(),
           cleanerName: job.cleanerName || 'N/A',
           baseAmount: parseFloat(job.baseJobAmount || "0").toFixed(2),
