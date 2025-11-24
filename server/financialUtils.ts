@@ -17,8 +17,11 @@ export interface FeeCalculation {
   totalAmount: number;         // Total customer pays (including tip)
   taxAmount: number;           // Total VAT (5% of servicePrice + tip)
   grossAmount: number;         // Sum of all: baseJobAmount + baseTax + tipAmount + tipTax + platformFeeAmount + platformFeeTax + stripeProcessingFee
-  paymentProcessingFeeAmount: number; // Stripe fees
+  paymentProcessingFeeAmount: number; // Stripe fees (total)
+  companyStripeFeeShare: number;  // Company's portion of Stripe fee (Package 2 only)
+  cleanerStripeFeeShare: number;  // Cleaner's portion of Stripe fee (Package 2 only)
   netPayableAmount: number;    // What company gets: grossAmount - platformFeeAmount - platformFeeTax - stripeProcessingFee
+  remainingTip: number;        // Tip after Stripe fee deduction (Package 2 only)
 }
 
 export async function calculateJobFees(
@@ -76,21 +79,55 @@ export async function calculateJobFees(
   // Gross amount and net payable depend on whether Stripe fee is absorbed
   let grossAmount: number;
   let netPayableAmount: number;
+  let companyStripeFeeShare = 0;
+  let cleanerStripeFeeShare = 0;
+  let remainingTip = tipAmountValue + tipTax;
   
   if (absorbsStripeFee) {
     // Package 2: Customer pays ONLY car wash + VAT + tip (no Stripe fee added to customer)
-    // Company gets: car wash + car wash VAT - Stripe fee (tips go to cleaner, not company)
-    // For 15 AED wash: (15 + 0.75) - 1.46 = 14.29
-    // For 15 AED wash + 5 tip: customer pays 21, company gets (15 + 0.75) - 1.61 = 14.14
+    // Stripe fee is split proportionally between company and cleaner based on their shares
+    // For 15 AED wash + 5 tip:
+    //   - Car wash + VAT = 15.75 (company's share)
+    //   - Tip + Tip VAT = 5.25 (cleaner's share)
+    //   - Total = 21.00
+    //   - Stripe fee = 1.61
+    //   - Company's proportion = 15.75 / 21 = 0.75
+    //   - Cleaner's proportion = 5.25 / 21 = 0.25
+    //   - Company's Stripe fee = 1.61 × 0.75 = 1.21
+    //   - Cleaner's Stripe fee = 1.61 × 0.25 = 0.40
+    //   - Company net = 15.75 - 1.21 = 14.54
+    //   - Cleaner gets (remaining tip) = 5.25 - 0.40 = 4.85
+    
     grossAmount = totalAmount;  // Customer pays car wash + VAT + tip (no Stripe fee)
     const carWashWithVAT = Number((baseFees.carWashPrice + (baseFees.carWashPrice * taxRate)).toFixed(2));
-    netPayableAmount = Number((carWashWithVAT - paymentProcessingFeeAmount).toFixed(2));
+    const tipWithVAT = Number((tipAmountValue + tipTax).toFixed(2));
+    
+    if (tipWithVAT > 0 && totalAmount > 0) {
+      // Split Stripe fee proportionally
+      const companyProportion = carWashWithVAT / totalAmount;
+      const cleanerProportion = tipWithVAT / totalAmount;
+      
+      companyStripeFeeShare = Number((paymentProcessingFeeAmount * companyProportion).toFixed(2));
+      cleanerStripeFeeShare = Number((paymentProcessingFeeAmount * cleanerProportion).toFixed(2));
+      
+      // Remaining tip after cleaner's Stripe fee share
+      remainingTip = Number((tipWithVAT - cleanerStripeFeeShare).toFixed(2));
+    } else {
+      // No tip - company absorbs all Stripe fees
+      companyStripeFeeShare = paymentProcessingFeeAmount;
+      cleanerStripeFeeShare = 0;
+      remainingTip = 0;
+    }
+    
+    netPayableAmount = Number((carWashWithVAT - companyStripeFeeShare).toFixed(2));
   } else {
     // Other packages: Stripe fee is passed to customer
     grossAmount = Number((totalAmount + paymentProcessingFeeAmount).toFixed(2));
     netPayableAmount = Number(
       (grossAmount - baseFees.platformFeeAmount - baseFees.vatAmount + (baseFees.carWashPrice * taxRate) - paymentProcessingFeeAmount).toFixed(2)
     );
+    companyStripeFeeShare = 0;
+    cleanerStripeFeeShare = 0;
   }
   
   return {
@@ -109,7 +146,10 @@ export async function calculateJobFees(
     taxAmount,
     grossAmount,
     paymentProcessingFeeAmount,
+    companyStripeFeeShare,
+    cleanerStripeFeeShare,
     netPayableAmount,
+    remainingTip,
   };
 }
 
@@ -146,6 +186,9 @@ export async function createJobFinancialRecord(
     platformFeeAmount: fees.platformFeeAmount.toString(),
     platformFeeTax: fees.platformFeeTax.toString(),
     paymentProcessingFeeAmount: fees.paymentProcessingFeeAmount.toString(),
+    companyStripeFeeShare: fees.companyStripeFeeShare.toString(),
+    cleanerStripeFeeShare: fees.cleanerStripeFeeShare.toString(),
+    remainingTip: fees.remainingTip.toString(),
     grossAmount: fees.grossAmount.toString(),
     netPayableAmount: fees.netPayableAmount.toString(),
     taxAmount: fees.taxAmount.toString(),

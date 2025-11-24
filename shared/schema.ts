@@ -399,6 +399,9 @@ export const jobFinancials = pgTable("job_financials", {
   platformFeeAmount: numeric("platform_fee_amount", { precision: 10, scale: 2 }).notNull(),
   platformFeeTax: numeric("platform_fee_tax", { precision: 10, scale: 2 }).notNull().default("0"),
   paymentProcessingFeeAmount: numeric("payment_processing_fee_amount", { precision: 10, scale: 2 }).notNull(),
+  companyStripeFeeShare: numeric("company_stripe_fee_share", { precision: 10, scale: 2 }).notNull().default("0"),
+  cleanerStripeFeeShare: numeric("cleaner_stripe_fee_share", { precision: 10, scale: 2 }).notNull().default("0"),
+  remainingTip: numeric("remaining_tip", { precision: 10, scale: 2 }).notNull().default("0"),
   grossAmount: numeric("gross_amount", { precision: 10, scale: 2 }).notNull(),
   netPayableAmount: numeric("net_payable_amount", { precision: 10, scale: 2 }).notNull(),
   
