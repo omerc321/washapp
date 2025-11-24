@@ -1519,6 +1519,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Plate number is required" });
       }
       
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const pageSize = req.query.pageSize ? parseInt(req.query.pageSize as string) : 20;
+      
       // Disable caching completely for real-time updates
       res.set({
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
@@ -1527,8 +1530,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Surrogate-Control': 'no-store'
       });
       
-      const jobs = await storage.getJobsByPlateNumber(plateNumber);
-      res.json(jobs);
+      const result = await storage.getJobsByPlateNumber(plateNumber, page, pageSize);
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -1542,6 +1545,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Phone number is required" });
       }
       
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const pageSize = req.query.pageSize ? parseInt(req.query.pageSize as string) : 20;
+      
       // Disable caching completely for real-time updates
       res.set({
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
@@ -1550,8 +1556,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Surrogate-Control': 'no-store'
       });
       
-      const jobs = await storage.getJobsByPhoneNumber(phoneNumber);
-      res.json(jobs);
+      const result = await storage.getJobsByPhoneNumber(phoneNumber, page, pageSize);
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -3292,9 +3298,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let customerId: number | undefined;
 
       if (!userId && plateNumber) {
-        const jobs = await storage.getJobsByPlateNumber(plateNumber);
-        if (jobs.length > 0 && jobs[0].customerId) {
-          customerId = jobs[0].customerId;
+        const jobs = await storage.getJobsByPlateNumber(plateNumber, 1, 1);
+        if (jobs.data.length > 0 && jobs.data[0].customerId) {
+          customerId = jobs.data[0].customerId;
         } else {
           return res.status(404).json({ message: "No jobs found for this plate number" });
         }

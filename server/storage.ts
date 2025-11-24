@@ -140,8 +140,8 @@ export interface IStorage {
   atomicSetReceipt(jobId: number, receiptNumber: string, receiptGeneratedAt: Date): Promise<string>;
   completeJobIfNotCompleted(jobId: number, data: { proofPhotoURL: string; receiptNumber: string; completedAt: Date }): Promise<{ updated: boolean; job?: Job }>;
   getJobsByCustomer(customerId: number, page?: number, pageSize?: number): Promise<{ data: Job[]; total: number }>;
-  getJobsByPlateNumber(plateNumber: string): Promise<Job[]>;
-  getJobsByPhoneNumber(phoneNumber: string): Promise<Job[]>;
+  getJobsByPlateNumber(plateNumber: string, page?: number, pageSize?: number): Promise<{ data: Job[]; total: number }>;
+  getJobsByPhoneNumber(phoneNumber: string, page?: number, pageSize?: number): Promise<{ data: Job[]; total: number }>;
   getJobsByCleaner(cleanerId: number): Promise<Job[]>;
   getJobsByCompany(companyId: number, status?: JobStatus): Promise<Job[]>;
   getJobByPaymentIntent(paymentIntentId: string): Promise<Job | undefined>;
@@ -948,18 +948,15 @@ export class DatabaseStorage implements IStorage {
     return { data, total: Number(count) };
   }
 
-  async getJobsByPlateNumber(plateNumber: string): Promise<Job[]> {
+  async getJobsByPlateNumber(plateNumber: string, page = 1, pageSize = 20): Promise<{ data: Job[]; total: number }> {
     // Parse the full plate number which is in format "Emirate Code Number" 
     // e.g., "Abu Dhabi A 1" or just "1" for backwards compatibility
     const parts = plateNumber.trim().split(/\s+/);
     
+    let whereClause;
     if (parts.length === 1) {
       // Just a plate number (backwards compatibility)
-      return await db
-        .select()
-        .from(jobs)
-        .where(eq(jobs.carPlateNumber, parts[0].toUpperCase()))
-        .orderBy(desc(jobs.createdAt));
+      whereClause = eq(jobs.carPlateNumber, parts[0].toUpperCase());
     } else if (parts.length >= 3) {
       // Full format: "Emirate Code Number" (e.g., "Abu Dhabi A 1")
       // Last part is number, second to last is code, rest is emirate
@@ -967,29 +964,57 @@ export class DatabaseStorage implements IStorage {
       const code = parts[parts.length - 2].toUpperCase();
       const emirate = parts.slice(0, parts.length - 2).join(' ');
       
-      return await db
-        .select()
-        .from(jobs)
-        .where(
-          and(
-            eq(jobs.carPlateNumber, number),
-            eq(jobs.carPlateCode, code),
-            eq(jobs.carPlateEmirate, emirate)
-          )
-        )
-        .orderBy(desc(jobs.createdAt));
+      whereClause = and(
+        eq(jobs.carPlateNumber, number),
+        eq(jobs.carPlateCode, code),
+        eq(jobs.carPlateEmirate, emirate)
+      );
     } else {
-      // Invalid format, return empty array
-      return [];
+      // Invalid format, return empty result
+      return { data: [], total: 0 };
     }
+
+    // Get total count
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobs)
+      .where(whereClause);
+
+    // Calculate pagination
+    const offset = (page - 1) * pageSize;
+
+    // Get paginated data
+    const data = await db
+      .select()
+      .from(jobs)
+      .where(whereClause)
+      .orderBy(desc(jobs.createdAt))
+      .limit(pageSize)
+      .offset(offset);
+
+    return { data, total: Number(count) };
   }
 
-  async getJobsByPhoneNumber(phoneNumber: string): Promise<Job[]> {
-    return await db
+  async getJobsByPhoneNumber(phoneNumber: string, page = 1, pageSize = 20): Promise<{ data: Job[]; total: number }> {
+    // Get total count
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobs)
+      .where(eq(jobs.customerPhone, phoneNumber));
+
+    // Calculate pagination
+    const offset = (page - 1) * pageSize;
+
+    // Get paginated data
+    const data = await db
       .select()
       .from(jobs)
       .where(eq(jobs.customerPhone, phoneNumber))
-      .orderBy(desc(jobs.createdAt));
+      .orderBy(desc(jobs.createdAt))
+      .limit(pageSize)
+      .offset(offset);
+
+    return { data, total: Number(count) };
   }
 
   async getJobsByCleaner(cleanerId: number): Promise<Job[]> {
