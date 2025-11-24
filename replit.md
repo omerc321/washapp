@@ -58,8 +58,8 @@ I prefer simple language and clear explanations. I want iterative development wi
     -   Example (Package 1, 15 AED wash): 2 + (15 × 0.05) = 2.75 AED fee → 17.75 subtotal → 0.89 VAT → 18.64 total
     -   Stripe fees (2.9% + 1 AED) are calculated on final total amount
     -   Admin can change fee package and amounts anytime via `/api/admin/company/:id/fee-structure`
--   **Transaction Tracking**: All payments, refunds, and withdrawals tracked with unique reference numbers. Note: Dual-ledger architecture - withdrawals tracked in companyWithdrawals table, payment transactions tracked in transactions table. These are separate with no overlap to prevent double-counting.
--   **Auto-Refund**: Jobs not accepted within 15 minutes are automatically refunded with Stripe refund processing.
+-   **Transaction Tracking**: All payments, refunds, and withdrawals tracked with unique reference numbers and Stripe IDs. Receipt numbers generated atomically on payment confirmation (format: RCP-YYYYMMDD-XXXXX). Jobs track stripePaymentIntentId and stripeRefundId. Company financials display all transaction references, job status, and distinguish manual refunds from auto-refunds. Note: Dual-ledger architecture - withdrawals tracked in companyWithdrawals table, payment transactions tracked in transactions table. These are separate with no overlap to prevent double-counting.
+-   **Auto-Refund**: Jobs not accepted within 15 minutes are automatically refunded with Stripe refund processing and marked with status 'refunded_unattended' to distinguish from manual complaint-based refunds (status 'refunded').
 -   **Payment Options**: Card, Apple Pay, and Google Pay via Stripe Payment Request Button.
 -   **API**: RESTful API built with Express.js.
 -   **Transactions**: Database transactions for multi-step operations.
