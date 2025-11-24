@@ -5,6 +5,7 @@ import Stripe from "stripe";
 import multer from "multer";
 import path from "path";
 import { mkdir, mkdirSync } from "fs";
+import crypto from "crypto";
 import ExcelJS from "exceljs";
 import bcrypt from "bcryptjs";
 import passport from "./auth";
@@ -963,6 +964,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
           carPlateNumber: mostRecentJob.carPlateNumber,
           parkingNumber: mostRecentJob.parkingNumber || "",
         }
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get payment token details for customer
+  app.get("/api/customer/payment-token/:token", async (req: Request, res: Response) => {
+    try {
+      const { token } = req.params;
+      
+      const paymentToken = await storage.getCleanerPaymentToken(token);
+      
+      if (!paymentToken) {
+        return res.status(404).json({ message: "Invalid payment token" });
+      }
+
+      if (paymentToken.isUsed) {
+        return res.status(400).json({ message: "This token has already been used" });
+      }
+
+      if (new Date(paymentToken.expiresAt) < new Date()) {
+        return res.status(400).json({ message: "This token has expired" });
+      }
+
+      const cleaner = await storage.getCleaner(paymentToken.cleanerId);
+      const company = await storage.getCompany(paymentToken.companyId);
+      
+      if (!cleaner || !company) {
+        return res.status(404).json({ message: "Cleaner or company not found" });
+      }
+
+      const cleanerUser = await storage.getUser(cleaner.userId);
+
+      res.json({
+        token: paymentToken.token,
+        companyId: company.id,
+        companyName: company.name,
+        cleanerId: cleaner.id,
+        cleanerName: cleanerUser?.displayName || "Unknown",
+        expiresAt: paymentToken.expiresAt,
       });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -1952,6 +1994,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         res.status(404).json({ message: "Cleaner not found" });
       }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Generate payment QR token for cleaner
+  app.post("/api/cleaner/generate-qr-token", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
+    try {
+      const cleaner = await storage.getCleanerByUserId(req.user!.id);
+
+      if (!cleaner) {
+        return res.status(404).json({ message: "Cleaner not found" });
+      }
+
+      const token = crypto.randomBytes(16).toString('hex');
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      await storage.createCleanerPaymentToken(cleaner.id, cleaner.companyId, token, expiresAt);
+
+      res.json({ token, expiresAt });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
