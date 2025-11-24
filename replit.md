@@ -13,8 +13,8 @@ I prefer simple language and clear explanations. I want iterative development wi
 -   **Theme**: Modern vibrant interface with bright blue primary color (220 95% 50%), gradient accents, and dark mode support with theme toggle.
 -   **Navigation**: Role-based bottom navigation with login button in top-right for staff access (company admin, cleaner, platform admin). Footer navigation with links to About, Terms, and Privacy pages.
 -   **Mapping**: Interactive OpenStreetMap integration with Leaflet for location selection, geolocation support, and Nominatim reverse geocoding.
--   **Booking Flow**: Phone-first 4-step wizard (Phone Number → Car Details → Location & Company → Payment) with persistent progress indicator showing "Step X of 4", framer-motion animations, and mobile-first design. Step 1 has dedicated button, steps 2-3 use sticky bottom CTA. Reuses existing checkout component to avoid code duplication.
--   **Legal Pages**: Three informational pages: (1) About/How It Works with FAQs for requesters and companies, (2) Terms & Conditions clarifying platform is matcher with no liability for damages, (3) Privacy Policy stating car wash data is searchable by plate/phone and not confidential.
+-   **Booking Flow**: Email/OTP-first 4-step wizard (Email Verification → Car Details → Location & Company → Payment) with persistent progress indicator showing "Step X of 4", framer-motion animations, and mobile-first design. Step 1 has dedicated button, steps 2-3 use sticky bottom CTA. Reuses existing checkout component to avoid code duplication.
+-   **Legal Pages**: Three informational pages: (1) About/How It Works with FAQs for requesters and companies, (2) Terms & Conditions clarifying platform is matcher with no liability for damages, (3) Privacy Policy stating car wash data is searchable by plate/email and not confidential.
 
 ### Technical Implementations
 -   **Frontend**: React, Tailwind CSS, shadcn/ui components, Roboto font, Framer Motion for animations.
@@ -34,12 +34,12 @@ I prefer simple language and clear explanations. I want iterative development wi
 -   **Admin Auto-Setup**: Server automatically creates/updates admin account on startup (server/utils/ensureAdmin.ts) ensuring production always has correct credentials (omer.eldirdieri@gmail.com / Network#123).
 
 ### Feature Specifications
--   **Customer Booking Flow**: Phone-first 4-step wizard at `/customer/booking`:
-    -   **Step 1 - Phone Number**: Phone number entry with smart auto-fill (single car auto-fills, multiple cars show selection grid, new users see blank form)
-    -   **Step 2 - Car Details**: Animated car plate entry with gradient icon backgrounds (phone number NOT shown here - captured in step 1)
+-   **Customer Booking Flow**: Email/OTP-first 4-step wizard at `/customer/booking`:
+    -   **Step 1 - Email Verification**: Email entry with OTP verification via Resend. Users enter email, receive 6-digit code, verify, and proceed.
+    -   **Step 2 - Car Details**: Car plate entry (emirate, code, number) with smart auto-fill. When plate is entered, system looks up history for that specific plate and shows auto-fill option for previous parking details. Email from step 1 is automatically used.
     -   **Step 3 - Location & Company**: Integrated map location picker with geofence-based company matching (only companies with service areas containing the customer location are shown), company selection with pricing display
     -   **Step 4 - Payment**: Redirects to existing `/customer/checkout` page to complete Stripe payment (reuses checkout component to avoid code duplication)
-    -   **Features**: Persistent progress indicator showing "Step X of 4", framer-motion animations for smooth transitions, mobile-first responsive design, gradient accents and vibrant colors, dual search tracking (phone OR car plate) with URL sync
+    -   **Features**: Persistent progress indicator showing "Step X of 4", framer-motion animations for smooth transitions, mobile-first responsive design, gradient accents and vibrant colors, dual search tracking (email OR car plate) with URL sync
 -   **Customer Flow**: Anonymous booking with car plate entry, map-based location selection, geofence-based company matching, Stripe payment in AED (company price + 3 AED platform fee clearly displayed in booking flow), and job tracking (Paid → Assigned → In Progress → Completed). Completed jobs remain in active tracker with full progress indicator before moving to history.
 -   **Cleaner Flow**: Invitation-based registration, streamlined shift-based status (starting shift automatically sets ON_DUTY, ending shift sets OFF_DUTY), job acceptance, "Open in Google Maps" navigation to job location, and photo-based job completion. Compact header design with 40% reduced height. Continuous GPS location tracking for on-duty cleaners (currentLatitude, currentLongitude, lastLocationUpdate). Job notifications require cleaner's current location to be within the same geofence as the job location. Password reset available via "Forgot password?" link on login page.
 -   **Company Admin Flow**: Registration (requires admin approval), multiple named geofence management with location search and GPS positioning, cleaner invitation management with service area assignment (all areas or specific areas), detailed financial reports (revenue breakdown, withdrawals, cleaner filtering, Excel export), cleaner service area management post-registration, and company settings management. Password reset available via "Forgot password?" link on login page.
@@ -49,7 +49,7 @@ I prefer simple language and clear explanations. I want iterative development wi
 -   **Cleaner Geofence Assignment**: Companies can assign cleaners to specific service areas during invitation or post-registration. Each cleaner can be assigned to "all service areas" or specific named service areas. Jobs are filtered by cleaner's assigned areas using point-in-polygon validation. Assignments automatically transfer from invitation to cleaner record during registration.
 
 ### System Design Choices
--   **Data Models**: Comprehensive models for Users, Companies, Cleaners, Cleaner Invitations, Cleaner Geofence Assignments, Jobs, Job Financials, Company Withdrawals, Fee Settings, Transactions, and Password Reset Tokens.
+-   **Data Models**: Comprehensive models for Users, Companies, Cleaners, Cleaner Invitations, Cleaner Geofence Assignments, Jobs, Job Financials, Company Withdrawals, Fee Settings, Transactions, and Password Reset Tokens. Customer data model uses email as primary identifier (required, unique), with optional phone number field.
 -   **Currency**: All transactions in AED (United Arab Emirates Dirham) with "AED" displayed.
 -   **Fee Structure**: Flexible three-tier package system:
     -   **Custom Package**: Any platform fee > 0 AED set by admin + 5% VAT on (car wash + platform fee)
