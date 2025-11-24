@@ -852,6 +852,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create or get customer by phone number (for QR payments)
+  app.post("/api/customer/by-phone", async (req: Request, res: Response) => {
+    try {
+      const { phoneNumber } = req.body;
+      
+      if (!phoneNumber) {
+        return res.status(400).json({ message: "Phone number is required" });
+      }
+
+      // Try to get existing customer
+      let customer = await storage.getCustomerByPhone(phoneNumber);
+      
+      // If no customer exists, create one with phone only
+      if (!customer) {
+        // Generate a temporary email from phone
+        const tempEmail = `${phoneNumber.replace(/[^0-9]/g, '')}@temp.washapp.ae`;
+        customer = await storage.createOrGetCustomer(tempEmail, null, phoneNumber);
+      }
+
+      res.json(customer);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Get customer profile by phone
   app.get("/api/customer/profile/:phoneNumber", async (req: Request, res: Response) => {
     try {
