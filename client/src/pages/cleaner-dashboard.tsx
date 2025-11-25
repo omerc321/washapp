@@ -737,8 +737,13 @@ function JobCard({ job, action }: { job: Job; action: React.ReactNode }) {
                 animate={{ scale: 1 }}
                 className="text-4xl font-bold"
               >
-                {job.price} AED
+                {(parseFloat(job.price) + parseFloat(job.tipAmount || "0")).toFixed(2)} AED
               </motion.p>
+              {parseFloat(job.tipAmount || "0") > 0 && (
+                <p className="text-xs opacity-80 mt-1">
+                  Base: {job.price} AED + Tip: {job.tipAmount} AED
+                </p>
+              )}
             </div>
           </div>
           <Badge 
