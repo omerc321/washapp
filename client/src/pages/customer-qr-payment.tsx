@@ -29,7 +29,7 @@ export default function CustomerQRPayment() {
   const { data: companyData } = useQuery<{
     id: number;
     name: string;
-    carWashPrice: number;
+    pricePerWash: string;
     feePackageType: string;
   }>({
     queryKey: ["/api/companies", tokenData?.companyId],
@@ -62,6 +62,9 @@ export default function CustomerQRPayment() {
       })
         .then(res => res.json())
         .then(customer => {
+          // Parse price as number (comes as string from numeric column)
+          const price = parseFloat(companyData.pricePerWash) || 0;
+          
           // Build minimal job data for checkout
           const jobData = {
             carPlateEmirate: "Anonymous",
@@ -73,9 +76,9 @@ export default function CustomerQRPayment() {
             locationAddress: "On-site (QR Payment)",
             locationLatitude: 0,
             locationLongitude: 0,
-            companyId: tokenData.companyId.toString(),
-            customerId: customer.id.toString(),
-            price: companyData.carWashPrice,
+            companyId: tokenData.companyId,
+            customerId: customer.id,
+            price: price,
             tipAmount: 0,
           };
 
@@ -85,7 +88,8 @@ export default function CustomerQRPayment() {
           // Redirect to checkout with token
           setLocation(`/customer/checkout?token=${token}`);
         })
-        .catch(error => {
+        .catch(err => {
+          console.error("Error processing QR payment:", err);
           toast({
             variant: "destructive",
             title: "Error",
