@@ -17,6 +17,7 @@ export const companyPackageTypeEnum = pgEnum("company_package_type", ["pay_per_w
 export const feePackageTypeEnum = pgEnum("fee_package_type", ["custom", "package1", "package2"]);
 export const complaintTypeEnum = pgEnum("complaint_type", ["refund_request", "general"]);
 export const complaintStatusEnum = pgEnum("complaint_status", ["pending", "in_progress", "resolved", "refunded"]);
+export const offlineJobStatusEnum = pgEnum("offline_job_status", ["in_progress", "completed"]);
 
 // Users Table
 export const users = pgTable("users", {
@@ -272,6 +273,9 @@ export const offlineJobs = pgTable("offline_jobs", {
   vatAmount: numeric("vat_amount", { precision: 10, scale: 2 }).notNull(),
   totalAmount: numeric("total_amount", { precision: 10, scale: 2 }).notNull(),
   notes: text("notes"),
+  status: offlineJobStatusEnum("status").notNull().default("in_progress"),
+  completionPhotoUrl: text("completion_photo_url"),
+  completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -940,6 +944,11 @@ export enum JobStatus {
   COMPLETED = "completed",
   CANCELLED = "cancelled",
   REFUNDED = "refunded"
+}
+
+export enum OfflineJobStatus {
+  IN_PROGRESS = "in_progress",
+  COMPLETED = "completed"
 }
 
 export enum CleanerStatus {
