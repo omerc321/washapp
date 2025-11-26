@@ -584,14 +584,17 @@ function FinancialsTab() {
                   <TableCell>{company.totalWithdrawals.toFixed(2)} AED</TableCell>
                   <TableCell className="font-medium">{company.availableBalance.toFixed(2)} AED</TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setSelectedCompany(company.companyId)}
-                      data-testid={`button-view-${company.companyId}`}
-                    >
-                      View Details
-                    </Button>
+                    <div className="flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedCompany(company.companyId)}
+                        data-testid={`button-view-${company.companyId}`}
+                        className="pointer-events-auto"
+                      >
+                        View Details
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
