@@ -1814,17 +1814,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           updatedAt: new Date(),
         };
 
-        // Get customer to ensure we have correct email
-        let customerEmail: string | undefined = undefined;
-        if (job.customerId) {
-          const customer = await storage.getCustomer(job.customerId);
-          customerEmail = customer?.email;
-        } else if (job.customerEmail) {
-          customerEmail = job.customerEmail;
-        }
+        // Use customer email from job record
+        const customerEmail = job.customerEmail || undefined;
 
-        // Construct plate number correctly
-        const fullPlateNumber = job.carPlateEmirate && job.carPlateCode
+        // Construct plate number correctly - only include emirate and code if both exist
+        const fullPlateNumber = (job.carPlateEmirate && job.carPlateCode)
           ? `${job.carPlateEmirate} ${job.carPlateCode} ${job.carPlateNumber}`
           : (job.carPlateNumber || '');
 
