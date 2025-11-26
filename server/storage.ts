@@ -321,6 +321,8 @@ export interface IStorage {
     totalVat: number;
     jobs: Array<OfflineJob & { cleanerName: string }>;
   }>;
+  getOfflineJob(id: number): Promise<OfflineJob | undefined>;
+  completeOfflineJob(id: number, completionPhotoUrl: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2886,6 +2888,9 @@ export class DatabaseStorage implements IStorage {
         vatAmount: offlineJobs.vatAmount,
         totalAmount: offlineJobs.totalAmount,
         notes: offlineJobs.notes,
+        status: offlineJobs.status,
+        completionPhotoUrl: offlineJobs.completionPhotoUrl,
+        completedAt: offlineJobs.completedAt,
         createdAt: offlineJobs.createdAt,
         cleanerName: users.displayName,
       })
@@ -2920,6 +2925,25 @@ export class DatabaseStorage implements IStorage {
       totalVat,
       jobs,
     };
+  }
+
+  async getOfflineJob(id: number): Promise<OfflineJob | undefined> {
+    const [job] = await db
+      .select()
+      .from(offlineJobs)
+      .where(eq(offlineJobs.id, id));
+    return job;
+  }
+
+  async completeOfflineJob(id: number, completionPhotoUrl: string): Promise<void> {
+    await db
+      .update(offlineJobs)
+      .set({
+        status: "completed",
+        completionPhotoUrl,
+        completedAt: new Date(),
+      })
+      .where(eq(offlineJobs.id, id));
   }
 }
 

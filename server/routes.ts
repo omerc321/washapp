@@ -2481,7 +2481,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create offline/manual job (for cash payments)
   app.post("/api/cleaner/create-offline-job", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
     try {
-      const { carPlateEmirate, carPlateCode, carPlateNumber, servicePrice, notes } = req.body;
+      const { carPlateEmirate, carPlateCode, carPlateNumber, notes } = req.body;
 
       const cleaner = await storage.getCleanerByUserId(req.user!.id);
       if (!cleaner) {
@@ -2492,12 +2492,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Car plate number is required" });
       }
 
-      if (!servicePrice || isNaN(parseFloat(servicePrice)) || parseFloat(servicePrice) <= 0) {
-        return res.status(400).json({ message: "Valid service price is required" });
+      if (!carPlateEmirate) {
+        return res.status(400).json({ message: "Emirate is required" });
       }
 
-      // Calculate VAT (5%)
-      const price = parseFloat(servicePrice);
+      if (!carPlateCode) {
+        return res.status(400).json({ message: "Plate code is required" });
+      }
+
+      // Get company's service price
+      const company = await storage.getCompany(cleaner.companyId);
+      if (!company) {
+        return res.status(404).json({ message: "Company not found" });
+      }
+
+      // Calculate VAT (5%) based on company's price
+      const price = parseFloat(company.pricePerWash);
       const vatAmount = (price * 0.05).toFixed(2);
       const totalAmount = (price + parseFloat(vatAmount)).toFixed(2);
 
@@ -2505,8 +2515,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         cleanerId: cleaner.id,
         companyId: cleaner.companyId,
         carPlateNumber,
-        carPlateEmirate: carPlateEmirate || undefined,
-        carPlateCode: carPlateCode || undefined,
+        carPlateEmirate,
+        carPlateCode,
         servicePrice: price.toFixed(2),
         vatAmount,
         totalAmount,
@@ -2514,6 +2524,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json({ success: true, offlineJob });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Complete offline job with photo proof
+  app.post("/api/cleaner/complete-offline-job/:jobId", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
+    try {
+      const { jobId } = req.params;
+      const { proofPhotoURL } = req.body;
+
+      if (!proofPhotoURL) {
+        return res.status(400).json({ message: "Proof photo is required" });
+      }
+
+      const cleaner = await storage.getCleanerByUserId(req.user!.id);
+      if (!cleaner) {
+        return res.status(404).json({ message: "Cleaner not found" });
+      }
+
+      const offlineJob = await storage.getOfflineJob(parseInt(jobId));
+      if (!offlineJob) {
+        return res.status(404).json({ message: "Offline job not found" });
+      }
+
+      if (offlineJob.cleanerId !== cleaner.id) {
+        return res.status(403).json({ message: "Not authorized to complete this job" });
+      }
+
+      if (offlineJob.status === "completed") {
+        return res.json({ success: true, message: "Job already completed" });
+      }
+
+      await storage.completeOfflineJob(parseInt(jobId), proofPhotoURL);
+
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
