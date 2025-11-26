@@ -31,7 +31,14 @@ const uploadDir = path.join(process.cwd(), "uploads");
 
 const storageConfig = multer.diskStorage({
   destination: (req, file, cb) => {
-    const subDir = file.fieldname === "tradeLicense" ? "licenses" : "proofs";
+    let subDir = "proofs";
+    if (file.fieldname === "tradeLicense") {
+      subDir = "licenses";
+    } else if (file.fieldname === "logo") {
+      subDir = "logos";
+    } else if (file.fieldname === "file" && req.path.includes("invoice")) {
+      subDir = "invoices";
+    }
     const fullPath = path.join(uploadDir, subDir);
     mkdirSync(fullPath, { recursive: true });
     cb(null, fullPath);
@@ -320,6 +327,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const fileUrl = `/uploads/logos/${req.file.filename}`;
+      res.json({ url: fileUrl });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Upload invoice for withdrawal request (requires company admin auth)
+  app.post("/api/upload-invoice", requireRole(UserRole.COMPANY_ADMIN), upload.single("file"), async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+      
+      const fileUrl = `/uploads/invoices/${req.file.filename}`;
       res.json({ url: fileUrl });
     } catch (error: any) {
       res.status(500).json({ message: error.message });

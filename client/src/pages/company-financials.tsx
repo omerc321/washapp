@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,9 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DollarSign, TrendingUp, TrendingDown, Download, Filter, ArrowLeft } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DollarSign, TrendingUp, TrendingDown, Download, Filter, ArrowLeft, Banknote, Upload, FileText, Briefcase } from "lucide-react";
 import { Cleaner } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { PaginationControls } from "@/components/PaginationControls";
 
@@ -74,6 +75,34 @@ interface Transaction {
   cleanerEmail?: string;
 }
 
+interface WithdrawalBalance {
+  completedJobs: number;
+  totalJobValue: number;
+  totalTips: number;
+  totalWithdrawn: number;
+  availableJobs: number;
+  availableJobValue: number;
+  availableTips: number;
+  pricePerWash: number;
+  withdrawnJobs: number;
+  withdrawnTips: number;
+}
+
+interface WithdrawalHistory {
+  id: number;
+  amount: string;
+  status: string;
+  referenceNumber: string | null;
+  note: string | null;
+  invoiceUrl: string | null;
+  jobCountRequested: number | null;
+  tipsRequested: string | null;
+  baseAmount: string | null;
+  vatAmount: string | null;
+  createdAt: Date;
+  processedAt: Date | null;
+}
+
 export default function CompanyFinancials() {
   const { toast } = useToast();
   const [selectedCleanerId, setSelectedCleanerId] = useState<string>("all");
@@ -81,6 +110,12 @@ export default function CompanyFinancials() {
   const [endDate, setEndDate] = useState<string>("");
   const [page, setPage] = useState(1);
   const pageSize = 20;
+  
+  const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false);
+  const [jobCount, setJobCount] = useState<number>(0);
+  const [tipsAmount, setTipsAmount] = useState<string>("0");
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const { data: cleaners } = useQuery<Cleaner[]>({
     queryKey: ["/api/company/cleaners"],
@@ -93,6 +128,111 @@ export default function CompanyFinancials() {
   const { data: adminPayouts, isLoading: loadingAdminPayouts } = useQuery<Transaction[]>({
     queryKey: ["/api/company/financials/admin-payouts"],
   });
+
+  const { data: withdrawalBalance } = useQuery<WithdrawalBalance>({
+    queryKey: ["/api/company/financials/withdrawal-balance"],
+  });
+
+  const { data: withdrawalHistory } = useQuery<WithdrawalHistory[]>({
+    queryKey: ["/api/company/financials/withdrawals"],
+  });
+
+  const withdrawalMutation = useMutation({
+    mutationFn: async (data: { jobCount: number; tipsAmount: string; invoiceUrl: string }) => {
+      return await apiRequest("POST", "/api/company/financials/request-withdrawal", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/company/withdrawal-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/company/withdrawals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/company/financials/overview"] });
+      setWithdrawalDialogOpen(false);
+      setJobCount(0);
+      setTipsAmount("0");
+      setInvoiceFile(null);
+      toast({
+        title: "Withdrawal Requested",
+        description: "Your withdrawal request has been submitted for processing.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleInvoiceUpload = async (): Promise<string | null> => {
+    if (!invoiceFile) return null;
+    
+    const formData = new FormData();
+    formData.append("file", invoiceFile);
+    
+    const response = await fetch("/api/upload-invoice", {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      throw new Error("Failed to upload invoice");
+    }
+    
+    const result = await response.json();
+    return result.url;
+  };
+
+  const handleWithdrawalSubmit = async () => {
+    if (!invoiceFile) {
+      toast({
+        title: "Error",
+        description: "Please upload an invoice",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (jobCount < 1) {
+      toast({
+        title: "Error",
+        description: "Please select at least 1 job to withdraw",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      setUploading(true);
+      const invoiceUrl = await handleInvoiceUpload();
+      if (!invoiceUrl) {
+        throw new Error("Failed to upload invoice");
+      }
+      
+      withdrawalMutation.mutate({
+        jobCount,
+        tipsAmount,
+        invoiceUrl,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const calculateWithdrawalTotal = () => {
+    if (!withdrawalBalance) return { baseAmount: 0, vatAmount: 0, tips: 0, total: 0 };
+    const baseAmount = jobCount * withdrawalBalance.pricePerWash;
+    const vatAmount = baseAmount * 0.05;
+    const tips = parseFloat(tipsAmount || "0");
+    const total = baseAmount + vatAmount + tips;
+    return { baseAmount, vatAmount, tips, total };
+  };
 
   const filters: any = {};
   if (selectedCleanerId && selectedCleanerId !== "all") filters.cleanerId = selectedCleanerId;
@@ -309,6 +449,276 @@ export default function CompanyFinancials() {
           </Card>
         )}
 
+        {/* Withdrawal Request Section */}
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Banknote className="h-5 w-5" />
+                  Request Withdrawal
+                </CardTitle>
+                <CardDescription>Request payment for completed jobs</CardDescription>
+              </div>
+              <Dialog open={withdrawalDialogOpen} onOpenChange={setWithdrawalDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button data-testid="button-request-withdrawal" disabled={!withdrawalBalance || withdrawalBalance.availableJobs < 1}>
+                    <Banknote className="h-4 w-4 mr-2" />
+                    Request Withdrawal
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Request Withdrawal</DialogTitle>
+                    <DialogDescription>
+                      Select jobs and tips to withdraw. Invoice upload is required.
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  {withdrawalBalance && (
+                    <div className="space-y-4">
+                      <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Available Jobs:</span>
+                          <span className="font-medium">{withdrawalBalance.availableJobs}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Price per Wash:</span>
+                          <span className="font-medium">{withdrawalBalance.pricePerWash.toFixed(2)} AED</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Available Job Value:</span>
+                          <span className="font-medium">{withdrawalBalance.availableJobValue.toFixed(2)} AED</span>
+                        </div>
+                        <div className="flex justify-between text-sm border-t pt-2">
+                          <span>Available Tips:</span>
+                          <span className="font-medium text-green-600">{withdrawalBalance.availableTips.toFixed(2)} AED</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="job-count">Number of Jobs to Withdraw</Label>
+                        <Input
+                          id="job-count"
+                          type="number"
+                          min="0"
+                          max={withdrawalBalance.availableJobs}
+                          value={jobCount}
+                          onChange={(e) => setJobCount(Math.min(parseInt(e.target.value) || 0, withdrawalBalance.availableJobs))}
+                          data-testid="input-job-count"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Maximum: {withdrawalBalance.availableJobs} jobs
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="tips-amount">Tips Amount (AED)</Label>
+                        <Input
+                          id="tips-amount"
+                          type="number"
+                          min="0"
+                          max={withdrawalBalance.availableTips}
+                          step="0.01"
+                          value={tipsAmount}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            setTipsAmount(Math.min(val, withdrawalBalance.availableTips).toString());
+                          }}
+                          data-testid="input-tips-amount"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Maximum: {withdrawalBalance.availableTips.toFixed(2)} AED (Tips are VAT-exempt)
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="invoice-upload">Upload Invoice (Required)</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="invoice-upload"
+                            type="file"
+                            accept=".pdf,.png,.jpg,.jpeg"
+                            onChange={(e) => setInvoiceFile(e.target.files?.[0] || null)}
+                            data-testid="input-invoice-upload"
+                            className="flex-1"
+                          />
+                          {invoiceFile && (
+                            <span className="text-xs text-green-600 flex items-center gap-1">
+                              <FileText className="h-3 w-3" />
+                              {invoiceFile.name}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          PDF, PNG, or JPG. Max 5MB.
+                        </p>
+                      </div>
+
+                      {/* Calculation Preview */}
+                      {jobCount > 0 && (
+                        <div className="p-4 bg-primary/5 rounded-lg border border-primary/20 space-y-2">
+                          <h4 className="font-medium text-sm">Withdrawal Summary</h4>
+                          <div className="flex justify-between text-sm">
+                            <span>{jobCount} jobs × {withdrawalBalance.pricePerWash.toFixed(2)} AED:</span>
+                            <span>{calculateWithdrawalTotal().baseAmount.toFixed(2)} AED</span>
+                          </div>
+                          <div className="flex justify-between text-sm text-muted-foreground">
+                            <span>VAT (5%):</span>
+                            <span>{calculateWithdrawalTotal().vatAmount.toFixed(2)} AED</span>
+                          </div>
+                          {parseFloat(tipsAmount) > 0 && (
+                            <div className="flex justify-between text-sm text-green-600">
+                              <span>Tips (VAT-exempt):</span>
+                              <span>{parseFloat(tipsAmount).toFixed(2)} AED</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between font-bold text-base border-t pt-2">
+                            <span>Total:</span>
+                            <span>{calculateWithdrawalTotal().total.toFixed(2)} AED</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex justify-end gap-2 pt-4">
+                        <Button variant="outline" onClick={() => setWithdrawalDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleWithdrawalSubmit}
+                          disabled={uploading || withdrawalMutation.isPending || jobCount < 1 || !invoiceFile}
+                          data-testid="button-submit-withdrawal"
+                        >
+                          {uploading || withdrawalMutation.isPending ? "Processing..." : "Submit Request"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {withdrawalBalance ? (
+              <div className="grid gap-4 md:grid-cols-4">
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <Briefcase className="h-4 w-4" />
+                    <span className="text-sm">Available Jobs</span>
+                  </div>
+                  <div className="text-2xl font-bold" data-testid="text-available-jobs">
+                    {withdrawalBalance.availableJobs}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Worth {withdrawalBalance.availableJobValue.toFixed(2)} AED
+                  </p>
+                </div>
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <DollarSign className="h-4 w-4" />
+                    <span className="text-sm">Available Tips</span>
+                  </div>
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid="text-available-tips">
+                    {withdrawalBalance.availableTips.toFixed(2)} AED
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    VAT-exempt
+                  </p>
+                </div>
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <Briefcase className="h-4 w-4" />
+                    <span className="text-sm">Total Completed</span>
+                  </div>
+                  <div className="text-2xl font-bold">
+                    {withdrawalBalance.completedJobs}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    All-time jobs
+                  </p>
+                </div>
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <Banknote className="h-4 w-4" />
+                    <span className="text-sm">Already Withdrawn</span>
+                  </div>
+                  <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                    {withdrawalBalance.withdrawnJobs} jobs
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {withdrawalBalance.totalWithdrawn.toFixed(2)} AED total
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>Loading withdrawal balance...</p>
+              </div>
+            )}
+
+            {/* Withdrawal History */}
+            {withdrawalHistory && withdrawalHistory.length > 0 && (
+              <div className="mt-6">
+                <h3 className="font-medium mb-4">Withdrawal History</h3>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Jobs</TableHead>
+                        <TableHead>Tips</TableHead>
+                        <TableHead>Total</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Invoice</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {withdrawalHistory.map((withdrawal) => (
+                        <TableRow key={withdrawal.id} data-testid={`withdrawal-${withdrawal.id}`}>
+                          <TableCell>
+                            {new Date(withdrawal.createdAt).toLocaleDateString('en-AE', { 
+                              year: 'numeric', 
+                              month: 'short', 
+                              day: 'numeric',
+                              timeZone: 'Asia/Dubai'
+                            })}
+                          </TableCell>
+                          <TableCell>{withdrawal.jobCountRequested || '-'}</TableCell>
+                          <TableCell>{withdrawal.tipsRequested ? `${parseFloat(withdrawal.tipsRequested).toFixed(2)} AED` : '-'}</TableCell>
+                          <TableCell className="font-medium">{parseFloat(withdrawal.amount).toFixed(2)} AED</TableCell>
+                          <TableCell>
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              withdrawal.status === 'completed'
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100'
+                                : withdrawal.status === 'pending'
+                                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100'
+                                : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100'
+                            }`}>
+                              {withdrawal.status}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {withdrawal.invoiceUrl ? (
+                              <a
+                                href={withdrawal.invoiceUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline flex items-center gap-1"
+                              >
+                                <FileText className="h-3 w-3" />
+                                View
+                              </a>
+                            ) : '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card className="mb-6">
           <CardHeader>
