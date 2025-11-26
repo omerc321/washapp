@@ -2876,13 +2876,16 @@ export class DatabaseStorage implements IStorage {
   // ===== WITHDRAWAL BALANCE OPERATIONS =====
 
   async getCompanyWithdrawalBalance(companyId: number): Promise<{
-    totalCompletedJobs: number;
-    withdrawnJobs: number;
+    completedJobs: number;
+    totalJobValue: number;
+    totalTips: number;
+    totalWithdrawn: number;
     availableJobs: number;
-    totalTipsEarned: number;
-    withdrawnTips: number;
+    availableJobValue: number;
     availableTips: number;
     pricePerWash: number;
+    withdrawnJobs: number;
+    withdrawnTips: number;
     pendingWithdrawals: Array<{
       id: number;
       jobCountRequested: number;
@@ -2955,14 +2958,20 @@ export class DatabaseStorage implements IStorage {
       ))
       .orderBy(desc(companyWithdrawals.createdAt));
 
+    const availableJobs = totalCompletedJobs - withdrawnJobs;
+    const availableTips = totalTipsEarned - withdrawnTips;
+    
     return {
-      totalCompletedJobs,
-      withdrawnJobs,
-      availableJobs: totalCompletedJobs - withdrawnJobs,
-      totalTipsEarned,
-      withdrawnTips,
-      availableTips: totalTipsEarned - withdrawnTips,
+      completedJobs: totalCompletedJobs,
+      totalJobValue: totalCompletedJobs * pricePerWash,
+      totalTips: totalTipsEarned,
+      totalWithdrawn: (withdrawnJobs * pricePerWash) + withdrawnTips,
+      availableJobs,
+      availableJobValue: availableJobs * pricePerWash,
+      availableTips,
       pricePerWash,
+      withdrawnJobs,
+      withdrawnTips,
       pendingWithdrawals: pendingWithdrawals.map(w => ({
         id: w.id,
         jobCountRequested: w.jobCountRequested || 0,
