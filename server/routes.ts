@@ -1802,11 +1802,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No receipt available for this job" });
       }
 
-      // Calculate VAT (5% on service price only, not on tip)
+      // Use actual amounts from job record
       const servicePrice = parseFloat(job.price);
+      const taxAmount = parseFloat(job.taxAmount as any || '0');
       const tipAmount = parseFloat(job.tipAmount as any || '0');
-      const vatAmount = servicePrice * 0.05;
-      const totalAmount = servicePrice + vatAmount + tipAmount;
+      const totalAmount = parseFloat(job.totalAmount);
       
       const doc = new PDFDocument({ size: "A4", margin: 50 });
       
@@ -1856,7 +1856,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       yPos += 15;
       doc.text("VAT (5%)", col1, yPos);
-      doc.text(vatAmount.toFixed(2), col2, yPos, { align: "right" });
+      doc.text(taxAmount.toFixed(2), col2, yPos, { align: "right" });
       
       if (tipAmount > 0) {
         yPos += 15;
