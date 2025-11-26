@@ -8,6 +8,7 @@ import {
   shiftSessions,
   cleanerShifts,
   cleanerPaymentTokens,
+  offlineJobs,
   deviceTokens,
   pushSubscriptions,
   platformSettings,
@@ -38,6 +39,8 @@ import {
   type InsertCleanerShift,
   type CleanerPaymentToken,
   type InsertCleanerPaymentToken,
+  type OfflineJob,
+  type InsertOfflineJob,
   type PlatformSetting,
   type InsertPlatformSetting,
   type FeeSetting,
@@ -290,6 +293,34 @@ export interface IStorage {
   getAllComplaints(): Promise<Complaint[]>;
   updateComplaintStatus(id: number, status: string, resolvedBy?: number, resolution?: string): Promise<void>;
   updateComplaintRefund(id: number, refundedBy: number, stripeRefundId: string): Promise<void>;
+  
+  // Offline job operations (for manually entered jobs with offline payment)
+  createOfflineJob(data: {
+    cleanerId: number;
+    companyId: number;
+    carPlateNumber: string;
+    carPlateEmirate?: string;
+    carPlateCode?: string;
+    servicePrice: string;
+    vatAmount: string;
+    totalAmount: string;
+    notes?: string;
+  }): Promise<OfflineJob>;
+  getCompanyOfflineJobs(companyId: number, filters?: {
+    cleanerId?: number;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<Array<OfflineJob & { cleanerName: string }>>;
+  getOfflineJobsReport(companyId: number, filters?: {
+    cleanerId?: number;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<{
+    totalJobs: number;
+    totalRevenue: number;
+    totalVat: number;
+    jobs: Array<OfflineJob & { cleanerName: string }>;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2801,6 +2832,93 @@ export class DatabaseStorage implements IStorage {
         status: w.status,
         createdAt: w.createdAt,
       })),
+    };
+  }
+
+  // ===== OFFLINE JOB OPERATIONS =====
+
+  async createOfflineJob(data: {
+    cleanerId: number;
+    companyId: number;
+    carPlateNumber: string;
+    carPlateEmirate?: string;
+    carPlateCode?: string;
+    servicePrice: string;
+    vatAmount: string;
+    totalAmount: string;
+    notes?: string;
+  }): Promise<OfflineJob> {
+    const [offlineJob] = await db
+      .insert(offlineJobs)
+      .values(data)
+      .returning();
+    return offlineJob;
+  }
+
+  async getCompanyOfflineJobs(companyId: number, filters?: {
+    cleanerId?: number;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<Array<OfflineJob & { cleanerName: string }>> {
+    const conditions = [eq(offlineJobs.companyId, companyId)];
+    
+    if (filters?.cleanerId) {
+      conditions.push(eq(offlineJobs.cleanerId, filters.cleanerId));
+    }
+    if (filters?.startDate) {
+      conditions.push(gte(offlineJobs.createdAt, filters.startDate));
+    }
+    if (filters?.endDate) {
+      const endOfDay = new Date(filters.endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      conditions.push(sql`${offlineJobs.createdAt} <= ${endOfDay}`);
+    }
+
+    const results = await db
+      .select({
+        id: offlineJobs.id,
+        cleanerId: offlineJobs.cleanerId,
+        companyId: offlineJobs.companyId,
+        carPlateNumber: offlineJobs.carPlateNumber,
+        carPlateEmirate: offlineJobs.carPlateEmirate,
+        carPlateCode: offlineJobs.carPlateCode,
+        servicePrice: offlineJobs.servicePrice,
+        vatAmount: offlineJobs.vatAmount,
+        totalAmount: offlineJobs.totalAmount,
+        notes: offlineJobs.notes,
+        createdAt: offlineJobs.createdAt,
+        cleanerName: users.displayName,
+      })
+      .from(offlineJobs)
+      .innerJoin(cleaners, eq(offlineJobs.cleanerId, cleaners.id))
+      .innerJoin(users, eq(cleaners.userId, users.id))
+      .where(and(...conditions))
+      .orderBy(desc(offlineJobs.createdAt));
+
+    return results;
+  }
+
+  async getOfflineJobsReport(companyId: number, filters?: {
+    cleanerId?: number;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<{
+    totalJobs: number;
+    totalRevenue: number;
+    totalVat: number;
+    jobs: Array<OfflineJob & { cleanerName: string }>;
+  }> {
+    const jobs = await this.getCompanyOfflineJobs(companyId, filters);
+    
+    const totalJobs = jobs.length;
+    const totalRevenue = jobs.reduce((sum, job) => sum + parseFloat(job.servicePrice), 0);
+    const totalVat = jobs.reduce((sum, job) => sum + parseFloat(job.vatAmount), 0);
+
+    return {
+      totalJobs,
+      totalRevenue,
+      totalVat,
+      jobs,
     };
   }
 }

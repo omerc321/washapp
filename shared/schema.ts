@@ -260,6 +260,32 @@ export const cleanerPaymentTokensRelations = relations(cleanerPaymentTokens, ({ 
   }),
 }));
 
+// Offline Jobs Table - For manually entered jobs with offline payment
+export const offlineJobs = pgTable("offline_jobs", {
+  id: serial("id").primaryKey(),
+  cleanerId: integer("cleaner_id").notNull().references(() => cleaners.id, { onDelete: "cascade" }),
+  companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  carPlateNumber: varchar("car_plate_number", { length: 50 }).notNull(),
+  carPlateEmirate: varchar("car_plate_emirate", { length: 50 }),
+  carPlateCode: varchar("car_plate_code", { length: 10 }),
+  servicePrice: numeric("service_price", { precision: 10, scale: 2 }).notNull(),
+  vatAmount: numeric("vat_amount", { precision: 10, scale: 2 }).notNull(),
+  totalAmount: numeric("total_amount", { precision: 10, scale: 2 }).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const offlineJobsRelations = relations(offlineJobs, ({ one }) => ({
+  cleaner: one(cleaners, {
+    fields: [offlineJobs.cleanerId],
+    references: [cleaners.id],
+  }),
+  company: one(companies, {
+    fields: [offlineJobs.companyId],
+    references: [companies.id],
+  }),
+}));
+
 // Jobs Table
 export const jobs = pgTable("jobs", {
   id: serial("id").primaryKey(),
@@ -668,6 +694,13 @@ export const insertCleanerPaymentTokenSchema = createInsertSchema(cleanerPayment
 
 export const selectCleanerPaymentTokenSchema = createSelectSchema(cleanerPaymentTokens);
 
+export const insertOfflineJobSchema = createInsertSchema(offlineJobs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const selectOfflineJobSchema = createSelectSchema(offlineJobs);
+
 // TypeScript Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -697,6 +730,9 @@ export type CleanerShift = typeof cleanerShifts.$inferSelect;
 export type InsertCleanerShift = z.infer<typeof insertCleanerShiftSchema>;
 export type CleanerPaymentToken = typeof cleanerPaymentTokens.$inferSelect;
 export type InsertCleanerPaymentToken = z.infer<typeof insertCleanerPaymentTokenSchema>;
+
+export type OfflineJob = typeof offlineJobs.$inferSelect;
+export type InsertOfflineJob = z.infer<typeof insertOfflineJobSchema>;
 
 export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
