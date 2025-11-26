@@ -3023,6 +3023,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get live report for admin (all companies or filtered by company)
+  app.get("/api/admin/live-report", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
+    try {
+      res.set('Cache-Control', 'no-store, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      
+      const { companyId } = req.query;
+      const options = companyId ? { companyId: parseInt(companyId as string) } : {};
+      const report = await storage.getLiveReport(options);
+      res.json(report);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Get platform settings
   app.get("/api/admin/platform-settings", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
     try {
@@ -3292,6 +3307,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const withdrawals = await storage.getCompanyWithdrawals(companyId);
       res.json(withdrawals);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get company withdrawal balance (available jobs and tips)
+  app.get("/api/company/financials/withdrawal-balance", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      res.set('Cache-Control', 'no-store, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      
+      const user = req.user as any;
+      const companyId = user.companyId;
+      
+      if (!companyId) {
+        return res.status(400).json({ message: "Company not found for user" });
+      }
+      
+      const balance = await storage.getCompanyWithdrawalBalance(companyId);
+      res.json(balance);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get company live report (with optional cleaner filter)
+  app.get("/api/company/live-report", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      res.set('Cache-Control', 'no-store, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      
+      const user = req.user as any;
+      const companyId = user.companyId;
+      
+      if (!companyId) {
+        return res.status(400).json({ message: "Company not found for user" });
+      }
+      
+      const { cleanerId } = req.query;
+      const options: { companyId: number; cleanerId?: number } = { companyId };
+      if (cleanerId) {
+        options.cleanerId = parseInt(cleanerId as string);
+      }
+      
+      const report = await storage.getLiveReport(options);
+      res.json(report);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Request withdrawal with validation
+  app.post("/api/company/financials/request-withdrawal", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const companyId = user.companyId;
+      
+      if (!companyId) {
+        return res.status(400).json({ message: "Company not found for user" });
+      }
+      
+      const { jobCount, tipsAmount, invoiceUrl } = req.body;
+      
+      // Validate input
+      if (!jobCount || jobCount < 1) {
+        return res.status(400).json({ message: "Invalid job count" });
+      }
+      
+      if (!invoiceUrl) {
+        return res.status(400).json({ message: "Invoice upload is required" });
+      }
+      
+      // Get current balance
+      const balance = await storage.getCompanyWithdrawalBalance(companyId);
+      
+      // Validate against available balance
+      if (jobCount > balance.availableJobs) {
+        return res.status(400).json({ 
+          message: `Cannot withdraw more jobs than available. Available: ${balance.availableJobs}` 
+        });
+      }
+      
+      const requestedTips = parseFloat(tipsAmount || "0");
+      if (requestedTips > balance.availableTips) {
+        return res.status(400).json({ 
+          message: `Cannot withdraw more tips than available. Available: ${balance.availableTips.toFixed(2)} AED` 
+        });
+      }
+      
+      // Calculate amounts
+      const baseAmount = jobCount * balance.pricePerWash;
+      const vatAmount = baseAmount * 0.05; // 5% VAT on base amount only
+      const totalAmount = baseAmount + vatAmount + requestedTips; // Tips are VAT-exempt
+      
+      // Create withdrawal request
+      const withdrawal = await storage.createWithdrawal({
+        companyId,
+        amount: totalAmount.toFixed(2),
+        status: "pending",
+        invoiceUrl,
+        jobCountRequested: jobCount,
+        tipsRequested: requestedTips.toFixed(2),
+        baseAmount: baseAmount.toFixed(2),
+        vatAmount: vatAmount.toFixed(2),
+        note: `Withdrawal request: ${jobCount} jobs @ ${balance.pricePerWash.toFixed(2)} AED + ${vatAmount.toFixed(2)} VAT + ${requestedTips.toFixed(2)} tips`,
+      });
+      
+      res.json({ 
+        success: true, 
+        withdrawal,
+        breakdown: {
+          jobCount,
+          pricePerWash: balance.pricePerWash,
+          baseAmount,
+          vatAmount,
+          tipsAmount: requestedTips,
+          totalAmount,
+        }
+      });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
