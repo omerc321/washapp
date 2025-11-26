@@ -2530,13 +2530,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Complete offline job with photo proof
-  app.post("/api/cleaner/complete-offline-job/:jobId", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
+  app.post("/api/cleaner/complete-offline-job/:jobId", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), upload.single("photo"), async (req: Request, res: Response) => {
     try {
       const { jobId } = req.params;
-      const { proofPhotoURL } = req.body;
 
-      if (!proofPhotoURL) {
+      if (!req.file) {
         return res.status(400).json({ message: "Proof photo is required" });
+      }
+
+      const allowedImageTypes = ["image/jpeg", "image/png", "image/webp"];
+      if (!allowedImageTypes.includes(req.file.mimetype)) {
+        return res.status(400).json({ message: "Only image files (JPEG, PNG, WebP) are allowed" });
       }
 
       const cleaner = await storage.getCleanerByUserId(req.user!.id);
@@ -2557,7 +2561,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ success: true, message: "Job already completed" });
       }
 
-      await storage.completeOfflineJob(parseInt(jobId), proofPhotoURL);
+      const photoUrl = `/uploads/proofs/${req.file.filename}`;
+      await storage.completeOfflineJob(parseInt(jobId), photoUrl);
 
       res.json({ success: true });
     } catch (error: any) {

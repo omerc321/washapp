@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Car, MapPin, Phone, Building2, Upload, CheckCircle2, Clock, Navigation, History, Timer, User, MessageCircle, Banknote, DollarSign, Star, Bell, BellOff, Volume2, VolumeX, QrCode, Copy, PlusCircle, Edit, Wallet } from "lucide-react";
-import { Job, Cleaner, CleanerStatus, JobStatus } from "@shared/schema";
+import { Job, Cleaner, CleanerStatus, JobStatus, OfflineJob } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -106,21 +106,6 @@ export default function CleanerDashboard() {
   const loadingJobs = loadingDashboard;
 
   // Query for offline jobs
-  interface OfflineJob {
-    id: number;
-    cleanerId: number;
-    companyId: number;
-    carPlateNumber: string;
-    carPlateEmirate: string | null;
-    carPlateCode: string | null;
-    servicePrice: string;
-    vatAmount: string;
-    totalAmount: string;
-    notes: string | null;
-    createdAt: string;
-    cleanerName: string;
-  }
-  
   const { data: offlineJobs = [], isLoading: loadingOfflineJobs } = useQuery<OfflineJob[]>({
     queryKey: ["/api/cleaner/offline-jobs"],
     enabled: !!currentUser,
@@ -275,6 +260,45 @@ export default function CleanerDashboard() {
       toast({
         title: "Error",
         description: "Failed to create offline job",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const [completingOfflineJobId, setCompletingOfflineJobId] = useState<number | null>(null);
+  const [offlineJobPhoto, setOfflineJobPhoto] = useState<File | null>(null);
+
+  const completeOfflineJob = useMutation({
+    mutationFn: async ({ offlineJobId, photo }: { offlineJobId: number; photo: File }) => {
+      const formData = new FormData();
+      formData.append('photo', photo);
+      
+      const response = await fetch(`/api/cleaner/complete-offline-job/${offlineJobId}`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to complete job');
+      }
+      
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/offline-jobs"] });
+      setCompletingOfflineJobId(null);
+      setOfflineJobPhoto(null);
+      toast({
+        title: "Job Completed",
+        description: "Cash job has been completed successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to complete job",
         variant: "destructive",
       });
     },
@@ -779,7 +803,7 @@ export default function CleanerDashboard() {
                     <Card className="p-8 text-center border-dashed">
                       <Wallet className="h-16 w-16 mx-auto text-muted-foreground mb-4 opacity-50" />
                       <p className="text-muted-foreground font-medium">No cash jobs recorded</p>
-                      <p className="text-sm text-muted-foreground mt-2">Use "Record Cash Job" to track manual payments</p>
+                      <p className="text-sm text-muted-foreground mt-2">Use "Record Cash" to start a manual payment job</p>
                     </Card>
                   </motion.div>
                 ) : (
@@ -803,10 +827,23 @@ export default function CleanerDashboard() {
                                   : job.carPlateNumber}
                               </CardTitle>
                             </div>
-                            <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
-                              <Banknote className="h-3 w-3 mr-1" />
-                              Cash
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
+                                <Banknote className="h-3 w-3 mr-1" />
+                                Cash
+                              </Badge>
+                              {job.status === 'in_progress' ? (
+                                <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100">
+                                  <Timer className="h-3 w-3 mr-1" />
+                                  In Progress
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100">
+                                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                                  Completed
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-3">
@@ -836,6 +873,92 @@ export default function CleanerDashboard() {
                               timeStyle: 'short'
                             })}
                           </div>
+                          
+                          {/* Photo upload for in-progress jobs */}
+                          {job.status === 'in_progress' && (
+                            <div className="border-t pt-3 mt-3">
+                              {completingOfflineJobId === job.id ? (
+                                <div className="space-y-3">
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      capture="environment"
+                                      className="hidden"
+                                      id={`offline-photo-${job.id}`}
+                                      onChange={(e) => setOfflineJobPhoto(e.target.files?.[0] || null)}
+                                    />
+                                    <label
+                                      htmlFor={`offline-photo-${job.id}`}
+                                      className="flex-1 flex items-center justify-center gap-2 p-3 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                                    >
+                                      <Upload className="h-4 w-4" />
+                                      <span className="text-sm">
+                                        {offlineJobPhoto ? offlineJobPhoto.name : "Select completion photo"}
+                                      </span>
+                                    </label>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="flex-1"
+                                      onClick={() => {
+                                        setCompletingOfflineJobId(null);
+                                        setOfflineJobPhoto(null);
+                                      }}
+                                      data-testid={`button-cancel-complete-${job.id}`}
+                                    >
+                                      Cancel
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      className="flex-1"
+                                      disabled={!offlineJobPhoto || completeOfflineJob.isPending}
+                                      onClick={() => {
+                                        if (offlineJobPhoto) {
+                                          completeOfflineJob.mutate({ offlineJobId: job.id, photo: offlineJobPhoto });
+                                        }
+                                      }}
+                                      data-testid={`button-submit-complete-${job.id}`}
+                                    >
+                                      {completeOfflineJob.isPending ? "Completing..." : "Complete Job"}
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <Button
+                                  onClick={() => setCompletingOfflineJobId(job.id)}
+                                  className="w-full"
+                                  data-testid={`button-complete-offline-${job.id}`}
+                                >
+                                  <Upload className="h-4 w-4 mr-2" />
+                                  Upload Photo to Complete
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* Show completion photo for completed jobs */}
+                          {job.status === 'completed' && job.completionPhotoUrl && (
+                            <div className="border-t pt-3 mt-3">
+                              <p className="text-xs text-muted-foreground mb-2">Completion Photo:</p>
+                              <img 
+                                src={job.completionPhotoUrl} 
+                                alt="Completion" 
+                                className="w-full h-32 object-cover rounded-lg"
+                              />
+                              {job.completedAt && (
+                                <p className="text-xs text-muted-foreground mt-2">
+                                  Completed: {new Date(job.completedAt).toLocaleString('en-AE', { 
+                                    timeZone: 'Asia/Dubai',
+                                    dateStyle: 'medium',
+                                    timeStyle: 'short'
+                                  })}
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     </motion.div>
