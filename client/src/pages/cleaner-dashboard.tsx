@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Car, MapPin, Phone, Building2, Upload, CheckCircle2, Clock, Navigation, History, Timer, User, MessageCircle, Banknote, DollarSign, Star, Bell, BellOff, Volume2, VolumeX, QrCode, Copy } from "lucide-react";
+import { Car, MapPin, Phone, Building2, Upload, CheckCircle2, Clock, Navigation, History, Timer, User, MessageCircle, Banknote, DollarSign, Star, Bell, BellOff, Volume2, VolumeX, QrCode, Copy, PlusCircle, Edit, Wallet } from "lucide-react";
 import { Job, Cleaner, CleanerStatus, JobStatus } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -17,7 +17,9 @@ import { Input } from "@/components/ui/input";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import QRCodeComponent from "react-qr-code";
 
 export default function CleanerDashboard() {
@@ -27,6 +29,25 @@ export default function CleanerDashboard() {
   const [uploadingJobId, setUploadingJobId] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
   const [paymentQRData, setPaymentQRData] = useState<{ token: string; expiresAt: string } | null>(null);
+  
+  // Offline jobs state
+  const [showOfflineJobModal, setShowOfflineJobModal] = useState(false);
+  const [offlineJobForm, setOfflineJobForm] = useState({
+    carPlateEmirate: '',
+    carPlateCode: '',
+    carPlateNumber: '',
+    servicePrice: '',
+    notes: '',
+  });
+  
+  // Edit plate state (for QR-paid anonymous jobs)
+  const [showEditPlateModal, setShowEditPlateModal] = useState(false);
+  const [editingJobId, setEditingJobId] = useState<number | null>(null);
+  const [editPlateForm, setEditPlateForm] = useState({
+    carPlateEmirate: '',
+    carPlateCode: '',
+    carPlateNumber: '',
+  });
   
   // Push notifications for cleaners
   const {
@@ -186,6 +207,63 @@ export default function CleanerDashboard() {
       toast({
         title: "Error",
         description: "Failed to generate payment QR code",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createOfflineJob = useMutation({
+    mutationFn: async (data: typeof offlineJobForm) => {
+      const response = await apiRequest("POST", "/api/cleaner/create-offline-job", data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/dashboard"] });
+      setShowOfflineJobModal(false);
+      setOfflineJobForm({
+        carPlateEmirate: '',
+        carPlateCode: '',
+        carPlateNumber: '',
+        servicePrice: '',
+        notes: '',
+      });
+      toast({
+        title: "Offline Job Created",
+        description: "Cash job has been recorded successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create offline job",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateJobPlate = useMutation({
+    mutationFn: async ({ jobId, ...data }: { jobId: number; carPlateEmirate: string; carPlateCode: string; carPlateNumber: string }) => {
+      const response = await apiRequest("PATCH", `/api/cleaner/update-job-plate/${jobId}`, data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/dashboard"] });
+      setShowEditPlateModal(false);
+      setEditingJobId(null);
+      setEditPlateForm({
+        carPlateEmirate: '',
+        carPlateCode: '',
+        carPlateNumber: '',
+      });
+      toast({
+        title: "Plate Updated",
+        description: "Car plate number has been updated",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update car plate",
         variant: "destructive",
       });
     },
@@ -380,18 +458,33 @@ export default function CleanerDashboard() {
               </Button>
             )}
 
-            {/* Payment QR Code Button */}
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() => generateQRToken.mutate()}
-              disabled={generateQRToken.isPending}
-              className="w-full border-2 min-h-12"
-              data-testid="button-generate-qr"
-            >
-              <QrCode className="h-4 w-4 mr-2" />
-              <span className="font-semibold">Generate Payment QR</span>
-            </Button>
+            {/* Action Buttons Row */}
+            <div className="grid grid-cols-2 gap-2">
+              {/* Payment QR Code Button */}
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => generateQRToken.mutate()}
+                disabled={generateQRToken.isPending}
+                className="border-2 min-h-12"
+                data-testid="button-generate-qr"
+              >
+                <QrCode className="h-4 w-4 mr-1" />
+                <span className="font-semibold text-sm">Payment QR</span>
+              </Button>
+
+              {/* Record Cash Payment Button */}
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => setShowOfflineJobModal(true)}
+                className="border-2 min-h-12"
+                data-testid="button-record-cash"
+              >
+                <Wallet className="h-4 w-4 mr-1" />
+                <span className="font-semibold text-sm">Record Cash</span>
+              </Button>
+            </div>
           </div>
         </motion.div>
 
@@ -563,6 +656,10 @@ export default function CleanerDashboard() {
                     >
                       <JobCard
                         job={job}
+                        onEditPlate={(jobId) => {
+                          setEditingJobId(jobId);
+                          setShowEditPlateModal(true);
+                        }}
                         action={
                           job.status === JobStatus.ASSIGNED ? (
                             <Button
@@ -658,11 +755,183 @@ export default function CleanerDashboard() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Offline Job Modal */}
+      <Dialog open={showOfflineJobModal} onOpenChange={setShowOfflineJobModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-primary" />
+              Record Cash Payment
+            </DialogTitle>
+            <DialogDescription>
+              Record a job paid in cash or other offline method
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Car Plate */}
+            <div className="space-y-2">
+              <Label>Car Plate</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <Select
+                  value={offlineJobForm.carPlateEmirate}
+                  onValueChange={(value) => setOfflineJobForm(prev => ({ ...prev, carPlateEmirate: value }))}
+                >
+                  <SelectTrigger data-testid="select-emirate-offline">
+                    <SelectValue placeholder="Emirate" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Dubai">Dubai</SelectItem>
+                    <SelectItem value="Abu Dhabi">Abu Dhabi</SelectItem>
+                    <SelectItem value="Sharjah">Sharjah</SelectItem>
+                    <SelectItem value="Ajman">Ajman</SelectItem>
+                    <SelectItem value="RAK">RAK</SelectItem>
+                    <SelectItem value="Fujairah">Fujairah</SelectItem>
+                    <SelectItem value="UAQ">UAQ</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  placeholder="Code"
+                  value={offlineJobForm.carPlateCode}
+                  onChange={(e) => setOfflineJobForm(prev => ({ ...prev, carPlateCode: e.target.value.toUpperCase() }))}
+                  data-testid="input-code-offline"
+                />
+                <Input
+                  placeholder="Number"
+                  value={offlineJobForm.carPlateNumber}
+                  onChange={(e) => setOfflineJobForm(prev => ({ ...prev, carPlateNumber: e.target.value }))}
+                  data-testid="input-number-offline"
+                />
+              </div>
+            </div>
+
+            {/* Service Price */}
+            <div className="space-y-2">
+              <Label>Service Price (AED)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="e.g. 25.00"
+                value={offlineJobForm.servicePrice}
+                onChange={(e) => setOfflineJobForm(prev => ({ ...prev, servicePrice: e.target.value }))}
+                data-testid="input-price-offline"
+              />
+              {offlineJobForm.servicePrice && parseFloat(offlineJobForm.servicePrice) > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  VAT (5%): {(parseFloat(offlineJobForm.servicePrice) * 0.05).toFixed(2)} AED | 
+                  Total: {(parseFloat(offlineJobForm.servicePrice) * 1.05).toFixed(2)} AED
+                </p>
+              )}
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label>Notes (optional)</Label>
+              <Textarea
+                placeholder="Any additional notes..."
+                value={offlineJobForm.notes}
+                onChange={(e) => setOfflineJobForm(prev => ({ ...prev, notes: e.target.value }))}
+                data-testid="input-notes-offline"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowOfflineJobModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => createOfflineJob.mutate(offlineJobForm)}
+              disabled={!offlineJobForm.carPlateNumber || !offlineJobForm.servicePrice || createOfflineJob.isPending}
+              data-testid="button-submit-offline"
+            >
+              {createOfflineJob.isPending ? "Saving..." : "Record Job"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Plate Modal (for QR-paid jobs) */}
+      <Dialog open={showEditPlateModal} onOpenChange={setShowEditPlateModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5 text-primary" />
+              Update Car Plate
+            </DialogTitle>
+            <DialogDescription>
+              Enter the actual car plate number for this QR-scanned job
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Car Plate</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <Select
+                  value={editPlateForm.carPlateEmirate}
+                  onValueChange={(value) => setEditPlateForm(prev => ({ ...prev, carPlateEmirate: value }))}
+                >
+                  <SelectTrigger data-testid="select-emirate-edit">
+                    <SelectValue placeholder="Emirate" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Dubai">Dubai</SelectItem>
+                    <SelectItem value="Abu Dhabi">Abu Dhabi</SelectItem>
+                    <SelectItem value="Sharjah">Sharjah</SelectItem>
+                    <SelectItem value="Ajman">Ajman</SelectItem>
+                    <SelectItem value="RAK">RAK</SelectItem>
+                    <SelectItem value="Fujairah">Fujairah</SelectItem>
+                    <SelectItem value="UAQ">UAQ</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  placeholder="Code"
+                  value={editPlateForm.carPlateCode}
+                  onChange={(e) => setEditPlateForm(prev => ({ ...prev, carPlateCode: e.target.value.toUpperCase() }))}
+                  data-testid="input-code-edit"
+                />
+                <Input
+                  placeholder="Number"
+                  value={editPlateForm.carPlateNumber}
+                  onChange={(e) => setEditPlateForm(prev => ({ ...prev, carPlateNumber: e.target.value }))}
+                  data-testid="input-number-edit"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowEditPlateModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => editingJobId && updateJobPlate.mutate({
+                jobId: editingJobId,
+                ...editPlateForm,
+              })}
+              disabled={!editPlateForm.carPlateNumber || updateJobPlate.isPending}
+              data-testid="button-submit-edit-plate"
+            >
+              {updateJobPlate.isPending ? "Updating..." : "Update Plate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function JobCard({ job, action }: { job: Job; action: React.ReactNode }) {
+function JobCard({ job, action, onEditPlate }: { job: Job; action: React.ReactNode; onEditPlate?: (jobId: number) => void }) {
+  const isQRScannedJob = job.carPlateNumber?.startsWith('QR-ANON') || job.carPlateNumber?.startsWith('QR_SCAN');
   const getProgressStage = (status: JobStatus) => {
     switch (status) {
       case JobStatus.PAID:
@@ -806,6 +1075,18 @@ function JobCard({ job, action }: { job: Job; action: React.ReactNode }) {
             <p className="text-xs text-muted-foreground">Car Plate</p>
             <p className="font-bold text-lg">{job.carPlateNumber}</p>
           </div>
+          {isQRScannedJob && onEditPlate && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onEditPlate(job.id)}
+              className="shrink-0"
+              data-testid={`button-edit-plate-${job.id}`}
+            >
+              <Edit className="h-4 w-4 mr-1" />
+              Update
+            </Button>
+          )}
         </div>
 
         {/* Location with Navigation */}
