@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, Users, Briefcase, DollarSign, TrendingUp, CheckCircle2, Check, X, ArrowLeft, Banknote, Settings, Activity, MapPin, RefreshCw } from "lucide-react";
+import { Building2, Users, Briefcase, DollarSign, TrendingUp, CheckCircle2, Check, X, ArrowLeft, Banknote, Settings, Activity, MapPin, RefreshCw, Download } from "lucide-react";
 import { AdminAnalytics, Company, Transaction, CompanyWithdrawal } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -296,6 +296,7 @@ function FinancialsTab() {
                         <TableHead>Gross</TableHead>
                         <TableHead>Net</TableHead>
                         <TableHead>Date</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -357,6 +358,21 @@ function FinancialsTab() {
                               {parseFloat(job.netPayableAmount || "0").toFixed(2)} AED
                             </TableCell>
                             <TableCell className="text-sm min-w-[100px]">{new Date(job.paidAt).toLocaleDateString('en-AE', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Dubai' })}</TableCell>
+                            <TableCell className="min-w-[80px]">
+                              {job.receiptNumber ? (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => window.open(`/api/admin/receipt/${job.jobId}`, '_blank')}
+                                  title="Download Receipt"
+                                  data-testid={`button-download-receipt-${job.jobId}`}
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
                           </TableRow>
                         );
                       })}

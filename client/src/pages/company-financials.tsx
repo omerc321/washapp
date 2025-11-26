@@ -801,6 +801,7 @@ export default function CompanyFinancials() {
                         <TableHead>Gross</TableHead>
                         <TableHead>Net</TableHead>
                         <TableHead>Date</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -863,6 +864,21 @@ export default function CompanyFinancials() {
                               {parseFloat(job.netPayableAmount || "0").toFixed(2)} AED
                             </TableCell>
                             <TableCell className="text-sm min-w-[100px]">{new Date(job.paidAt).toLocaleDateString('en-AE', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Dubai' })}</TableCell>
+                            <TableCell className="min-w-[80px]">
+                              {job.receiptNumber ? (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => window.open(`/api/company/receipt/${job.jobId}`, '_blank')}
+                                  title="Download Receipt"
+                                  data-testid={`button-download-receipt-${job.jobId}`}
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
                           </TableRow>
                         );
                       })}

@@ -4,7 +4,7 @@ import express from "express";
 import Stripe from "stripe";
 import multer from "multer";
 import path from "path";
-import { mkdir, mkdirSync } from "fs";
+import { mkdir, mkdirSync, existsSync } from "fs";
 import crypto from "crypto";
 import ExcelJS from "exceljs";
 import bcrypt from "bcryptjs";
@@ -3059,6 +3059,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Download receipt by job ID (admin)
+  app.get("/api/admin/receipt/:jobId", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      if (isNaN(jobId)) {
+        return res.status(400).json({ message: "Invalid job ID" });
+      }
+      
+      const job = await storage.getJob(jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+      
+      if (!job.receiptNumber) {
+        return res.status(404).json({ message: "Receipt not available for this job" });
+      }
+      
+      const receiptPath = path.join(process.cwd(), 'uploads', 'receipts', `receipt-${job.receiptNumber}.pdf`);
+      
+      if (!existsSync(receiptPath)) {
+        return res.status(404).json({ message: "Receipt file not found" });
+      }
+      
+      res.download(receiptPath, `receipt-${job.receiptNumber}.pdf`);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Get platform settings
   app.get("/api/admin/platform-settings", requireRole(UserRole.ADMIN), async (req: Request, res: Response) => {
     try {
@@ -3374,6 +3403,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const report = await storage.getLiveReport(options);
       res.json(report);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Download receipt by job ID (company)
+  app.get("/api/company/receipt/:jobId", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const companyId = user.companyId;
+      
+      if (!companyId) {
+        return res.status(400).json({ message: "Company not found for user" });
+      }
+      
+      const jobId = parseInt(req.params.jobId);
+      if (isNaN(jobId)) {
+        return res.status(400).json({ message: "Invalid job ID" });
+      }
+      
+      const job = await storage.getJob(jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+      
+      // Verify job belongs to company
+      if (job.companyId !== companyId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      if (!job.receiptNumber) {
+        return res.status(404).json({ message: "Receipt not available for this job" });
+      }
+      
+      const receiptPath = path.join(process.cwd(), 'uploads', 'receipts', `receipt-${job.receiptNumber}.pdf`);
+      
+      if (!existsSync(receiptPath)) {
+        return res.status(404).json({ message: "Receipt file not found" });
+      }
+      
+      res.download(receiptPath, `receipt-${job.receiptNumber}.pdf`);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
