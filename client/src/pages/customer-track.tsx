@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Car, MapPin, Phone, Building2, Clock, Star, ChevronLeft, AlertCircle, Bell, BellOff, User, Timer, CheckCircle2, Navigation, MessageSquare } from "lucide-react";
+import { Car, MapPin, Phone, Building2, Clock, Star, ChevronLeft, AlertCircle, Bell, BellOff, User, Timer, CheckCircle2, Navigation, MessageSquare, Banknote } from "lucide-react";
 import { Job, JobStatus, Cleaner, Company } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -1020,18 +1020,40 @@ function HistoryJobCard({ job, onRate }: { job: Job; onRate?: () => void }) {
     return `${minutes} min`;
   };
 
-  const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(job.locationLongitude as string) - 0.01},${parseFloat(job.locationLatitude as string) - 0.01},${parseFloat(job.locationLongitude as string) + 0.01},${parseFloat(job.locationLatitude as string) + 0.01}&layer=mapnik&marker=${job.locationLatitude},${job.locationLongitude}`;
+  // Check if this is an offline/cash job
+  // Backend adds isOfflineJob flag, but also check for Cash Payment address as fallback
+  const isCashJob = (job as any).isOfflineJob === true || 
+    job.locationAddress === 'Cash Payment' || 
+    (job.locationLatitude && job.locationLongitude && 
+     parseFloat(job.locationLatitude as string) === 0 && 
+     parseFloat(job.locationLongitude as string) === 0);
+
+  const mapUrl = !isCashJob ? `https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(job.locationLongitude as string) - 0.01},${parseFloat(job.locationLatitude as string) - 0.01},${parseFloat(job.locationLongitude as string) + 0.01},${parseFloat(job.locationLatitude as string) + 0.01}&layer=mapnik&marker=${job.locationLatitude},${job.locationLongitude}` : '';
 
   return (
     <Card className="hover-elevate overflow-hidden" data-testid={`job-card-${job.id}`}>
-      {/* Map Thumbnail */}
+      {/* Map Thumbnail or Cash Payment Header */}
       <div className="relative h-32 bg-muted">
-        <iframe
-          src={mapUrl}
-          className="w-full h-full pointer-events-none"
-          title="Job location"
-        />
-        <div className="absolute top-2 right-2">
+        {isCashJob ? (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-100 to-green-50 dark:from-green-900/30 dark:to-green-800/20">
+            <div className="text-center">
+              <Banknote className="h-10 w-10 text-green-600 dark:text-green-400 mx-auto mb-2" />
+              <p className="text-sm font-medium text-green-700 dark:text-green-300">Cash Payment</p>
+            </div>
+          </div>
+        ) : (
+          <iframe
+            src={mapUrl}
+            className="w-full h-full pointer-events-none"
+            title="Job location"
+          />
+        )}
+        <div className="absolute top-2 right-2 flex gap-1">
+          {isCashJob && (
+            <Badge className="bg-amber-600 text-white font-bold shadow-lg">
+              Cash
+            </Badge>
+          )}
           {job.status === JobStatus.REFUNDED ? (
             <Badge className="bg-green-600 text-white font-bold shadow-lg">
               Refunded

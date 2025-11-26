@@ -995,10 +995,12 @@ export class DatabaseStorage implements IStorage {
     // e.g., "Abu Dhabi A 1" or just "1" for backwards compatibility
     const parts = plateNumber.trim().split(/\s+/);
     
-    let whereClause;
+    let jobWhereClause;
+    let offlineWhereClause;
     if (parts.length === 1) {
       // Just a plate number (backwards compatibility)
-      whereClause = eq(jobs.carPlateNumber, parts[0].toUpperCase());
+      jobWhereClause = eq(jobs.carPlateNumber, parts[0].toUpperCase());
+      offlineWhereClause = eq(offlineJobs.carPlateNumber, parts[0].toUpperCase());
     } else if (parts.length >= 3) {
       // Full format: "Emirate Code Number" (e.g., "Abu Dhabi A 1")
       // Last part is number, second to last is code, rest is emirate
@@ -1006,35 +1008,115 @@ export class DatabaseStorage implements IStorage {
       const code = parts[parts.length - 2].toUpperCase();
       const emirate = parts.slice(0, parts.length - 2).join(' ');
       
-      whereClause = and(
+      jobWhereClause = and(
         eq(jobs.carPlateNumber, number),
         eq(jobs.carPlateCode, code),
         eq(jobs.carPlateEmirate, emirate)
+      );
+      offlineWhereClause = and(
+        eq(offlineJobs.carPlateNumber, number),
+        eq(offlineJobs.carPlateCode, code),
+        eq(offlineJobs.carPlateEmirate, emirate)
       );
     } else {
       // Invalid format, return empty result
       return { data: [], total: 0 };
     }
 
-    // Get total count
-    const [{ count }] = await db
+    // Get total count of regular jobs
+    const [{ count: jobCount }] = await db
       .select({ count: sql<number>`count(*)` })
       .from(jobs)
-      .where(whereClause);
+      .where(jobWhereClause);
 
-    // Calculate pagination
-    const offset = (page - 1) * pageSize;
+    // Get total count of offline jobs (completed only)
+    const [{ count: offlineCount }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(offlineJobs)
+      .where(and(offlineWhereClause, eq(offlineJobs.status, "completed")));
 
-    // Get paginated data
-    const data = await db
+    const totalCount = Number(jobCount) + Number(offlineCount);
+
+    // Get all regular jobs matching the plate
+    const regularJobs = await db
       .select()
       .from(jobs)
-      .where(whereClause)
-      .orderBy(desc(jobs.createdAt))
-      .limit(pageSize)
-      .offset(offset);
+      .where(jobWhereClause)
+      .orderBy(desc(jobs.createdAt));
 
-    return { data, total: Number(count) };
+    // Get completed offline jobs matching the plate and transform to Job-like structure
+    const offlineJobsData = await db
+      .select({
+        id: offlineJobs.id,
+        cleanerId: offlineJobs.cleanerId,
+        companyId: offlineJobs.companyId,
+        carPlateNumber: offlineJobs.carPlateNumber,
+        carPlateEmirate: offlineJobs.carPlateEmirate,
+        carPlateCode: offlineJobs.carPlateCode,
+        servicePrice: offlineJobs.servicePrice,
+        completionPhotoUrl: offlineJobs.completionPhotoUrl,
+        completedAt: offlineJobs.completedAt,
+        createdAt: offlineJobs.createdAt,
+      })
+      .from(offlineJobs)
+      .where(and(offlineWhereClause, eq(offlineJobs.status, "completed")))
+      .orderBy(desc(offlineJobs.createdAt));
+
+    // Transform offline jobs to match Job structure for display
+    // Using partial Job structure since offline jobs don't have all Job fields
+    const transformedOfflineJobs = offlineJobsData.map(oj => ({
+      id: oj.id + 1000000, // Add offset to avoid ID collision
+      customerId: null,
+      companyId: oj.companyId,
+      cleanerId: oj.cleanerId,
+      status: JobStatus.COMPLETED,
+      carPlateNumber: oj.carPlateNumber || '',
+      carPlateEmirate: oj.carPlateEmirate || null,
+      carPlateCode: oj.carPlateCode || null,
+      locationAddress: 'Cash Payment',
+      locationLatitude: '0',
+      locationLongitude: '0',
+      parkingNumber: null,
+      customerEmail: '',
+      customerPhone: null,
+      price: oj.servicePrice,
+      taxAmount: '0',
+      tipAmount: '0',
+      totalAmount: oj.servicePrice,
+      stripePaymentIntentId: null,
+      stripeRefundId: null,
+      paymentMethod: 'cash' as const,
+      refundedAt: null,
+      refundReason: null,
+      receiptNumber: null,
+      receiptGeneratedAt: null,
+      assignedAt: oj.createdAt,
+      acceptedAt: oj.createdAt,
+      startedAt: oj.createdAt,
+      completedAt: oj.completedAt,
+      estimatedStartTime: null,
+      estimatedFinishTime: null,
+      proofPhotoURL: oj.completionPhotoUrl,
+      rating: null,
+      review: null,
+      ratingRequestedAt: null,
+      ratedAt: null,
+      requestedCleanerEmail: null,
+      directAssignmentAt: null,
+      createdAt: oj.createdAt,
+      isOfflineJob: true, // Custom flag to identify offline jobs
+    })) as unknown as Job[];
+
+    // Combine and sort by createdAt
+    const allJobs = [...regularJobs, ...transformedOfflineJobs].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    // Apply pagination
+    const offset = (page - 1) * pageSize;
+    const paginatedJobs = allJobs.slice(offset, offset + pageSize);
+
+    return { data: paginatedJobs, total: totalCount };
   }
 
   async getJobsByPhoneNumber(phoneNumber: string, page = 1, pageSize = 20): Promise<{ data: Job[]; total: number }> {
@@ -1510,19 +1592,34 @@ export class DatabaseStorage implements IStorage {
         gte(cleaners.lastLocationUpdate, tenMinutesAgo)
       ));
     
-    // Count all completed jobs (all time)
+    // Count all completed jobs (all time) - includes online jobs
     const [totalJobsCompletedResult] = await db.select({ count: sql<number>`count(*)` }).from(jobs)
       .where(and(
         eq(jobs.companyId, companyId),
         eq(jobs.status, "completed")
       ));
     
-    // Count only completed jobs this month (revenue-recognized)
+    // Count completed offline/cash jobs (all time)
+    const [totalOfflineJobsResult] = await db.select({ count: sql<number>`count(*)` }).from(offlineJobs)
+      .where(and(
+        eq(offlineJobs.companyId, companyId),
+        eq(offlineJobs.status, "completed")
+      ));
+    
+    // Count only completed jobs this month (revenue-recognized) - online jobs
     const [jobsThisMonthResult] = await db.select({ count: sql<number>`count(*)` }).from(jobs)
       .where(and(
         eq(jobs.companyId, companyId),
         eq(jobs.status, "completed"),
         gte(jobs.createdAt, firstDayOfMonth)
+      ));
+    
+    // Count completed offline jobs this month
+    const [offlineJobsThisMonthResult] = await db.select({ count: sql<number>`count(*)` }).from(offlineJobs)
+      .where(and(
+        eq(offlineJobs.companyId, companyId),
+        eq(offlineJobs.status, "completed"),
+        gte(offlineJobs.createdAt, firstDayOfMonth)
       ));
     
     // Calculate revenue using net payable amount (what company actually earns)
@@ -1539,6 +1636,16 @@ export class DatabaseStorage implements IStorage {
         inArray(jobs.status, ['completed', 'refunded'])
       ));
     
+    // Calculate offline job revenue (all time) - for cash jobs, total amount = net earnings (no platform fee)
+    const [offlineTotalRevenueResult] = await db.select({ 
+      totalRevenue: sql<string>`COALESCE(SUM(${offlineJobs.totalAmount}::numeric), 0)::text`
+    })
+      .from(offlineJobs)
+      .where(and(
+        eq(offlineJobs.companyId, companyId),
+        eq(offlineJobs.status, "completed")
+      ));
+    
     const [revenueThisMonthResult] = await db.select({ 
       grossRevenue: sql<string>`COALESCE(SUM(${jobFinancials.grossAmount}), 0)::text`,
       netRevenue: sql<string>`COALESCE(SUM(CASE WHEN ${jobs.status} = 'completed' THEN ${jobFinancials.netPayableAmount} ELSE 0 END), 0)::text`
@@ -1549,6 +1656,17 @@ export class DatabaseStorage implements IStorage {
         eq(jobFinancials.companyId, companyId),
         inArray(jobs.status, ['completed', 'refunded']),
         gte(jobFinancials.createdAt, firstDayOfMonth)
+      ));
+    
+    // Calculate offline job revenue this month
+    const [offlineRevenueThisMonthResult] = await db.select({ 
+      totalRevenue: sql<string>`COALESCE(SUM(${offlineJobs.totalAmount}::numeric), 0)::text`
+    })
+      .from(offlineJobs)
+      .where(and(
+        eq(offlineJobs.companyId, companyId),
+        eq(offlineJobs.status, "completed"),
+        gte(offlineJobs.createdAt, firstDayOfMonth)
       ));
     
     // Get shift roster with optimized query (joins cleaners + users + active shifts)
@@ -1595,16 +1713,35 @@ export class DatabaseStorage implements IStorage {
       };
     });
     
+    // Combine online and offline job counts and revenue
+    const onlineJobsTotal = parseInt(String(totalJobsCompletedResult.count), 10);
+    const offlineJobsTotal = parseInt(String(totalOfflineJobsResult.count), 10);
+    const onlineJobsMonth = parseInt(String(jobsThisMonthResult.count), 10);
+    const offlineJobsMonth = parseInt(String(offlineJobsThisMonthResult.count), 10);
+    
+    const onlineRevenue = parseFloat(totalRevenueResult.grossRevenue || "0");
+    const offlineRevenue = parseFloat(offlineTotalRevenueResult.totalRevenue || "0");
+    const onlineNetEarnings = parseFloat(totalRevenueResult.netRevenue || "0");
+    
+    const onlineRevenueMonth = parseFloat(revenueThisMonthResult.grossRevenue || "0");
+    const offlineRevenueMonth = parseFloat(offlineRevenueThisMonthResult.totalRevenue || "0");
+    const onlineNetEarningsMonth = parseFloat(revenueThisMonthResult.netRevenue || "0");
+    
     return {
-      totalJobsCompleted: parseInt(String(totalJobsCompletedResult.count), 10),
-      totalRevenue: parseFloat(totalRevenueResult.grossRevenue || "0"),
-      totalNetEarnings: parseFloat(totalRevenueResult.netRevenue || "0"),
+      totalJobsCompleted: onlineJobsTotal + offlineJobsTotal,
+      totalRevenue: onlineRevenue + offlineRevenue,
+      totalNetEarnings: onlineNetEarnings + offlineRevenue, // Offline has no platform fee
       averageRating: parseFloat(company?.rating as any) || 0,
       activeCleaners: parseInt(String(activeCleanersResult.count), 10),
-      jobsThisMonth: parseInt(String(jobsThisMonthResult.count), 10),
-      revenueThisMonth: parseFloat(revenueThisMonthResult.grossRevenue || "0"),
-      netEarningsThisMonth: parseFloat(revenueThisMonthResult.netRevenue || "0"),
+      jobsThisMonth: onlineJobsMonth + offlineJobsMonth,
+      revenueThisMonth: onlineRevenueMonth + offlineRevenueMonth,
+      netEarningsThisMonth: onlineNetEarningsMonth + offlineRevenueMonth, // Offline has no platform fee
       shiftRoster,
+      // Include breakdown for transparency
+      onlineJobsCompleted: onlineJobsTotal,
+      offlineJobsCompleted: offlineJobsTotal,
+      offlineRevenue: offlineRevenue,
+      offlineRevenueThisMonth: offlineRevenueMonth,
     };
   }
 
