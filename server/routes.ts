@@ -2434,6 +2434,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update car plate on QR-paid anonymous job
+  app.patch("/api/cleaner/update-job-plate/:jobId", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
+    try {
+      const { jobId } = req.params;
+      const { carPlateEmirate, carPlateCode, carPlateNumber } = req.body;
+
+      const cleaner = await storage.getCleanerByUserId(req.user!.id);
+      if (!cleaner) {
+        return res.status(404).json({ message: "Cleaner not found" });
+      }
+
+      const job = await storage.getJob(parseInt(jobId));
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      // Verify job belongs to this cleaner
+      if (job.cleanerId !== cleaner.id) {
+        return res.status(403).json({ message: "Not authorized to update this job" });
+      }
+
+      // Only allow updating plate if it's currently anonymous (QR_SCAN or QR-ANON prefix)
+      if (!job.carPlateNumber?.startsWith('QR-ANON') && !job.carPlateNumber?.startsWith('QR_SCAN')) {
+        return res.status(400).json({ message: "Can only update plate for QR-scanned anonymous jobs" });
+      }
+
+      // Validate plate info
+      if (!carPlateNumber) {
+        return res.status(400).json({ message: "Car plate number is required" });
+      }
+
+      await storage.updateJob(parseInt(jobId), {
+        carPlateEmirate: carPlateEmirate || null,
+        carPlateCode: carPlateCode || null,
+        carPlateNumber,
+      });
+
+      const updatedJob = await storage.getJob(parseInt(jobId));
+      res.json({ success: true, job: updatedJob });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Create offline/manual job (for cash payments)
+  app.post("/api/cleaner/create-offline-job", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
+    try {
+      const { carPlateEmirate, carPlateCode, carPlateNumber, servicePrice, notes } = req.body;
+
+      const cleaner = await storage.getCleanerByUserId(req.user!.id);
+      if (!cleaner) {
+        return res.status(404).json({ message: "Cleaner not found" });
+      }
+
+      if (!carPlateNumber) {
+        return res.status(400).json({ message: "Car plate number is required" });
+      }
+
+      if (!servicePrice || isNaN(parseFloat(servicePrice)) || parseFloat(servicePrice) <= 0) {
+        return res.status(400).json({ message: "Valid service price is required" });
+      }
+
+      // Calculate VAT (5%)
+      const price = parseFloat(servicePrice);
+      const vatAmount = (price * 0.05).toFixed(2);
+      const totalAmount = (price + parseFloat(vatAmount)).toFixed(2);
+
+      const offlineJob = await storage.createOfflineJob({
+        cleanerId: cleaner.id,
+        companyId: cleaner.companyId,
+        carPlateNumber,
+        carPlateEmirate: carPlateEmirate || undefined,
+        carPlateCode: carPlateCode || undefined,
+        servicePrice: price.toFixed(2),
+        vatAmount,
+        totalAmount,
+        notes: notes || undefined,
+      });
+
+      res.json({ success: true, offlineJob });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get cleaner's offline jobs
+  app.get("/api/cleaner/offline-jobs", requireRole(UserRole.CLEANER), requireActiveCleaner(storage), async (req: Request, res: Response) => {
+    try {
+      const cleaner = await storage.getCleanerByUserId(req.user!.id);
+      if (!cleaner) {
+        return res.status(404).json({ message: "Cleaner not found" });
+      }
+
+      const jobs = await storage.getCompanyOfflineJobs(cleaner.companyId, {
+        cleanerId: cleaner.id,
+      });
+
+      res.json(jobs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ===== COMPANY ADMIN ROUTES =====
 
   // Get company analytics
@@ -2512,6 +2615,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const shifts = await storage.getCompanyShiftHistory(req.user.companyId, filters);
       res.json(shifts);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get company offline jobs report
+  app.get("/api/company/offline-jobs", requireRole(UserRole.COMPANY_ADMIN), async (req: Request, res: Response) => {
+    try {
+      res.set('Cache-Control', 'no-store, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      
+      if (!req.user?.companyId) {
+        return res.status(400).json({ message: "No company associated with user" });
+      }
+
+      const filters: any = {};
+      
+      if (req.query.cleanerId) {
+        filters.cleanerId = parseInt(req.query.cleanerId as string);
+      }
+      
+      if (req.query.startDate) {
+        filters.startDate = new Date(req.query.startDate as string);
+      }
+      
+      if (req.query.endDate) {
+        filters.endDate = new Date(req.query.endDate as string);
+      }
+      
+      const report = await storage.getOfflineJobsReport(req.user.companyId, filters);
+      res.json(report);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
