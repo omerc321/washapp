@@ -1782,6 +1782,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Download receipt as PDF for completed jobs
+  app.get("/api/jobs/:jobId/receipt", async (req: Request, res: Response) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      const job = await storage.getJob(jobId);
+      
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+      
+      if (job.status !== JobStatus.COMPLETED) {
+        return res.status(400).json({ message: "Job must be completed" });
+      }
+      
+      // Only online jobs have receipts
+      if (!job.stripePaymentIntentId) {
+        return res.status(400).json({ message: "No receipt available for this job" });
+      }
+      
+      const PDFDocument = require("pdfkit");
+      const doc = new PDFDocument({ size: "A4", margin: 50 });
+      
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="receipt-${jobId}.pdf"`);
+      doc.pipe(res);
+      
+      // Header
+      doc.fontSize(24).font("Helvetica-Bold").text("RECEIPT", { align: "center" });
+      doc.moveDown(0.5);
+      doc.fontSize(10).font("Helvetica").text(`Receipt Number: ${job.receiptNumber || `RCP-${jobId}`}`, { align: "center" });
+      doc.text(`Date: ${new Date(job.createdAt).toLocaleDateString('en-AE', { timeZone: 'Asia/Dubai' })}`, { align: "center" });
+      doc.moveDown(1);
+      
+      // Job Details
+      doc.fontSize(12).font("Helvetica-Bold").text("Job Details");
+      doc.fontSize(10).font("Helvetica");
+      doc.text(`Job ID: ${job.id}`);
+      doc.text(`Car Plate: ${job.carPlateEmirate} ${job.carPlateCode} ${job.carPlateNumber}`);
+      doc.text(`Location: ${job.locationAddress}`);
+      doc.moveDown(1);
+      
+      // Pricing Details
+      doc.fontSize(12).font("Helvetica-Bold").text("Pricing");
+      doc.fontSize(10).font("Helvetica");
+      doc.text(`Service Price: ${job.price} AED`);
+      if (parseFloat(job.tipAmount as any || 0) > 0) {
+        doc.text(`Tip: ${job.tipAmount} AED`);
+      }
+      if (parseFloat(job.taxAmount as any || 0) > 0) {
+        doc.text(`VAT (5%): ${job.taxAmount} AED`);
+      }
+      doc.moveDown(0.5);
+      doc.fontSize(12).font("Helvetica-Bold");
+      doc.text(`Total Paid: ${job.totalAmount} AED`);
+      doc.moveDown(1);
+      
+      // Payment Info
+      doc.fontSize(10).font("Helvetica-Bold").text("Payment Information");
+      doc.fontSize(10).font("Helvetica");
+      doc.text(`Payment Method: ${job.paymentMethod || 'Card'}`);
+      doc.text(`Status: ${job.status}`);
+      doc.moveDown(1);
+      
+      // Footer
+      doc.fontSize(8).font("Helvetica").text("Thank you for using Washapp.ae", { align: "center" });
+      doc.text("This is a digital receipt. No signature required.", { align: "center" });
+      
+      doc.end();
+    } catch (error: any) {
+      console.error('Receipt generation error:', error);
+      res.status(500).json({ message: "Failed to generate receipt" });
+    }
+  });
+
   // ===== CLEANER ROUTES =====
 
   // Consolidated dashboard endpoint - combines profile, shift, and jobs in one call

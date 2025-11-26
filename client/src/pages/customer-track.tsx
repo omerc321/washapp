@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Car, MapPin, Phone, Building2, Clock, Star, ChevronLeft, AlertCircle, Bell, BellOff, User, Timer, CheckCircle2, Navigation, MessageSquare, Banknote } from "lucide-react";
+import { Car, MapPin, Phone, Building2, Clock, Star, ChevronLeft, AlertCircle, Bell, BellOff, User, Timer, CheckCircle2, Navigation, MessageSquare, Banknote, Download } from "lucide-react";
 import { Job, JobStatus, Cleaner, Company } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -1169,7 +1169,7 @@ function HistoryJobCard({ job, onRate }: { job: Job; onRate?: () => void }) {
 
       {/* Action Buttons */}
       {(job.status === JobStatus.COMPLETED || job.status === JobStatus.CANCELLED || job.status === JobStatus.REFUNDED) && (
-        <CardFooter className="flex gap-2">
+        <CardFooter className="flex gap-2 flex-wrap">
           {/* Rate Button - only for completed jobs without rating */}
           {job.status === JobStatus.COMPLETED && !job.rating && onRate && (
             <Button
@@ -1182,10 +1182,44 @@ function HistoryJobCard({ job, onRate }: { job: Job; onRate?: () => void }) {
             </Button>
           )}
           
+          {/* Download Receipt Button - only for online (paid) jobs */}
+          {!isCashJob && job.status === JobStatus.COMPLETED && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                // Trigger download by fetching receipt
+                fetch(`/api/jobs/${job.id}/receipt`)
+                  .then(res => res.blob())
+                  .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `receipt-${job.id}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                  })
+                  .catch(() => {
+                    toast({
+                      title: "Error",
+                      description: "Failed to download receipt",
+                      variant: "destructive",
+                    });
+                  });
+              }}
+              data-testid={`button-download-receipt-${job.id}`}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Receipt
+            </Button>
+          )}
+          
           {/* Complaint Button - for all eligible statuses */}
           <Button
             variant="outline"
-            className={job.status === JobStatus.COMPLETED && !job.rating ? "flex-1" : "w-full"}
+            className={job.status === JobStatus.COMPLETED && !job.rating ? "flex-1" : job.status === JobStatus.COMPLETED && !isCashJob ? "flex-1" : "w-full"}
             onClick={() => {
               // Pass the job ID to complaint page
               setLocation(`/customer/complaint/${job.id}`);
