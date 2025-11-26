@@ -87,6 +87,27 @@ export default function CleanerDashboard() {
   const loadingCleaner = loadingDashboard;
   const loadingJobs = loadingDashboard;
 
+  // Query for offline jobs
+  interface OfflineJob {
+    id: number;
+    cleanerId: number;
+    companyId: number;
+    carPlateNumber: string;
+    carPlateEmirate: string | null;
+    carPlateCode: string | null;
+    servicePrice: string;
+    vatAmount: string;
+    totalAmount: string;
+    notes: string | null;
+    createdAt: string;
+    cleanerName: string;
+  }
+  
+  const { data: offlineJobs = [], isLoading: loadingOfflineJobs } = useQuery<OfflineJob[]>({
+    queryKey: ["/api/cleaner/offline-jobs"],
+    enabled: !!currentUser,
+  });
+
   useWebSocket({
     onMessage: (data) => {
       if (data.type === 'job_update' && cleaner) {
@@ -219,6 +240,7 @@ export default function CleanerDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cleaner/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cleaner/offline-jobs"] });
       setShowOfflineJobModal(false);
       setOfflineJobForm({
         carPlateEmirate: '',
@@ -556,12 +578,15 @@ export default function CleanerDashboard() {
         {/* Jobs Tabs */}
         <div className="p-4">
           <Tabs defaultValue="available" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 h-12">
-              <TabsTrigger value="available" className="text-base" data-testid="tab-available">
-                Available <Badge variant="secondary" className="ml-2">{availableJobs.length}</Badge>
+            <TabsList className="grid w-full grid-cols-3 h-12">
+              <TabsTrigger value="available" className="text-sm" data-testid="tab-available">
+                Available <Badge variant="secondary" className="ml-1">{availableJobs.length}</Badge>
               </TabsTrigger>
-              <TabsTrigger value="active" className="text-base" data-testid="tab-active">
-                My Jobs <Badge variant="secondary" className="ml-2">{activeJobs.length}</Badge>
+              <TabsTrigger value="active" className="text-sm" data-testid="tab-active">
+                My Jobs <Badge variant="secondary" className="ml-1">{activeJobs.length}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="offline" className="text-sm" data-testid="tab-offline">
+                Cash Jobs <Badge variant="secondary" className="ml-1">{offlineJobs.length}</Badge>
               </TabsTrigger>
             </TabsList>
 
@@ -700,6 +725,102 @@ export default function CleanerDashboard() {
                           )
                         }
                       />
+                    </motion.div>
+                  ))
+                )}
+              </AnimatePresence>
+            </TabsContent>
+
+            {/* Offline/Cash Jobs */}
+            <TabsContent value="offline" className="space-y-4 mt-4">
+              <AnimatePresence mode="popLayout">
+                {loadingOfflineJobs ? (
+                  <>
+                    {[1, 2].map((i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                      >
+                        <Card>
+                          <CardHeader>
+                            <Skeleton className="h-6 w-1/2" />
+                          </CardHeader>
+                          <CardContent>
+                            <Skeleton className="h-4 w-full mb-2" />
+                            <Skeleton className="h-4 w-3/4" />
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </>
+                ) : offlineJobs.length === 0 ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <Card className="p-8 text-center border-dashed">
+                      <Wallet className="h-16 w-16 mx-auto text-muted-foreground mb-4 opacity-50" />
+                      <p className="text-muted-foreground font-medium">No cash jobs recorded</p>
+                      <p className="text-sm text-muted-foreground mt-2">Use "Record Cash Job" to track manual payments</p>
+                    </Card>
+                  </motion.div>
+                ) : (
+                  offlineJobs.map((job, index) => (
+                    <motion.div
+                      key={job.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      transition={{ delay: index * 0.1 }}
+                      layout
+                    >
+                      <Card data-testid={`card-offline-job-${job.id}`}>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <Car className="h-5 w-5 text-primary" />
+                              <CardTitle className="text-lg">
+                                {job.carPlateEmirate && job.carPlateCode 
+                                  ? `${job.carPlateEmirate} ${job.carPlateCode} ${job.carPlateNumber}`
+                                  : job.carPlateNumber}
+                              </CardTitle>
+                            </div>
+                            <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
+                              <Banknote className="h-3 w-3 mr-1" />
+                              Cash
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Service Price:</span>
+                            <span className="font-medium">{job.servicePrice} AED</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">VAT (5%):</span>
+                            <span className="font-medium">{job.vatAmount} AED</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm border-t pt-2">
+                            <span className="font-medium">Total:</span>
+                            <span className="font-bold text-primary">{job.totalAmount} AED</span>
+                          </div>
+                          {job.notes && (
+                            <div className="text-sm text-muted-foreground border-t pt-2">
+                              <MessageCircle className="h-4 w-4 inline mr-1" />
+                              {job.notes}
+                            </div>
+                          )}
+                          <div className="text-xs text-muted-foreground border-t pt-2">
+                            <Clock className="h-3 w-3 inline mr-1" />
+                            {new Date(job.createdAt).toLocaleString('en-AE', { 
+                              timeZone: 'Asia/Dubai',
+                              dateStyle: 'medium',
+                              timeStyle: 'short'
+                            })}
+                          </div>
+                        </CardContent>
+                      </Card>
                     </motion.div>
                   ))
                 )}
