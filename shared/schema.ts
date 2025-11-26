@@ -462,6 +462,14 @@ export const companyWithdrawals = pgTable("company_withdrawals", {
   status: withdrawalStatusEnum("status").notNull().default("pending"),
   referenceNumber: varchar("reference_number", { length: 255 }), // Bank transfer reference
   note: text("note"),
+  
+  // Enhanced withdrawal tracking
+  invoiceUrl: text("invoice_url"), // Uploaded invoice document
+  jobCountRequested: integer("job_count_requested"), // Number of jobs being withdrawn
+  tipsRequested: numeric("tips_requested", { precision: 10, scale: 2 }).default("0"), // Tips amount being withdrawn
+  baseAmount: numeric("base_amount", { precision: 10, scale: 2 }), // Jobs × price per wash
+  vatAmount: numeric("vat_amount", { precision: 10, scale: 2 }), // VAT on base amount (5%)
+  
   processedAt: timestamp("processed_at"),
   processedBy: integer("processed_by"), // Admin user ID who processed
   createdAt: timestamp("created_at").notNull().defaultNow(),

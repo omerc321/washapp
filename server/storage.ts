@@ -2530,6 +2530,279 @@ export class DatabaseStorage implements IStorage {
       createdAt: row.created_at,
     };
   }
+
+  // ===== LIVE REPORT OPERATIONS =====
+
+  async getLiveReport(options?: { companyId?: number; cleanerId?: number }): Promise<{
+    liveCleaners: number;
+    activeLocations: number;
+    revenueToday: number;
+    tipsToday: number;
+    netToday: number;
+    completedJobsToday: number;
+    refundedJobsToday: number;
+    pendingJobsToday: number;
+    cleanerDetails: Array<{
+      id: number;
+      name: string;
+      email: string;
+      status: string;
+      currentLocation: { lat: number; lng: number } | null;
+      lastLocationUpdate: Date | null;
+      jobsCompletedToday: number;
+    }>;
+  }> {
+    const now = new Date();
+    // Get start of today in Dubai timezone (UTC+4)
+    const dubaiOffset = 4 * 60 * 60 * 1000;
+    const dubaiNow = new Date(now.getTime() + dubaiOffset);
+    const startOfDayDubai = new Date(Date.UTC(
+      dubaiNow.getUTCFullYear(),
+      dubaiNow.getUTCMonth(),
+      dubaiNow.getUTCDate(),
+      0, 0, 0, 0
+    ) - dubaiOffset);
+    
+    const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
+
+    // Build conditions for cleaners
+    const cleanerConditions = [
+      eq(cleaners.status, "on_duty"),
+      eq(cleaners.isActive, 1),
+      gte(cleaners.lastLocationUpdate, tenMinutesAgo)
+    ];
+    if (options?.companyId) {
+      cleanerConditions.push(eq(cleaners.companyId, options.companyId));
+    }
+
+    // Get live cleaners count
+    const [liveCleanersResult] = await db
+      .select({ count: sql<number>`count(DISTINCT ${cleaners.id})` })
+      .from(cleaners)
+      .where(and(...cleanerConditions));
+
+    // Get unique active locations (distinct lat/lng)
+    const [activeLocationsResult] = await db
+      .select({ 
+        count: sql<number>`count(DISTINCT CONCAT(ROUND(${cleaners.currentLatitude}::numeric, 3), ',', ROUND(${cleaners.currentLongitude}::numeric, 3)))` 
+      })
+      .from(cleaners)
+      .where(and(...cleanerConditions));
+
+    // Build conditions for jobs today
+    const jobConditions = [gte(jobs.createdAt, startOfDayDubai)];
+    if (options?.companyId) {
+      jobConditions.push(eq(jobs.companyId, options.companyId));
+    }
+    if (options?.cleanerId) {
+      jobConditions.push(eq(jobs.cleanerId, options.cleanerId));
+    }
+
+    // Get completed jobs today
+    const [completedJobsResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobs)
+      .where(and(...jobConditions, eq(jobs.status, "completed")));
+
+    // Get refunded jobs today
+    const [refundedJobsResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobs)
+      .where(and(...jobConditions, inArray(jobs.status, ["refunded", "refunded_unattended"])));
+
+    // Get pending jobs today (paid but not completed)
+    const [pendingJobsResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobs)
+      .where(and(...jobConditions, inArray(jobs.status, ["paid", "assigned", "in_progress"])));
+
+    // Get revenue and tips for today (only completed jobs)
+    const financialConditions = [
+      gte(jobFinancials.paidAt, startOfDayDubai),
+      eq(jobs.status, "completed")
+    ];
+    if (options?.companyId) {
+      financialConditions.push(eq(jobFinancials.companyId, options.companyId));
+    }
+    if (options?.cleanerId) {
+      financialConditions.push(eq(jobFinancials.cleanerId, options.cleanerId));
+    }
+
+    const [financialsResult] = await db
+      .select({
+        revenue: sql<string>`COALESCE(SUM(${jobFinancials.netPayableAmount}), 0)::text`,
+        tips: sql<string>`COALESCE(SUM(${jobFinancials.tipAmount}), 0)::text`,
+      })
+      .from(jobFinancials)
+      .innerJoin(jobs, eq(jobFinancials.jobId, jobs.id))
+      .where(and(...financialConditions));
+
+    const revenueToday = Number(financialsResult?.revenue || 0);
+    const tipsToday = Number(financialsResult?.tips || 0);
+    const netToday = revenueToday - tipsToday;
+
+    // Get cleaner details with jobs completed today
+    const cleanerDetailsConditions = options?.companyId 
+      ? [eq(cleaners.companyId, options.companyId), eq(cleaners.isActive, 1)]
+      : [eq(cleaners.isActive, 1)];
+    
+    if (options?.cleanerId) {
+      cleanerDetailsConditions.push(eq(cleaners.id, options.cleanerId));
+    }
+
+    const cleanerDetails = await db
+      .select({
+        id: cleaners.id,
+        name: users.displayName,
+        email: users.email,
+        status: cleaners.status,
+        currentLatitude: cleaners.currentLatitude,
+        currentLongitude: cleaners.currentLongitude,
+        lastLocationUpdate: cleaners.lastLocationUpdate,
+      })
+      .from(cleaners)
+      .innerJoin(users, eq(cleaners.userId, users.id))
+      .where(and(...cleanerDetailsConditions));
+
+    // Get jobs completed today per cleaner
+    const jobsPerCleaner = await db
+      .select({
+        cleanerId: jobs.cleanerId,
+        count: sql<number>`count(*)`,
+      })
+      .from(jobs)
+      .where(and(
+        gte(jobs.completedAt, startOfDayDubai),
+        eq(jobs.status, "completed"),
+        options?.companyId ? eq(jobs.companyId, options.companyId) : sql`1=1`
+      ))
+      .groupBy(jobs.cleanerId);
+
+    const jobsMap = new Map(jobsPerCleaner.map(j => [j.cleanerId, Number(j.count)]));
+
+    return {
+      liveCleaners: Number(liveCleanersResult?.count || 0),
+      activeLocations: Number(activeLocationsResult?.count || 0),
+      revenueToday,
+      tipsToday,
+      netToday,
+      completedJobsToday: Number(completedJobsResult?.count || 0),
+      refundedJobsToday: Number(refundedJobsResult?.count || 0),
+      pendingJobsToday: Number(pendingJobsResult?.count || 0),
+      cleanerDetails: cleanerDetails.map(c => ({
+        id: c.id,
+        name: c.name,
+        email: c.email,
+        status: c.status,
+        currentLocation: c.currentLatitude && c.currentLongitude 
+          ? { lat: Number(c.currentLatitude), lng: Number(c.currentLongitude) }
+          : null,
+        lastLocationUpdate: c.lastLocationUpdate,
+        jobsCompletedToday: jobsMap.get(c.id) || 0,
+      })),
+    };
+  }
+
+  // ===== WITHDRAWAL BALANCE OPERATIONS =====
+
+  async getCompanyWithdrawalBalance(companyId: number): Promise<{
+    totalCompletedJobs: number;
+    withdrawnJobs: number;
+    availableJobs: number;
+    totalTipsEarned: number;
+    withdrawnTips: number;
+    availableTips: number;
+    pricePerWash: number;
+    pendingWithdrawals: Array<{
+      id: number;
+      jobCountRequested: number;
+      tipsRequested: number;
+      amount: number;
+      status: string;
+      createdAt: Date;
+    }>;
+  }> {
+    // Get company price per wash
+    const [company] = await db
+      .select({ pricePerWash: companies.pricePerWash })
+      .from(companies)
+      .where(eq(companies.id, companyId));
+
+    const pricePerWash = Number(company?.pricePerWash || 0);
+
+    // Get total completed jobs
+    const [completedJobsResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobs)
+      .where(and(
+        eq(jobs.companyId, companyId),
+        eq(jobs.status, "completed")
+      ));
+
+    const totalCompletedJobs = Number(completedJobsResult?.count || 0);
+
+    // Get total tips earned from completed jobs
+    const [tipsResult] = await db
+      .select({ tips: sql<string>`COALESCE(SUM(${jobFinancials.tipAmount}), 0)::text` })
+      .from(jobFinancials)
+      .innerJoin(jobs, eq(jobFinancials.jobId, jobs.id))
+      .where(and(
+        eq(jobFinancials.companyId, companyId),
+        eq(jobs.status, "completed")
+      ));
+
+    const totalTipsEarned = Number(tipsResult?.tips || 0);
+
+    // Get withdrawn jobs and tips from completed/pending withdrawals
+    const [withdrawnResult] = await db
+      .select({
+        withdrawnJobs: sql<string>`COALESCE(SUM(${companyWithdrawals.jobCountRequested}), 0)::text`,
+        withdrawnTips: sql<string>`COALESCE(SUM(${companyWithdrawals.tipsRequested}), 0)::text`,
+      })
+      .from(companyWithdrawals)
+      .where(and(
+        eq(companyWithdrawals.companyId, companyId),
+        inArray(companyWithdrawals.status, ["pending", "completed"])
+      ));
+
+    const withdrawnJobs = Number(withdrawnResult?.withdrawnJobs || 0);
+    const withdrawnTips = Number(withdrawnResult?.withdrawnTips || 0);
+
+    // Get pending withdrawals for display
+    const pendingWithdrawals = await db
+      .select({
+        id: companyWithdrawals.id,
+        jobCountRequested: companyWithdrawals.jobCountRequested,
+        tipsRequested: companyWithdrawals.tipsRequested,
+        amount: companyWithdrawals.amount,
+        status: companyWithdrawals.status,
+        createdAt: companyWithdrawals.createdAt,
+      })
+      .from(companyWithdrawals)
+      .where(and(
+        eq(companyWithdrawals.companyId, companyId),
+        eq(companyWithdrawals.status, "pending")
+      ))
+      .orderBy(desc(companyWithdrawals.createdAt));
+
+    return {
+      totalCompletedJobs,
+      withdrawnJobs,
+      availableJobs: totalCompletedJobs - withdrawnJobs,
+      totalTipsEarned,
+      withdrawnTips,
+      availableTips: totalTipsEarned - withdrawnTips,
+      pricePerWash,
+      pendingWithdrawals: pendingWithdrawals.map(w => ({
+        id: w.id,
+        jobCountRequested: w.jobCountRequested || 0,
+        tipsRequested: Number(w.tipsRequested || 0),
+        amount: Number(w.amount),
+        status: w.status,
+        createdAt: w.createdAt,
+      })),
+    };
+  }
 }
 
 export const storage = new DatabaseStorage();
