@@ -22,6 +22,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import QRCodeComponent from "react-qr-code";
 
+const UAE_EMIRATES = [
+  "Abu Dhabi",
+  "Dubai",
+  "Sharjah",
+  "Ajman",
+  "Umm Al Quwain",
+  "Ras Al Khaimah",
+  "Fujairah"
+];
+
+const PLATE_CODES = [
+  ...Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)),
+  ...Array.from({ length: 13 }, (_, i) => {
+    const char = String.fromCharCode(65 + i);
+    return char + char;
+  }),
+  ...Array.from({ length: 50 }, (_, i) => (i + 1).toString())
+];
+
 export default function CleanerDashboard() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
@@ -36,7 +55,6 @@ export default function CleanerDashboard() {
     carPlateEmirate: '',
     carPlateCode: '',
     carPlateNumber: '',
-    servicePrice: '',
     notes: '',
   });
   
@@ -246,12 +264,11 @@ export default function CleanerDashboard() {
         carPlateEmirate: '',
         carPlateCode: '',
         carPlateNumber: '',
-        servicePrice: '',
         notes: '',
       });
       toast({
-        title: "Offline Job Created",
-        description: "Cash job has been recorded successfully",
+        title: "Job Created",
+        description: "Job started - upload photo when complete",
       });
     },
     onError: () => {
@@ -883,10 +900,10 @@ export default function CleanerDashboard() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Wallet className="h-5 w-5 text-primary" />
-              Record Cash Payment
+              Start Cash Job
             </DialogTitle>
             <DialogDescription>
-              Record a job paid in cash or other offline method
+              Record a job - upload photo when complete to finish
             </DialogDescription>
           </DialogHeader>
           
@@ -903,21 +920,24 @@ export default function CleanerDashboard() {
                     <SelectValue placeholder="Emirate" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Dubai">Dubai</SelectItem>
-                    <SelectItem value="Abu Dhabi">Abu Dhabi</SelectItem>
-                    <SelectItem value="Sharjah">Sharjah</SelectItem>
-                    <SelectItem value="Ajman">Ajman</SelectItem>
-                    <SelectItem value="RAK">RAK</SelectItem>
-                    <SelectItem value="Fujairah">Fujairah</SelectItem>
-                    <SelectItem value="UAQ">UAQ</SelectItem>
+                    {UAE_EMIRATES.map((emirate) => (
+                      <SelectItem key={emirate} value={emirate}>{emirate}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-                <Input
-                  placeholder="Code"
+                <Select
                   value={offlineJobForm.carPlateCode}
-                  onChange={(e) => setOfflineJobForm(prev => ({ ...prev, carPlateCode: e.target.value.toUpperCase() }))}
-                  data-testid="input-code-offline"
-                />
+                  onValueChange={(value) => setOfflineJobForm(prev => ({ ...prev, carPlateCode: value }))}
+                >
+                  <SelectTrigger data-testid="select-code-offline">
+                    <SelectValue placeholder="Code" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PLATE_CODES.map((code) => (
+                      <SelectItem key={code} value={code}>{code}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Input
                   placeholder="Number"
                   value={offlineJobForm.carPlateNumber}
@@ -925,26 +945,6 @@ export default function CleanerDashboard() {
                   data-testid="input-number-offline"
                 />
               </div>
-            </div>
-
-            {/* Service Price */}
-            <div className="space-y-2">
-              <Label>Service Price (AED)</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="e.g. 25.00"
-                value={offlineJobForm.servicePrice}
-                onChange={(e) => setOfflineJobForm(prev => ({ ...prev, servicePrice: e.target.value }))}
-                data-testid="input-price-offline"
-              />
-              {offlineJobForm.servicePrice && parseFloat(offlineJobForm.servicePrice) > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  VAT (5%): {(parseFloat(offlineJobForm.servicePrice) * 0.05).toFixed(2)} AED | 
-                  Total: {(parseFloat(offlineJobForm.servicePrice) * 1.05).toFixed(2)} AED
-                </p>
-              )}
             </div>
 
             {/* Notes */}
@@ -963,15 +963,16 @@ export default function CleanerDashboard() {
             <Button
               variant="outline"
               onClick={() => setShowOfflineJobModal(false)}
+              data-testid="button-cancel-offline"
             >
               Cancel
             </Button>
             <Button
               onClick={() => createOfflineJob.mutate(offlineJobForm)}
-              disabled={!offlineJobForm.carPlateNumber || !offlineJobForm.servicePrice || createOfflineJob.isPending}
+              disabled={!offlineJobForm.carPlateEmirate || !offlineJobForm.carPlateCode || !offlineJobForm.carPlateNumber || createOfflineJob.isPending}
               data-testid="button-submit-offline"
             >
-              {createOfflineJob.isPending ? "Saving..." : "Record Job"}
+              {createOfflineJob.isPending ? "Starting..." : "Start Job"}
             </Button>
           </DialogFooter>
         </DialogContent>
