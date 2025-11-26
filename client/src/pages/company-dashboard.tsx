@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Users, Briefcase, DollarSign, Star, TrendingUp, UserPlus, AlertCircle, Phone, CheckCircle, Clock, XCircle, FileText, ShieldOff, ShieldCheck, Map, Settings, History } from "lucide-react";
+import { Users, Briefcase, DollarSign, Star, TrendingUp, UserPlus, AlertCircle, Phone, CheckCircle, Clock, XCircle, FileText, ShieldOff, ShieldCheck, Map, Settings, History, Wallet } from "lucide-react";
 import { CompanyAnalytics, Cleaner, Company, CleanerInvitation } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -406,6 +406,17 @@ export default function CompanyDashboard() {
               >
                 <History className="mr-2 h-4 w-4" />
                 Shift History
+              </Button>
+            </Link>
+            
+            <Link href="/company/offline-jobs">
+              <Button
+                variant="outline"
+                data-testid="button-offline-jobs"
+                disabled={company?.isActive === 0}
+              >
+                <Wallet className="mr-2 h-4 w-4" />
+                Cash Jobs
               </Button>
             </Link>
             

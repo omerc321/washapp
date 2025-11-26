@@ -37,6 +37,7 @@ import CompanyFinancials from "@/pages/company-financials";
 import CompanyLiveReport from "@/pages/company-live-report";
 import CompanyShiftHistory from "@/pages/company-shift-history";
 import CompanyComplaints from "@/pages/company-complaints";
+import CompanyOfflineJobs from "@/pages/company-offline-jobs";
 import About from "@/pages/about";
 import Terms from "@/pages/terms";
 import Privacy from "@/pages/privacy";
@@ -131,6 +132,9 @@ function Router() {
           </Route>
           <Route path="/company/complaints">
             {() => <ProtectedRoute component={CompanyComplaints} allowedRoles={[UserRole.COMPANY_ADMIN]} />}
+          </Route>
+          <Route path="/company/offline-jobs">
+            {() => <ProtectedRoute component={CompanyOfflineJobs} allowedRoles={[UserRole.COMPANY_ADMIN]} />}
           </Route>
 
           {/* Admin Routes - Auth required */}

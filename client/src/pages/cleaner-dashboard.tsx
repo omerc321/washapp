@@ -1282,6 +1282,7 @@ function JobCard({ job, action, onEditPlate }: { job: Job; action: React.ReactNo
               variant="outline"
               className="min-h-12 border-2 border-green-500/20 hover:bg-green-500/5"
               onClick={() => {
+                if (!job.customerPhone) return;
                 const whatsappNumber = formatPhoneForWhatsApp(job.customerPhone);
                 const message = encodeURIComponent(`Hi, I'm your car cleaner for ${job.carPlateNumber}. I'll be there soon!`);
                 window.open(`https://wa.me/${whatsappNumber}?text=${message}`, "_blank");
