@@ -1802,20 +1802,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No receipt available for this job" });
       }
 
-      // Check if receipt file exists (generated during job completion)
-      if (job.receiptNumber) {
-        const receiptPath = path.join(process.cwd(), 'uploads', 'receipts', `receipt-${job.receiptNumber}.pdf`);
-        
-        if (existsSync(receiptPath)) {
-          res.setHeader("Content-Type", "application/pdf");
-          res.setHeader("Content-Disposition", `attachment; filename="receipt-${jobId}.pdf"`);
-          const fileStream = createReadStream(receiptPath);
-          fileStream.pipe(res);
-          return;
-        }
-      }
-
-      // If receipt file doesn't exist, generate it using the same utility
+      // Always regenerate receipt on download to ensure correct data
       try {
         const platformSettings = await storage.getAllPlatformSettings();
         const settings = platformSettings[0] || {
@@ -1827,9 +1814,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           updatedAt: new Date(),
         };
 
+        // Get customer to ensure we have correct email
+        let customerEmail: string | undefined = undefined;
+        if (job.customerId) {
+          const customer = await storage.getCustomer(job.customerId);
+          customerEmail = customer?.email;
+        } else if (job.customerEmail) {
+          customerEmail = job.customerEmail;
+        }
+
+        // Construct plate number correctly
         const fullPlateNumber = job.carPlateEmirate && job.carPlateCode
           ? `${job.carPlateEmirate} ${job.carPlateCode} ${job.carPlateNumber}`
-          : job.carPlateNumber;
+          : (job.carPlateNumber || '');
 
         // Get actual financial data from job_financials table
         const jobFinancials = await storage.getJobFinancialsByJobId(job.id);
@@ -1861,7 +1858,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             jobId: job.id,
             carPlateNumber: fullPlateNumber,
             customerPhone: job.customerPhone || 'N/A',
-            customerEmail: job.customerEmail || undefined,
+            customerEmail: customerEmail,
             locationAddress: job.locationAddress,
             servicePrice: baseJobAmount,
             platformFee: platformFeeAmount,
