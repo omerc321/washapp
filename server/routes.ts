@@ -1802,44 +1802,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No receipt available for this job" });
       }
 
-      // Get customer info for receipt
-      const customer = await storage.getCustomer(job.customerId);
-      
-      // Get platform settings for receipt
-      const platformSettings = await storage.getPlatformSettings();
-      
       // Calculate VAT (5% on service price only, not on tip)
       const servicePrice = parseFloat(job.price);
       const tipAmount = parseFloat(job.tipAmount as any || '0');
       const vatAmount = servicePrice * 0.05;
       const totalAmount = servicePrice + vatAmount + tipAmount;
       
-      const receiptData = {
-        receiptNumber: job.receiptNumber || `RCP-${jobId}`,
-        jobId: job.id,
-        carPlateNumber: `${job.carPlateEmirate} ${job.carPlateCode} ${job.carPlateNumber}`,
-        customerPhone: customer?.phoneNumber || 'N/A',
-        customerEmail: customer?.email,
-        locationAddress: job.locationAddress,
-        servicePrice: servicePrice,
-        platformFee: 0,
-        tipAmount: tipAmount,
-        vatAmount: vatAmount,
-        totalAmount: totalAmount,
-        paymentMethod: job.paymentMethod || 'Card',
-        completedAt: new Date(job.completedAt || job.createdAt),
-      };
-
       const doc = new PDFDocument({ size: "A4", margin: 50 });
       
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader("Content-Disposition", `attachment; filename="receipt-${jobId}.pdf"`);
       
-      doc.on('error', (error) => {
-        console.error('PDF error:', error);
-        res.status(500).json({ message: "Failed to generate receipt" });
-      });
-
       doc.pipe(res);
       
       // Header
@@ -1854,20 +1827,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Receipt info
       doc.fontSize(10).font("Helvetica");
-      doc.text(`Receipt Number: ${receiptData.receiptNumber}`, 70);
-      doc.text(`Date: ${new Date(receiptData.completedAt).toLocaleDateString('en-AE', { timeZone: 'Asia/Dubai' })}`);
+      doc.text(`Receipt Number: ${job.receiptNumber || `RCP-${jobId}`}`, 70);
+      doc.text(`Date: ${new Date(job.completedAt || job.createdAt).toLocaleDateString('en-AE', { timeZone: 'Asia/Dubai' })}`);
       doc.moveDown(1);
       
       // Job Details
       doc.fontSize(11).font("Helvetica-Bold").text("Job Details");
       doc.fontSize(10).font("Helvetica");
-      doc.text(`Job ID: #${receiptData.jobId}`);
-      doc.text(`Car Plate: ${receiptData.carPlateNumber}`);
-      doc.text(`Location: ${receiptData.locationAddress}`);
-      doc.text(`Phone: ${receiptData.customerPhone}`);
-      if (receiptData.customerEmail) {
-        doc.text(`Email: ${receiptData.customerEmail}`);
-      }
+      doc.text(`Job ID: #${jobId}`);
+      doc.text(`Car Plate: ${job.carPlateEmirate} ${job.carPlateCode} ${job.carPlateNumber}`);
+      doc.text(`Location: ${job.locationAddress}`);
       doc.moveDown(1);
       
       // Pricing Table
@@ -1883,16 +1852,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       yPos += 20;
       doc.font("Helvetica");
       doc.text("Service Price", col1, yPos);
-      doc.text(receiptData.servicePrice.toFixed(2), col2, yPos, { align: "right" });
+      doc.text(servicePrice.toFixed(2), col2, yPos, { align: "right" });
       
       yPos += 15;
       doc.text("VAT (5%)", col1, yPos);
-      doc.text(receiptData.vatAmount.toFixed(2), col2, yPos, { align: "right" });
+      doc.text(vatAmount.toFixed(2), col2, yPos, { align: "right" });
       
-      if (receiptData.tipAmount > 0) {
+      if (tipAmount > 0) {
         yPos += 15;
         doc.text("Tip", col1, yPos);
-        doc.text(receiptData.tipAmount.toFixed(2), col2, yPos, { align: "right" });
+        doc.text(tipAmount.toFixed(2), col2, yPos, { align: "right" });
       }
       
       doc.moveTo(col1, yPos + 12).lineTo(540, yPos + 12).stroke();
@@ -1900,13 +1869,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       doc.fontSize(11).font("Helvetica-Bold");
       doc.text("TOTAL", col1, yPos);
-      doc.text(`AED ${receiptData.totalAmount.toFixed(2)}`, col2, yPos, { align: "right" });
+      doc.text(`AED ${totalAmount.toFixed(2)}`, col2, yPos, { align: "right" });
       
       doc.moveDown(2);
       
       // Payment method
       doc.fontSize(10).font("Helvetica-Bold").text("Payment Method");
-      doc.font("Helvetica").text(receiptData.paymentMethod);
+      doc.font("Helvetica").text(job.paymentMethod || 'Card');
       
       doc.moveDown(2);
       
