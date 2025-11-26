@@ -4,10 +4,11 @@ import express from "express";
 import Stripe from "stripe";
 import multer from "multer";
 import path from "path";
-import { mkdir, mkdirSync, existsSync } from "fs";
+import { mkdir, mkdirSync, existsSync, createReadStream } from "fs";
 import crypto from "crypto";
 import ExcelJS from "exceljs";
 import bcrypt from "bcryptjs";
+import PDFDocument from "pdfkit";
 import passport from "./auth";
 import { storage } from "./storage";
 import { sessionStore } from "./session-store";
@@ -1800,59 +1801,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!job.stripePaymentIntentId) {
         return res.status(400).json({ message: "No receipt available for this job" });
       }
+
+      // Get customer info for receipt
+      const customer = await storage.getCustomer(job.customerId);
       
-      const PDFDocument = require("pdfkit");
+      // Get platform settings for receipt
+      const platformSettings = await storage.getPlatformSettings();
+      
+      // Calculate VAT (5% on service price only, not on tip)
+      const servicePrice = parseFloat(job.price);
+      const tipAmount = parseFloat(job.tipAmount as any || '0');
+      const vatAmount = servicePrice * 0.05;
+      const totalAmount = servicePrice + vatAmount + tipAmount;
+      
+      const receiptData = {
+        receiptNumber: job.receiptNumber || `RCP-${jobId}`,
+        jobId: job.id,
+        carPlateNumber: `${job.carPlateEmirate} ${job.carPlateCode} ${job.carPlateNumber}`,
+        customerPhone: customer?.phoneNumber || 'N/A',
+        customerEmail: customer?.email,
+        locationAddress: job.locationAddress,
+        servicePrice: servicePrice,
+        platformFee: 0,
+        tipAmount: tipAmount,
+        vatAmount: vatAmount,
+        totalAmount: totalAmount,
+        paymentMethod: job.paymentMethod || 'Card',
+        completedAt: new Date(job.completedAt || job.createdAt),
+      };
+
       const doc = new PDFDocument({ size: "A4", margin: 50 });
       
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader("Content-Disposition", `attachment; filename="receipt-${jobId}.pdf"`);
+      
+      doc.on('error', (error) => {
+        console.error('PDF error:', error);
+        res.status(500).json({ message: "Failed to generate receipt" });
+      });
+
       doc.pipe(res);
       
       // Header
-      doc.fontSize(24).font("Helvetica-Bold").text("RECEIPT", { align: "center" });
+      doc.fontSize(20).font("Helvetica-Bold").text("WASHAPP.AE", { align: "center" });
+      doc.moveDown(0.3);
+      doc.fontSize(10).font("Helvetica").text("Professional Car Wash Services", { align: "center" });
+      doc.moveDown(1);
+      
+      // Receipt title
+      doc.fontSize(16).font("Helvetica-Bold").text("RECEIPT", { align: "center" });
       doc.moveDown(0.5);
-      doc.fontSize(10).font("Helvetica").text(`Receipt Number: ${job.receiptNumber || `RCP-${jobId}`}`, { align: "center" });
-      doc.text(`Date: ${new Date(job.createdAt).toLocaleDateString('en-AE', { timeZone: 'Asia/Dubai' })}`, { align: "center" });
+      
+      // Receipt info
+      doc.fontSize(10).font("Helvetica");
+      doc.text(`Receipt Number: ${receiptData.receiptNumber}`, 70);
+      doc.text(`Date: ${new Date(receiptData.completedAt).toLocaleDateString('en-AE', { timeZone: 'Asia/Dubai' })}`);
       doc.moveDown(1);
       
       // Job Details
-      doc.fontSize(12).font("Helvetica-Bold").text("Job Details");
+      doc.fontSize(11).font("Helvetica-Bold").text("Job Details");
       doc.fontSize(10).font("Helvetica");
-      doc.text(`Job ID: ${job.id}`);
-      doc.text(`Car Plate: ${job.carPlateEmirate} ${job.carPlateCode} ${job.carPlateNumber}`);
-      doc.text(`Location: ${job.locationAddress}`);
+      doc.text(`Job ID: #${receiptData.jobId}`);
+      doc.text(`Car Plate: ${receiptData.carPlateNumber}`);
+      doc.text(`Location: ${receiptData.locationAddress}`);
+      doc.text(`Phone: ${receiptData.customerPhone}`);
+      if (receiptData.customerEmail) {
+        doc.text(`Email: ${receiptData.customerEmail}`);
+      }
       doc.moveDown(1);
       
-      // Pricing Details
-      doc.fontSize(12).font("Helvetica-Bold").text("Pricing");
-      doc.fontSize(10).font("Helvetica");
-      doc.text(`Service Price: ${job.price} AED`);
-      if (parseFloat(job.tipAmount as any || 0) > 0) {
-        doc.text(`Tip: ${job.tipAmount} AED`);
-      }
-      if (parseFloat(job.taxAmount as any || 0) > 0) {
-        doc.text(`VAT (5%): ${job.taxAmount} AED`);
-      }
-      doc.moveDown(0.5);
-      doc.fontSize(12).font("Helvetica-Bold");
-      doc.text(`Total Paid: ${job.totalAmount} AED`);
-      doc.moveDown(1);
+      // Pricing Table
+      const col1 = 70;
+      const col2 = 400;
+      let yPos = doc.y;
       
-      // Payment Info
-      doc.fontSize(10).font("Helvetica-Bold").text("Payment Information");
-      doc.fontSize(10).font("Helvetica");
-      doc.text(`Payment Method: ${job.paymentMethod || 'Card'}`);
-      doc.text(`Status: ${job.status}`);
-      doc.moveDown(1);
+      doc.fontSize(10).font("Helvetica-Bold");
+      doc.text("Description", col1, yPos);
+      doc.text("Amount (AED)", col2, yPos, { align: "right" });
+      doc.moveTo(col1, yPos + 12).lineTo(540, yPos + 12).stroke();
+      
+      yPos += 20;
+      doc.font("Helvetica");
+      doc.text("Service Price", col1, yPos);
+      doc.text(receiptData.servicePrice.toFixed(2), col2, yPos, { align: "right" });
+      
+      yPos += 15;
+      doc.text("VAT (5%)", col1, yPos);
+      doc.text(receiptData.vatAmount.toFixed(2), col2, yPos, { align: "right" });
+      
+      if (receiptData.tipAmount > 0) {
+        yPos += 15;
+        doc.text("Tip", col1, yPos);
+        doc.text(receiptData.tipAmount.toFixed(2), col2, yPos, { align: "right" });
+      }
+      
+      doc.moveTo(col1, yPos + 12).lineTo(540, yPos + 12).stroke();
+      yPos += 20;
+      
+      doc.fontSize(11).font("Helvetica-Bold");
+      doc.text("TOTAL", col1, yPos);
+      doc.text(`AED ${receiptData.totalAmount.toFixed(2)}`, col2, yPos, { align: "right" });
+      
+      doc.moveDown(2);
+      
+      // Payment method
+      doc.fontSize(10).font("Helvetica-Bold").text("Payment Method");
+      doc.font("Helvetica").text(receiptData.paymentMethod);
+      
+      doc.moveDown(2);
       
       // Footer
-      doc.fontSize(8).font("Helvetica").text("Thank you for using Washapp.ae", { align: "center" });
-      doc.text("This is a digital receipt. No signature required.", { align: "center" });
+      doc.fontSize(8).font("Helvetica").fillColor("#666666").text("Thank you for using Washapp.ae!", { align: "center" });
+      doc.text("This is a digital receipt - no signature required", { align: "center" });
       
       doc.end();
     } catch (error: any) {
       console.error('Receipt generation error:', error);
-      res.status(500).json({ message: "Failed to generate receipt" });
+      if (!res.headersSent) {
+        res.status(500).json({ message: "Failed to generate receipt" });
+      }
     }
   });
 
