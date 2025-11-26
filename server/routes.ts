@@ -1802,92 +1802,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No receipt available for this job" });
       }
 
-      // Use actual amounts from job record
-      const servicePrice = parseFloat(job.price);
-      const taxAmount = parseFloat(job.taxAmount as any || '0');
-      const tipAmount = parseFloat(job.tipAmount as any || '0');
-      const totalAmount = parseFloat(job.totalAmount);
-      
-      const doc = new PDFDocument({ size: "A4", margin: 50 });
-      
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename="receipt-${jobId}.pdf"`);
-      
-      doc.pipe(res);
-      
-      // Header
-      doc.fontSize(20).font("Helvetica-Bold").text("WASHAPP.AE", { align: "center" });
-      doc.moveDown(0.3);
-      doc.fontSize(10).font("Helvetica").text("Professional Car Wash Services", { align: "center" });
-      doc.moveDown(1);
-      
-      // Receipt title
-      doc.fontSize(16).font("Helvetica-Bold").text("RECEIPT", { align: "center" });
-      doc.moveDown(0.5);
-      
-      // Receipt info
-      doc.fontSize(10).font("Helvetica");
-      doc.text(`Receipt Number: ${job.receiptNumber || `RCP-${jobId}`}`, 70);
-      doc.text(`Date: ${new Date(job.completedAt || job.createdAt).toLocaleDateString('en-AE', { timeZone: 'Asia/Dubai' })}`);
-      doc.moveDown(1);
-      
-      // Job Details
-      doc.fontSize(11).font("Helvetica-Bold").text("Job Details");
-      doc.fontSize(10).font("Helvetica");
-      doc.text(`Job ID: #${jobId}`);
-      doc.text(`Car Plate: ${job.carPlateEmirate} ${job.carPlateCode} ${job.carPlateNumber}`);
-      doc.text(`Location: ${job.locationAddress}`);
-      doc.moveDown(1);
-      
-      // Pricing Table
-      const col1 = 70;
-      const col2 = 400;
-      let yPos = doc.y;
-      
-      doc.fontSize(10).font("Helvetica-Bold");
-      doc.text("Description", col1, yPos);
-      doc.text("Amount (AED)", col2, yPos, { align: "right" });
-      doc.moveTo(col1, yPos + 12).lineTo(540, yPos + 12).stroke();
-      
-      yPos += 20;
-      doc.font("Helvetica");
-      doc.text("Service Price", col1, yPos);
-      doc.text(servicePrice.toFixed(2), col2, yPos, { align: "right" });
-      
-      yPos += 15;
-      doc.text("VAT (5%)", col1, yPos);
-      doc.text(taxAmount.toFixed(2), col2, yPos, { align: "right" });
-      
-      if (tipAmount > 0) {
-        yPos += 15;
-        doc.text("Tip", col1, yPos);
-        doc.text(tipAmount.toFixed(2), col2, yPos, { align: "right" });
+      // Check if receipt file exists (generated during job completion)
+      if (job.receiptNumber) {
+        const receiptPath = path.join(process.cwd(), 'uploads', 'receipts', `receipt-${job.receiptNumber}.pdf`);
+        
+        if (existsSync(receiptPath)) {
+          res.setHeader("Content-Type", "application/pdf");
+          res.setHeader("Content-Disposition", `attachment; filename="receipt-${jobId}.pdf"`);
+          const fileStream = createReadStream(receiptPath);
+          fileStream.pipe(res);
+          return;
+        }
       }
-      
-      doc.moveTo(col1, yPos + 12).lineTo(540, yPos + 12).stroke();
-      yPos += 20;
-      
-      doc.fontSize(11).font("Helvetica-Bold");
-      doc.text("TOTAL", col1, yPos);
-      doc.text(`AED ${totalAmount.toFixed(2)}`, col2, yPos, { align: "right" });
-      
-      doc.moveDown(2);
-      
-      // Payment method
-      doc.fontSize(10).font("Helvetica-Bold").text("Payment Method");
-      doc.font("Helvetica").text(job.paymentMethod || 'Card');
-      
-      doc.moveDown(2);
-      
-      // Footer
-      doc.fontSize(8).font("Helvetica").fillColor("#666666").text("Thank you for using Washapp.ae!", { align: "center" });
-      doc.text("This is a digital receipt - no signature required", { align: "center" });
-      
-      doc.end();
-    } catch (error: any) {
-      console.error('Receipt generation error:', error);
-      if (!res.headersSent) {
+
+      // If receipt file doesn't exist, generate it using the same utility
+      try {
+        const platformSettings = await storage.getAllPlatformSettings();
+        const settings = platformSettings[0] || {
+          id: 1,
+          companyName: 'Washapp.ae',
+          companyAddress: 'Dubai, United Arab Emirates',
+          vatRegistrationNumber: '',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        const fullPlateNumber = job.carPlateEmirate && job.carPlateCode
+          ? `${job.carPlateEmirate} ${job.carPlateCode} ${job.carPlateNumber}`
+          : job.carPlateNumber;
+
+        // Get actual financial data from job_financials table
+        const jobFinancials = await storage.getJobFinancialsByJobId(job.id);
+        
+        let baseJobAmount: number;
+        let platformFeeAmount: number;
+        let tipAmount: number;
+        let vatAmount: number;
+        
+        if (jobFinancials) {
+          baseJobAmount = Number(jobFinancials.baseJobAmount);
+          platformFeeAmount = Number(jobFinancials.platformFeeAmount);
+          tipAmount = Number(jobFinancials.tipAmount);
+          vatAmount = Number(jobFinancials.taxAmount);
+        } else {
+          baseJobAmount = Number(job.price);
+          tipAmount = Number(job.tipAmount || 0);
+          vatAmount = Number(job.taxAmount || 0);
+          const totalAmount = Number(job.totalAmount);
+          platformFeeAmount = Number((totalAmount - baseJobAmount - vatAmount - tipAmount).toFixed(2));
+          if (platformFeeAmount < 0) platformFeeAmount = 0;
+        }
+        
+        const totalAmount = Number(job.totalAmount);
+
+        const receiptPath = await generateReceipt({
+          receiptData: {
+            receiptNumber: job.receiptNumber || `RCP-${jobId}`,
+            jobId: job.id,
+            carPlateNumber: fullPlateNumber,
+            customerPhone: job.customerPhone || 'N/A',
+            customerEmail: job.customerEmail || undefined,
+            locationAddress: job.locationAddress,
+            servicePrice: baseJobAmount,
+            platformFee: platformFeeAmount,
+            tipAmount,
+            vatAmount,
+            totalAmount,
+            paymentMethod: job.paymentMethod || 'card',
+            completedAt: job.completedAt || job.createdAt,
+          },
+          platformSettings: settings,
+        });
+
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `attachment; filename="receipt-${jobId}.pdf"`);
+        const fileStream = createReadStream(receiptPath);
+        fileStream.pipe(res);
+      } catch (generateError) {
+        console.error('Failed to generate receipt:', generateError);
         res.status(500).json({ message: "Failed to generate receipt" });
+      }
+    } catch (error: any) {
+      console.error('Receipt download error:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ message: "Failed to download receipt" });
       }
     }
   });
