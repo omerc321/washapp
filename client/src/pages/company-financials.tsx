@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { DollarSign, TrendingUp, TrendingDown, Download, Filter, ArrowLeft, Banknote, Upload, FileText, Briefcase } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Download, Filter, ArrowLeft, Banknote, Upload, FileText, Briefcase, Wallet, Car } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Cleaner } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -103,6 +104,24 @@ interface WithdrawalHistory {
   processedAt: Date | null;
 }
 
+interface OfflineJob {
+  id: number;
+  cleanerId: number;
+  companyId: number;
+  carPlateEmirate: string;
+  carPlateCode: string;
+  carPlateNumber: string;
+  locationAddress: string | null;
+  locationLatitude: string | null;
+  locationLongitude: string | null;
+  servicePrice: string;
+  taxAmount: string;
+  totalAmount: string;
+  notes: string | null;
+  createdAt: Date;
+  cleanerName?: string | null;
+}
+
 export default function CompanyFinancials() {
   const { toast } = useToast();
   const [selectedCleanerId, setSelectedCleanerId] = useState<string>("all");
@@ -116,6 +135,11 @@ export default function CompanyFinancials() {
   const [tipsAmount, setTipsAmount] = useState<string>("0");
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  
+  const [offlineCleanerFilter, setOfflineCleanerFilter] = useState<string>("all");
+  const [offlineStartDate, setOfflineStartDate] = useState<string>("");
+  const [offlineEndDate, setOfflineEndDate] = useState<string>("");
+  const [offlinePage, setOfflinePage] = useState(1);
 
   const { data: cleaners } = useQuery<Cleaner[]>({
     queryKey: ["/api/company/cleaners"],
@@ -136,6 +160,30 @@ export default function CompanyFinancials() {
   const { data: withdrawalHistory } = useQuery<WithdrawalHistory[]>({
     queryKey: ["/api/company/financials/withdrawals"],
   });
+
+  const offlinePageSize = 20;
+  
+  const offlineQueryString = useMemo(() => {
+    const params = new URLSearchParams();
+    if (offlineCleanerFilter && offlineCleanerFilter !== "all") params.append("cleanerId", offlineCleanerFilter);
+    if (offlineStartDate) params.append("startDate", offlineStartDate);
+    if (offlineEndDate) params.append("endDate", offlineEndDate);
+    params.append("page", String(offlinePage));
+    params.append("pageSize", String(offlinePageSize));
+    return params.toString();
+  }, [offlineCleanerFilter, offlineStartDate, offlineEndDate, offlinePage]);
+
+  const { data: offlineJobsResponse, isLoading: loadingOfflineJobs } = useQuery<{ data: OfflineJob[], total: number }>({
+    queryKey: ["/api/company/offline-jobs", offlineCleanerFilter, offlineStartDate, offlineEndDate, offlinePage],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/company/offline-jobs?${offlineQueryString}`);
+      return response.json();
+    },
+  });
+
+  const offlineJobs = offlineJobsResponse?.data || [];
+  const offlineTotal = offlineJobsResponse?.total || 0;
+  const offlineTotalPages = Math.ceil(offlineTotal / offlinePageSize);
 
   const withdrawalMutation = useMutation({
     mutationFn: async (data: { jobCount: number; tipsAmount: string; invoiceUrl: string }) => {
@@ -894,6 +942,124 @@ export default function CompanyFinancials() {
               </>
             ) : (
               <p className="text-center text-muted-foreground py-8">No financial data available for the selected filters</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Offline Jobs Section */}
+        <Card className="mt-6">
+          <CardHeader className="pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-primary" />
+                <div>
+                  <CardTitle>Offline / Cash Jobs</CardTitle>
+                  <CardDescription>Jobs recorded by cleaners with cash or other offline payments</CardDescription>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3 mb-6">
+              <div>
+                <Label htmlFor="offline-cleaner-filter">Filter by Cleaner</Label>
+                <Select value={offlineCleanerFilter} onValueChange={(val) => { setOfflineCleanerFilter(val); setOfflinePage(1); }}>
+                  <SelectTrigger id="offline-cleaner-filter" data-testid="select-offline-cleaner">
+                    <SelectValue placeholder="All Cleaners" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Cleaners</SelectItem>
+                    {cleaners?.map((cleaner) => (
+                      <SelectItem key={cleaner.id} value={String(cleaner.id)}>
+                        Cleaner #{cleaner.id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="offline-start-date">Start Date</Label>
+                <Input
+                  id="offline-start-date"
+                  type="date"
+                  value={offlineStartDate}
+                  onChange={(e) => { setOfflineStartDate(e.target.value); setOfflinePage(1); }}
+                  data-testid="input-offline-start-date"
+                />
+              </div>
+              <div>
+                <Label htmlFor="offline-end-date">End Date</Label>
+                <Input
+                  id="offline-end-date"
+                  type="date"
+                  value={offlineEndDate}
+                  onChange={(e) => { setOfflineEndDate(e.target.value); setOfflinePage(1); }}
+                  data-testid="input-offline-end-date"
+                />
+              </div>
+            </div>
+
+            {loadingOfflineJobs ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-16 w-full" />
+                ))}
+              </div>
+            ) : offlineJobs && offlineJobs.length > 0 ? (
+              <>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>ID</TableHead>
+                        <TableHead>Car Plate</TableHead>
+                        <TableHead>Cleaner</TableHead>
+                        <TableHead>Service Price</TableHead>
+                        <TableHead>VAT (5%)</TableHead>
+                        <TableHead>Total</TableHead>
+                        <TableHead>Notes</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {offlineJobs.map((job) => (
+                        <TableRow key={job.id} data-testid={`offline-job-${job.id}`}>
+                          <TableCell className="font-medium">#{job.id}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Car className="h-4 w-4 text-muted-foreground" />
+                              <span>{job.carPlateEmirate} {job.carPlateCode} {job.carPlateNumber}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{job.cleanerName || `Cleaner #${job.cleanerId}`}</TableCell>
+                          <TableCell>{parseFloat(job.servicePrice || "0").toFixed(2)} AED</TableCell>
+                          <TableCell>{parseFloat(job.taxAmount || "0").toFixed(2)} AED</TableCell>
+                          <TableCell className="font-semibold text-primary">{parseFloat(job.totalAmount || "0").toFixed(2)} AED</TableCell>
+                          <TableCell className="max-w-[150px] truncate" title={job.notes || ''}>
+                            {job.notes || '-'}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {new Date(job.createdAt).toLocaleDateString('en-AE', { 
+                              year: 'numeric', 
+                              month: 'short', 
+                              day: 'numeric', 
+                              timeZone: 'Asia/Dubai' 
+                            })}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <PaginationControls 
+                  currentPage={offlinePage}
+                  totalPages={offlineTotalPages}
+                  onPageChange={setOfflinePage}
+                  className="mt-4"
+                />
+              </>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">No offline jobs recorded yet</p>
             )}
           </CardContent>
         </Card>
