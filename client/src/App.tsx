@@ -34,6 +34,7 @@ import AdminSettings from "@/pages/admin-settings";
 import AdminComplaints from "@/pages/admin-complaints";
 import CompanyDashboard from "@/pages/company-dashboard";
 import CompanyFinancials from "@/pages/company-financials";
+import CompanyLiveReport from "@/pages/company-live-report";
 import CompanyShiftHistory from "@/pages/company-shift-history";
 import CompanyComplaints from "@/pages/company-complaints";
 import About from "@/pages/about";
@@ -121,6 +122,9 @@ function Router() {
           </Route>
           <Route path="/company/financials">
             {() => <ProtectedRoute component={CompanyFinancials} allowedRoles={[UserRole.COMPANY_ADMIN]} />}
+          </Route>
+          <Route path="/company/live-report">
+            {() => <ProtectedRoute component={CompanyLiveReport} allowedRoles={[UserRole.COMPANY_ADMIN]} />}
           </Route>
           <Route path="/company/shift-history">
             {() => <ProtectedRoute component={CompanyShiftHistory} allowedRoles={[UserRole.COMPANY_ADMIN]} />}

@@ -378,6 +378,17 @@ export default function CompanyDashboard() {
               </Button>
             </Link>
             
+            <Link href="/company/live-report">
+              <Button 
+                variant="outline"
+                data-testid="button-live-report"
+                disabled={company?.isActive === 0}
+              >
+                <TrendingUp className="mr-2 h-4 w-4" />
+                Live Report
+              </Button>
+            </Link>
+            
             <Button
               variant="outline"
               onClick={() => setShowGeofence(!showGeofence)}
