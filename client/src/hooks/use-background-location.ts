@@ -49,6 +49,7 @@ export function useBackgroundLocation(
   
   const watcherIdRef = useRef<string | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isStartingRef = useRef(false);
 
   const handleLocationUpdate = useCallback((location: LocationData) => {
     setCurrentLocation(location);
@@ -61,19 +62,19 @@ export function useBackgroundLocation(
   }, [onError]);
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
-    if (isNative && BackgroundGeolocation) {
+    if (isNative) {
       try {
-        const watcher = await BackgroundGeolocation.addWatcher(
+        const watcherId = await BackgroundGeolocation.addWatcher(
           {
             backgroundMessage: 'Washapp needs your location to assign nearby jobs',
             backgroundTitle: 'Location Active',
             requestPermissions: true,
-            stale: false,
+            stale: true,
             distanceFilter: 1000000,
           },
           () => {}
         );
-        await BackgroundGeolocation.removeWatcher({ id: watcher });
+        await BackgroundGeolocation.removeWatcher({ id: watcherId });
         setHasPermission(true);
         return true;
       } catch (error: any) {
@@ -81,7 +82,8 @@ export function useBackgroundLocation(
           setHasPermission(false);
           return false;
         }
-        throw error;
+        console.error('Permission request error:', error);
+        return false;
       }
     } else {
       return new Promise((resolve) => {
@@ -111,44 +113,57 @@ export function useBackgroundLocation(
   }, [isNative]);
 
   const getCurrentLocation = useCallback(async (): Promise<LocationData | null> => {
-    if (isNative && BackgroundGeolocation) {
-      return new Promise((resolve) => {
+    if (isNative) {
+      return new Promise(async (resolve) => {
+        let watcherId: string | null = null;
         let resolved = false;
-        BackgroundGeolocation.addWatcher(
-          {
-            backgroundMessage: 'Getting current location',
-            backgroundTitle: 'Location',
-            requestPermissions: true,
-            stale: true,
-            distanceFilter: 0,
-          },
-          (location: any, error: any) => {
-            if (resolved) return;
-            resolved = true;
-            
-            if (error) {
-              handleError(error.message || 'Failed to get location');
-              resolve(null);
-              return;
-            }
+        
+        try {
+          watcherId = await BackgroundGeolocation.addWatcher(
+            {
+              backgroundMessage: 'Getting current location',
+              backgroundTitle: 'Location',
+              requestPermissions: true,
+              stale: true,
+              distanceFilter: 0,
+            },
+            (location: any, error: any) => {
+              if (resolved) return;
+              resolved = true;
+              
+              if (error) {
+                handleError(error.message || 'Failed to get location');
+                resolve(null);
+                return;
+              }
 
-            const locationData: LocationData = {
-              latitude: location.latitude,
-              longitude: location.longitude,
-              accuracy: location.accuracy,
-              altitude: location.altitude,
-              speed: location.speed,
-              bearing: location.bearing,
-              time: location.time,
-            };
-            
-            resolve(locationData);
-          }
-        ).then((watcherId: string) => {
-          setTimeout(() => {
-            BackgroundGeolocation.removeWatcher({ id: watcherId });
-          }, 1000);
-        });
+              const locationData: LocationData = {
+                latitude: location.latitude,
+                longitude: location.longitude,
+                accuracy: location.accuracy,
+                altitude: location.altitude,
+                speed: location.speed,
+                bearing: location.bearing,
+                time: location.time,
+              };
+              
+              resolve(locationData);
+            }
+          );
+
+          setTimeout(async () => {
+            if (watcherId) {
+              try {
+                await BackgroundGeolocation.removeWatcher({ id: watcherId });
+              } catch (e) {
+                console.error('Error removing temp watcher:', e);
+              }
+            }
+          }, 2000);
+        } catch (error: any) {
+          handleError(error.message || 'Failed to get location');
+          resolve(null);
+        }
       });
     } else {
       return new Promise((resolve) => {
@@ -181,98 +196,110 @@ export function useBackgroundLocation(
   }, [isNative, handleError]);
 
   const startTracking = useCallback(async () => {
-    if (isTracking) return;
+    if (isTracking || isStartingRef.current) return;
+    isStartingRef.current = true;
 
-    if (isNative && BackgroundGeolocation) {
-      try {
-        const watcherId = await BackgroundGeolocation.addWatcher(
-          {
-            backgroundMessage: 'Washapp is tracking your location for job assignments',
-            backgroundTitle: 'On Duty - Location Active',
-            requestPermissions: true,
-            stale: false,
-            distanceFilter,
-          },
-          (location: any, error: any) => {
-            if (error) {
-              if (error.code === 'NOT_AUTHORIZED') {
-                handleError('Location permission denied. Please enable in settings.');
-                setHasPermission(false);
-              } else {
-                handleError(error.message || 'Location error');
+    try {
+      if (isNative) {
+        try {
+          const watcherId = await BackgroundGeolocation.addWatcher(
+            {
+              backgroundMessage: 'Washapp is tracking your location for job assignments',
+              backgroundTitle: 'On Duty - Location Active',
+              requestPermissions: true,
+              stale: false,
+              distanceFilter,
+            },
+            (location: any, error: any) => {
+              if (error) {
+                if (error.code === 'NOT_AUTHORIZED') {
+                  handleError('Location permission denied. Please enable in settings.');
+                  setHasPermission(false);
+                  setIsTracking(false);
+                  watcherIdRef.current = null;
+                } else {
+                  handleError(error.message || 'Location error');
+                }
+                return;
               }
-              return;
+
+              const locationData: LocationData = {
+                latitude: location.latitude,
+                longitude: location.longitude,
+                accuracy: location.accuracy,
+                altitude: location.altitude,
+                speed: location.speed,
+                bearing: location.bearing,
+                time: location.time,
+              };
+              
+              handleLocationUpdate(locationData);
             }
+          );
 
-            const locationData: LocationData = {
-              latitude: location.latitude,
-              longitude: location.longitude,
-              accuracy: location.accuracy,
-              altitude: location.altitude,
-              speed: location.speed,
-              bearing: location.bearing,
-              time: location.time,
-            };
-            
-            handleLocationUpdate(locationData);
-          }
-        );
+          watcherIdRef.current = watcherId;
+          setIsTracking(true);
+          setHasPermission(true);
+        } catch (error: any) {
+          handleError(error.message || 'Failed to start location tracking');
+          setHasPermission(false);
+          setIsTracking(false);
+        }
+      } else {
+        if (!navigator.geolocation) {
+          handleError('Geolocation not supported in this browser');
+          return;
+        }
 
-        watcherIdRef.current = watcherId;
+        const getLocation = () => {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const locationData: LocationData = {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: position.coords.accuracy,
+                altitude: position.coords.altitude ?? undefined,
+                speed: position.coords.speed ?? undefined,
+                time: position.timestamp,
+              };
+              handleLocationUpdate(locationData);
+            },
+            (error) => {
+              if (error.code === error.PERMISSION_DENIED) {
+                handleError('Location permission denied');
+                setHasPermission(false);
+                setIsTracking(false);
+                if (intervalRef.current) {
+                  clearInterval(intervalRef.current);
+                  intervalRef.current = null;
+                }
+              } else {
+                handleError(error.message);
+              }
+            },
+            { enableHighAccuracy: true, timeout: 30000, maximumAge: 60000 }
+          );
+        };
+
+        getLocation();
+
+        intervalRef.current = setInterval(getLocation, updateInterval);
         setIsTracking(true);
         setHasPermission(true);
-      } catch (error: any) {
-        handleError(error.message || 'Failed to start location tracking');
       }
-    } else {
-      if (!navigator.geolocation) {
-        handleError('Geolocation not supported in this browser');
-        return;
-      }
-
-      const getLocation = () => {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const locationData: LocationData = {
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-              accuracy: position.coords.accuracy,
-              altitude: position.coords.altitude ?? undefined,
-              speed: position.coords.speed ?? undefined,
-              time: position.timestamp,
-            };
-            handleLocationUpdate(locationData);
-          },
-          (error) => {
-            if (error.code === error.PERMISSION_DENIED) {
-              handleError('Location permission denied');
-              setHasPermission(false);
-            } else {
-              handleError(error.message);
-            }
-          },
-          { enableHighAccuracy: true, timeout: 30000, maximumAge: 60000 }
-        );
-      };
-
-      getLocation();
-
-      intervalRef.current = setInterval(getLocation, updateInterval);
-      setIsTracking(true);
-      setHasPermission(true);
+    } finally {
+      isStartingRef.current = false;
     }
   }, [isNative, isTracking, distanceFilter, updateInterval, handleLocationUpdate, handleError]);
 
   const stopTracking = useCallback(async () => {
-    if (!isTracking) return;
-
-    if (isNative && BackgroundGeolocation && watcherIdRef.current) {
+    if (isNative && watcherIdRef.current) {
       try {
         await BackgroundGeolocation.removeWatcher({ id: watcherIdRef.current });
-        watcherIdRef.current = null;
       } catch (error: any) {
         console.error('Error stopping native location tracking:', error);
       }
+      watcherIdRef.current = null;
     }
 
     if (intervalRef.current) {
@@ -281,15 +308,17 @@ export function useBackgroundLocation(
     }
 
     setIsTracking(false);
-  }, [isNative, isTracking]);
+  }, [isNative]);
 
   useEffect(() => {
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
-      if (isNative && BackgroundGeolocation && watcherIdRef.current) {
-        BackgroundGeolocation.removeWatcher({ id: watcherIdRef.current });
+      if (isNative && watcherIdRef.current) {
+        BackgroundGeolocation.removeWatcher({ id: watcherIdRef.current }).catch(console.error);
+        watcherIdRef.current = null;
       }
     };
   }, [isNative]);

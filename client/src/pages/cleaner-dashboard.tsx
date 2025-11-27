@@ -362,6 +362,13 @@ export default function CleanerDashboard() {
     },
     onError: (error) => {
       console.error("Location error:", error);
+      if (error.includes("permission denied") || error.includes("Permission denied")) {
+        toast({
+          title: "Location Permission Required",
+          description: "Please enable location access to receive job assignments.",
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -448,10 +455,16 @@ export default function CleanerDashboard() {
                 </h1>
                 <p className={`text-xs ${isOnDuty ? 'text-white/90' : 'text-muted-foreground'}`}>
                   {isOnDuty ? "● On Duty" : "○ Off Duty"}
-                  {isOnDuty && isTracking && (
+                  {isOnDuty && isTracking && locationPermission !== false && (
                     <span className="ml-2 inline-flex items-center gap-1">
                       <MapPin className="h-3 w-3 animate-pulse" />
                       {isNative ? "GPS Active" : "Location"}
+                    </span>
+                  )}
+                  {isOnDuty && locationPermission === false && (
+                    <span className="ml-2 inline-flex items-center gap-1 text-red-200">
+                      <MapPin className="h-3 w-3" />
+                      No GPS
                     </span>
                   )}
                 </p>
