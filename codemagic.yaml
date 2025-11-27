@@ -1,7 +1,7 @@
 workflows:
   android-workflow:
     name: Android Build
-    instance_type: linux
+    instance_type: linux_x2
     scripts:
       - npm install
       - npm run build
