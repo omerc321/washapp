@@ -78,3 +78,57 @@ I prefer simple language and clear explanations. I want iterative development wi
 -   **Authentication**: Passport.js, bcrypt.
 -   **Session Store**: `connect-pg-simple`.
 -   **File Uploads**: `multer`.
+-   **Mobile App**: Capacitor for native iOS/Android builds with background location tracking.
+
+## Capacitor Native App Build Instructions
+
+The web app can be wrapped as a native iOS/Android app using Capacitor, enabling true background location tracking for cleaners.
+
+### Prerequisites
+- Node.js 18+
+- For iOS: macOS with Xcode 14+
+- For Android: Android Studio with SDK 33+
+
+### Build Steps
+
+1. **Build the web app:**
+   ```bash
+   npm run build
+   ```
+
+2. **Add native platforms (first time only):**
+   ```bash
+   npx cap add ios      # For iOS
+   npx cap add android  # For Android
+   ```
+
+3. **Configure native permissions:**
+   - **iOS:** Add contents of `native-config/ios-info-plist-additions.xml` to `ios/App/App/Info.plist`
+   - **Android:** Add contents of `native-config/android-manifest-additions.xml` to `android/app/src/main/AndroidManifest.xml`
+
+4. **Sync web assets to native projects:**
+   ```bash
+   npx cap sync
+   ```
+
+5. **Open in native IDE:**
+   ```bash
+   npx cap open ios     # Opens Xcode
+   npx cap open android # Opens Android Studio
+   ```
+
+6. **Build and deploy:**
+   - iOS: Archive and upload to App Store Connect
+   - Android: Generate signed APK/Bundle for Play Store
+
+### Background Location Behavior
+- When a cleaner goes "On Duty", the app starts background location tracking
+- A persistent notification shows "On Duty - Location Active"
+- Location updates every 50 meters of movement
+- Tracking continues even when app is minimized or screen is locked
+- Tracking stops automatically when cleaner goes "Off Duty"
+
+### App Store Submission Notes
+- **iOS:** Declare location background mode and provide clear privacy descriptions
+- **Android:** Target API 33+ and request POST_NOTIFICATIONS permission for Android 13+
+- Both stores require privacy policy explaining location data usage

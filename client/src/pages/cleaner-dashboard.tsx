@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Car, MapPin, Phone, Building2, Upload, CheckCircle2, Clock, Navigation, History, Timer, User, MessageCircle, Banknote, DollarSign, Star, Bell, BellOff, Volume2, VolumeX, QrCode, Copy, PlusCircle, Edit, Wallet } from "lucide-react";
+import { Car, MapPin, Phone, Building2, Upload, CheckCircle2, Clock, Navigation, History, Timer, User, MessageCircle, Banknote, DollarSign, Star, Bell, BellOff, Volume2, VolumeX, QrCode, Copy, PlusCircle, Edit, Wallet, Smartphone } from "lucide-react";
 import { Job, Cleaner, CleanerStatus, JobStatus, OfflineJob } from "@shared/schema";
 import { useAuth } from "@/lib/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { Input } from "@/components/ui/input";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { useBackgroundLocation } from "@/hooks/use-background-location";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -344,50 +345,35 @@ export default function CleanerDashboard() {
     });
   };
 
-  const locationIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  const updateCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      console.log("Geolocation is not supported");
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        updateLocation.mutate({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-      },
-      (error) => {
-        console.error("Error getting location:", error);
-      }
-    );
-  };
+  const {
+    isNative,
+    isTracking,
+    hasPermission: locationPermission,
+    startTracking,
+    stopTracking,
+  } = useBackgroundLocation({
+    distanceFilter: 50,
+    updateInterval: 5 * 60 * 1000,
+    onLocationUpdate: (location) => {
+      updateLocation.mutate({
+        latitude: location.latitude,
+        longitude: location.longitude,
+      });
+    },
+    onError: (error) => {
+      console.error("Location error:", error);
+    },
+  });
 
   useEffect(() => {
     const isOnDuty = shiftData?.activeShift || cleaner?.status === CleanerStatus.ON_DUTY;
 
-    if (locationIntervalRef.current) {
-      clearInterval(locationIntervalRef.current);
-      locationIntervalRef.current = null;
+    if (isOnDuty && !isTracking) {
+      startTracking();
+    } else if (!isOnDuty && isTracking) {
+      stopTracking();
     }
-
-    if (isOnDuty) {
-      updateCurrentLocation();
-      
-      locationIntervalRef.current = setInterval(() => {
-        updateCurrentLocation();
-      }, 5 * 60 * 1000);
-    }
-
-    return () => {
-      if (locationIntervalRef.current) {
-        clearInterval(locationIntervalRef.current);
-        locationIntervalRef.current = null;
-      }
-    };
-  }, [shiftData?.activeShift, cleaner?.status]);
+  }, [shiftData?.activeShift, cleaner?.status, isTracking, startTracking, stopTracking]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, jobId: string) => {
     if (e.target.files && e.target.files[0]) {
@@ -462,6 +448,12 @@ export default function CleanerDashboard() {
                 </h1>
                 <p className={`text-xs ${isOnDuty ? 'text-white/90' : 'text-muted-foreground'}`}>
                   {isOnDuty ? "● On Duty" : "○ Off Duty"}
+                  {isOnDuty && isTracking && (
+                    <span className="ml-2 inline-flex items-center gap-1">
+                      <MapPin className="h-3 w-3 animate-pulse" />
+                      {isNative ? "GPS Active" : "Location"}
+                    </span>
+                  )}
                 </p>
               </div>
               <div className="flex flex-col items-end gap-1">

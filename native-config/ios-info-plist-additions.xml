@@ -1,0 +1,18 @@
+<!-- iOS Info.plist additions for background location tracking -->
+<!-- Add these keys to ios/App/App/Info.plist after running: npx cap add ios -->
+
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>Washapp needs your location to assign you to nearby car wash jobs while you're on duty.</string>
+
+<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+<string>Washapp needs your location even when the app is in the background to keep you available for job assignments while on duty.</string>
+
+<key>UIBackgroundModes</key>
+<array>
+    <string>location</string>
+    <string>fetch</string>
+    <string>remote-notification</string>
+</array>
+
+<key>NSLocationAlwaysUsageDescription</key>
+<string>Washapp tracks your location in the background to assign nearby jobs while you're on duty.</string>

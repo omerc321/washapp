@@ -1,0 +1,17 @@
+<!-- Android AndroidManifest.xml additions for background location tracking -->
+<!-- Add these permissions and service to android/app/src/main/AndroidManifest.xml after running: npx cap add android -->
+
+<!-- Add inside the <manifest> tag (before <application>): -->
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+<uses-permission android:name="android.permission.WAKE_LOCK" />
+
+<!-- The background geolocation plugin automatically registers its foreground service. -->
+<!-- No additional service registration is needed in most cases. -->
+
+<!-- Note: For Android 13+ (API 33+), users must explicitly grant location permissions. -->
+<!-- The app will prompt for permissions when the cleaner first goes on duty. -->
