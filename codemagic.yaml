@@ -1,0 +1,24 @@
+workflows:
+  android-release:
+    name: Android Build
+    instance_type: linux
+    script:
+      - npm install
+      - npm run build
+      - npx cap add android
+      - npx cap sync
+      - cd android && ./gradlew assembleRelease
+    artifacts:
+      - android/app/build/outputs/apk/release/**/*.apk
+
+  ios-release:
+    name: iOS Build
+    instance_type: mac_mini_m1
+    script:
+      - npm install
+      - npm run build
+      - npx cap add ios
+      - npx cap sync
+      - xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release
+    artifacts:
+      - build/ios/**/*.ipa
