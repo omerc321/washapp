@@ -1,7 +1,10 @@
 workflows:
-  android-release:
+  android-workflow:
     name: Android Build
     instance_type: linux
+    environment:
+      android_signing:
+        - keystore_reference
     script:
       - npm install
       - npm run build
@@ -11,7 +14,7 @@ workflows:
     artifacts:
       - android/app/build/outputs/apk/release/**/*.apk
 
-  ios-release:
+  ios-workflow:
     name: iOS Build
     instance_type: mac_mini_m1
     script:
